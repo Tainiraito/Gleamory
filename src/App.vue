@@ -35,11 +35,11 @@
     </header>
 
     <!-- 主要内容 -->
-    <main class="container mx-auto px-4 py-8 flex-1" style="position:relative;z-index:1">
+    <main class="container mx-auto px-4 py-8 flex-1 main-content">
       <!-- 工具展示区域 -->
       <section class="mb-12">
         <div class="flex items-end gap-3 mb-6">
-          <h2 class="section-title">微光集录</h2>
+          <h2 class="section-title">拾光集录</h2>
           <p class="text-small text-text-secondary pb-0.5">Tools</p>
         </div>
         <ProjectGrid :projects="projects" />
@@ -80,8 +80,8 @@ import updatesData from './data/timeline.json'
 // 项目数据（静态数据无需响应式）
 const projects = projectsData.projects
 
-// 时间线数据（静态数据无需响应式）
-const updates = updatesData.updates
+// 时间线数据（静态数据无需响应式，倒序排列）
+const updates = [...updatesData.updates].reverse()
 
 // 回到顶部功能
 const showBackTop = ref(false)
@@ -117,3 +117,11 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style scoped>
+/* 主内容区域定位 */
+.main-content {
+  position: relative;
+  z-index: 1;
+}
+</style>

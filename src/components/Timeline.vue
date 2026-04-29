@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4" style="position:relative;z-index:1">
+  <div class="space-y-4 timeline-container">
     <el-timeline mode="start">
       <transition-group 
         name="timeline-fade" 
@@ -16,9 +16,7 @@
           class="timeline-item-animate"
         >
           <template #dot>
-            <div
-              style="width: 12px; height: 12px; border-radius: 50%; background: linear-gradient(135deg, #F783AC, #B490E4);"
-            ></div>
+            <div class="timeline-dot"></div>
           </template>
           <span class="text-text-body text-body font-normal">{{ update.content }}</span>
         </el-timeline-item>
@@ -69,24 +67,27 @@ const displayedUpdates = computed(() => {
 </script>
 
 <style scoped>
-/* 时间线条目载入动画 */
+/* 时间线容器 */
+.timeline-container {
+  position: relative;
+  z-index: 1;
+}
+
+/* 时间线圆点 */
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #F783AC, #B490E4);
+}
+
+/* 时间线条目载入动画（已在 main.css 中定义，此处保留作为备用） */
 .timeline-item-animate {
   animation: timelineSlideIn 0.4s ease-out forwards;
   opacity: 0;
 }
 
-@keyframes timelineSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Vue 过渡动画（仅用于展开，收起时禁用） */
+/* Vue Transition 动画（仅用于展开，收起时禁用） */
 .timeline-fade-enter-active {
   transition: all 0.25s ease-out;
 }
