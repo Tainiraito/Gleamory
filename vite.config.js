@@ -9,5 +9,11 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src')
     }
+  },
+  server: {
+    watch: {
+      usePolling: true,   // 启用轮询，兼容 WSL 文件监听
+      interval: 500       // 每 500ms 检查一次变化
+    }
   }
 })

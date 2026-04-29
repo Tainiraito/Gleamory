@@ -7,19 +7,33 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 粉白配色 - 参考爱莉希雅
-        'primary-pink': '#FFB7C5',
+        'primary-pink': '#F783AC',
         'primary-light': '#FFF0F5',
-        'primary-dark': '#E8879E',
+        'primary-dark': '#E05A8A',
+        'primary-purple': '#B490E4',
+        'purple-light': '#F3EEFF',
         'accent-gold': '#FFD700',
-        'accent-purple': '#E6E6FA',
-        'text-primary': '#4A4A4A',
-        'text-secondary': '#8A8A8A',
-        'bg-white': '#FFFFFF',
+        'text-primary': '#2D2D2D',
+        'text-body': '#5A5A5A',
+        'text-secondary': '#9A9A9A',
         'bg-cream': '#FFFAF0',
+        'bg-white': '#FFFFFF',
+        'bg-noise-start': '#FFF5F7',
+        'bg-noise-end': '#F5EFFF',
       },
       fontFamily: {
         'sans': ['"Noto Sans SC"', 'system-ui', 'sans-serif'],
+      },
+      borderRadius: {
+        '8': '8px',
+        '12': '12px',
+      },
+      fontSize: {
+        'hero': ['32px', { lineHeight: '1.2', fontWeight: '700' }],
+        'section': ['22px', { lineHeight: '1.3', fontWeight: '700' }],
+        'card-title': ['18px', { lineHeight: '1.4', fontWeight: '600' }],
+        'body': ['15px', { lineHeight: '1.6', fontWeight: '400' }],
+        'small': ['13px', { lineHeight: '1.5', fontWeight: '400' }],
       },
     },
   },
