@@ -1,6 +1,7 @@
 <template>
   <div class="space-y-4 timeline-container">
     <el-timeline mode="start">
+      <!-- :css="showAll" 为 false 时禁用 CSS 过渡类，收起时直接隐藏不延迟 -->
       <transition-group 
         name="timeline-fade" 
         tag="div"
@@ -81,7 +82,18 @@ const displayedUpdates = computed(() => {
   background: linear-gradient(135deg, #F783AC, #B490E4);
 }
 
-/* 时间线条目载入动画（已在 main.css 中定义，此处保留作为备用） */
+/* 时间线条目载入动画 */
+@keyframes timelineSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .timeline-item-animate {
   animation: timelineSlideIn 0.4s ease-out forwards;
   opacity: 0;
