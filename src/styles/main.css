@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局样式 */
+:root {
+  --primary-pink: #FFB7C5;
+  --primary-light: #FFF0F5;
+  --primary-dark: #E8879E;
+  --accent-gold: #FFD700;
+  --accent-purple: #E6E6FA;
+  --text-primary: #4A4A4A;
+  --text-secondary: #8A8A8A;
+  --bg-white: #FFFFFF;
+  --bg-cream: #FFFAF0;
+}
+
+/* 基础样式 */
+body {
+  font-family: 'Noto Sans SC', system-ui, sans-serif;
+  background-color: var(--bg-cream);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+}
+
+/* 卡片动画 */
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(255, 183, 197, 0.3);
+}
+
+/* 渐入动画 */
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

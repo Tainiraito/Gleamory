@@ -1,0 +1,16 @@
+{
+  "updates": [
+    {
+      "id": "1",
+      "projectId": "gleamory",
+      "content": "Gleamory 微光集项目初始化，搭建基础框架",
+      "date": "2026-04-29"
+    },
+    {
+      "id": "2",
+      "projectId": "personal-website",
+      "content": "个人网站项目文档同步完成",
+      "date": "2026-04-28"
+    }
+  ]
+}

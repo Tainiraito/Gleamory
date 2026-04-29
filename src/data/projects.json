@@ -1,0 +1,26 @@
+{
+  "projects": [
+    {
+      "id": "gleamory",
+      "name": "Gleamory 微光集",
+      "description": "个人项目展示首页",
+      "url": "https://github.com/Tainiraito/Gleamory",
+      "status": "开发中",
+      "tags": ["在线网站"],
+      "cover": "",
+      "version": "v1.0.0",
+      "updatedAt": "2026-04-29"
+    },
+    {
+      "id": "personal-website",
+      "name": "个人网站",
+      "description": "基于 Vue 3 + FastAPI 的个人网站",
+      "url": "https://github.com/Tainiraito/personal_website_lumine",
+      "status": "开发中",
+      "tags": ["在线网站"],
+      "cover": "",
+      "version": "v0.1.0",
+      "updatedAt": "2026-04-28"
+    }
+  ]
+}

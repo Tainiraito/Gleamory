@@ -22,9 +22,6 @@ lerna-debug.log*
 Thumbs.db
 .DS_Store
 
-# Hermes Agent 工作目录
-.hermes/
-
 # Environment files
 .env
 .env.local
@@ -43,3 +40,6 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+# Hermes Agent 工作目录
+.hermes/
