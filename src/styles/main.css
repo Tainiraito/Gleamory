@@ -2,44 +2,164 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 全局样式 */
-:root {
-  --primary-pink: #FFB7C5;
-  --primary-light: #FFF0F5;
-  --primary-dark: #E8879E;
-  --accent-gold: #FFD700;
-  --accent-purple: #E6E6FA;
-  --text-primary: #4A4A4A;
-  --text-secondary: #8A8A8A;
-  --bg-white: #FFFFFF;
-  --bg-cream: #FFFAF0;
+/* ====== 本地字体声明 - 全部使用思源宋体 ====== */
+@font-face {
+  font-family: 'Source Han Serif CN';
+  src: url('../assets/fonts/SourceHanSerifCN-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
 }
 
-/* 基础样式 */
+@font-face {
+  font-family: 'Source Han Serif CN';
+  src: url('../assets/fonts/SourceHanSerifCN-SemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Source Han Serif CN';
+  src: url('../assets/fonts/SourceHanSerifCN-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ====== CSS 变量 ====== */
+:root {
+  --primary-pink: #F783AC;
+  --primary-dark: #E05A8A;
+  --primary-purple: #B490E4;
+  --primary-light: #FFF0F5;
+  --purple-light: #F3EEFF;
+  --accent-gold: #FFD700;
+  --text-primary: #2D2D2D;
+  --text-body: #5A5A5A;
+  --text-secondary: #9A9A9A;
+  --bg-white: #ffffff;
+  --bg-cream: #FFFFFF;
+}
+
+/* ====== 基础样式 ====== */
 body {
-  font-family: 'Noto Sans SC', system-ui, sans-serif;
-  background-color: var(--bg-cream);
+  font-family: 'Source Han Serif CN', Georgia, 'Times New Roman', serif;
+  background-color: var(--bg-white);
   color: var(--text-primary);
   margin: 0;
   padding: 0;
 }
 
-/* 卡片动画 */
-.card-hover {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+/* ====== 字重层级规范 ====== */
+/* 
+  全站统一使用思源宋体（Source Han Serif CN）：
+  
+  - Medium (500)：副标题、标签、按钮文本、次要信息
+  - SemiBold (600)：主标题、分区标题、卡片标题、强调文本
+  - Bold (700)：特别重要的标题、品牌名称
+  
+  设计原则：
+  1. 统一的宋体风格，营造优雅、文化感的视觉体验
+  2. 通过字重变化建立清晰的层次关系
+  3. 避免过度使用粗体，保持页面轻盈感
+*/
+
+/* 标题字重优化 */
+h1 { font-weight: 600; } /* 主标题 - SemiBold */
+h2 { font-weight: 600; } /* 分区标题 - SemiBold */
+h3 { font-weight: 600; } /* 卡片标题 - SemiBold */
+
+/* 正文字重优化 - 默认使用 Medium */
+p, span, div, a, button { font-weight: 500; } /* Medium - 正文和UI元素 */
+
+/* Tailwind 字重类映射 */
+.font-normal { font-weight: 500 !important; } /* Regular -> Medium */
+.font-medium { font-weight: 500 !important; } /* Medium */
+.font-semibold { font-weight: 600 !important; } /* SemiBold */
+.font-bold { font-weight: 700 !important; } /* Bold */
+
+/* ====== 背景点阵图案 ====== */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* background-image: radial-gradient(circle, rgba(247, 131, 172, 0.04) 1px, transparent 1px); */
+  background-size: 24px 24px;
+  pointer-events: none;
+  z-index: 0;
 }
 
-.card-hover:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 30px rgba(255, 183, 197, 0.3);
+/* ====== Hero 横幅 ====== */
+.hero-banner {
+  background: linear-gradient(135deg, var(--primary-pink) 0%, var(--primary-purple) 100%);
+  position: relative;
+  overflow: hidden;
 }
 
-/* 渐入动画 */
-.fade-in {
-  animation: fadeIn 0.5s ease-in;
+.hero-banner::before {
+  content: '';
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.3;
+  top: -50px;
+  right: 10%;
+  animation: hero-float 8s ease-in-out infinite alternate;
 }
 
-@keyframes fadeIn {
+.hero-banner::after {
+  content: '';
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  background: rgba(255, 215, 0, 0.2);
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.2;
+  bottom: -30px;
+  left: 15%;
+  animation: hero-float 8s ease-in-out infinite alternate;
+  animation-delay: 4s;
+}
+
+@keyframes hero-float {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    transform: translateY(-20px) scale(1.1);
+  }
+}
+
+/* ====== Hero 标题渐入动画 ====== */
+.hero-title {
+  animation: titleReveal 1s ease-out;
+}
+
+@keyframes titleReveal {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ====== Hero 副标题渐入动画 ====== */
+.hero-subtitle {
+  animation: subtitleFade 1.5s ease-out 0.5s both;
+}
+
+@keyframes subtitleFade {
   from {
     opacity: 0;
     transform: translateY(20px);
@@ -48,4 +168,121 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ====== 毛玻璃卡片 ====== */
+.glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  border: 1px solid #F3EEFF;
+  box-shadow: none;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    inset 0 0 0 1px rgba(180, 144, 228, 0.3),
+    0 8px 32px rgba(247, 131, 172, 0.15);
+  background: rgba(255, 255, 255, 1);
+}
+
+/* ====== 分区标题 ====== */
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--primary-pink), var(--primary-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+
+}
+
+/* ====== 文字渐变色 ====== */
+.text-gradient {
+  background: linear-gradient(135deg, var(--primary-pink), var(--primary-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ====== 发光文字 ====== */
+.glow-text {
+  text-shadow:
+    0 0 20px rgba(247, 131, 172, 0.3),
+    0 0 40px rgba(180, 144, 228, 0.15);
+}
+
+/* ====== 滚动渐入动画 ====== */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.reveal-on-scroll.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ====== 返回顶部按钮 ====== */
+.back-to-top {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--primary-pink), var(--primary-purple));
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 999;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(247, 131, 172, 0.4);
+}
+
+.back-to-top.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.back-to-top:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 25px rgba(247, 131, 172, 0.6);
+}
+
+/* ====== 卡片封面占位图 ====== */
+.card-cover-placeholder {
+  background: linear-gradient(135deg, var(--primary-light), var(--purple-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--primary-pink);
+}
+
+/* ====== 状态标签 ====== */
+.status-badge {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* ====== 标签交互 ====== */
+.tag-item {
+  transition: transform 0.2s ease;
+}
+
+.tag-item:hover {
+  transform: scale(1.05);
 }

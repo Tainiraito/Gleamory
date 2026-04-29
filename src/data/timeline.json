@@ -3,14 +3,92 @@
     {
       "id": "1",
       "projectId": "gleamory",
-      "content": "Gleamory 微光集项目初始化，搭建基础框架",
+      "content": "Gleamory 微光集项目初始化，搭建 Vite + Vue 3 基础框架",
       "date": "2026-04-29"
     },
     {
       "id": "2",
       "projectId": "personal-website",
-      "content": "个人网站项目文档同步完成",
+      "content": "个人网站项目文档同步完成，数据库设计定稿 v1.9",
       "date": "2026-04-28"
+    },
+    {
+      "id": "3",
+      "projectId": "starlight-reader",
+      "content": "星光阅读器完成 EPUB 解析模块，支持目录导航",
+      "date": "2026-04-25"
+    },
+    {
+      "id": "4",
+      "projectId": "starlight-reader",
+      "content": "新增书架视图，支持本地导入与阅读进度同步",
+      "date": "2026-04-22"
+    },
+    {
+      "id": "5",
+      "projectId": "neko-wall",
+      "content": "猫壁纸 v2.1 发布，新增多源爬取与定时切换功能",
+      "date": "2026-04-20"
+    },
+    {
+      "id": "6",
+      "projectId": "neko-wall",
+      "content": "修复 macOS 下壁纸切换黑屏问题，优化内存占用",
+      "date": "2026-04-18"
+    },
+    {
+      "id": "7",
+      "projectId": "pixel-journal",
+      "content": "像素日记 v1.2 发布，新增日签分享与心情统计图表",
+      "date": "2026-04-15"
+    },
+    {
+      "id": "8",
+      "projectId": "pixel-journal",
+      "content": "优化像素画板性能，增加撤销/重做功能",
+      "date": "2026-04-12"
+    },
+    {
+      "id": "9",
+      "projectId": "music-box",
+      "content": "八音盒完成钢琴卷帘编辑器，支持多轨道叠加",
+      "date": "2026-04-10"
+    },
+    {
+      "id": "10",
+      "projectId": "music-box",
+      "content": "新增 MIDI 导出功能，编曲可导入 DAW 继续编辑",
+      "date": "2026-04-07"
+    },
+    {
+      "id": "11",
+      "projectId": "echo-bot",
+      "content": "Echo Bot 正式上线，部署于个人服务器，支持 Web 与 API 调用",
+      "date": "2026-03-28"
+    },
+    {
+      "id": "12",
+      "projectId": "echo-bot",
+      "content": "接入自定义角色设定功能，可切换多种对话人格",
+      "date": "2026-03-20"
+    },
+    {
+      "id": "13",
+      "projectId": "moe-icons",
+      "content": "萌图标集 v1.3 更新，新增 30 个节日主题图标",
+      "date": "2026-03-15"
+    },
+    {
+      "id": "14",
+      "projectId": "moe-icons",
+      "content": "图标库开源发布，GitHub 收获 200+ Star",
+      "date": "2026-03-05"
+    },
+    {
+      "id": "15",
+      "projectId": "memo-flame",
+      "content": "思维火花 v2.0 大改版，全新 UI 设计与离线存储支持",
+      "date": "2026-03-01"
     }
   ]
 }

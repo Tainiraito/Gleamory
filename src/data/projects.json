@@ -3,10 +3,10 @@
     {
       "id": "gleamory",
       "name": "Gleamory 微光集",
-      "description": "个人项目展示首页",
+      "description": "个人项目展示首页，汇聚所有微光般的创意与灵感的门户",
       "url": "https://github.com/Tainiraito/Gleamory",
       "status": "开发中",
-      "tags": ["在线网站"],
+      "tags": ["在线网站", "Vue 3", "展示页"],
       "cover": "",
       "version": "v1.0.0",
       "updatedAt": "2026-04-29"
@@ -14,13 +14,123 @@
     {
       "id": "personal-website",
       "name": "个人网站",
-      "description": "基于 Vue 3 + FastAPI 的个人网站",
+      "description": "基于 Vue 3 + FastAPI 的全栈个人网站，含博客、番剧、项目展示",
       "url": "https://github.com/Tainiraito/personal_website_lumine",
       "status": "开发中",
-      "tags": ["在线网站"],
+      "tags": ["在线网站", "Vue 3", "FastAPI", "SQLite"],
       "cover": "",
-      "version": "v0.1.0",
+      "version": "v0.11.0",
       "updatedAt": "2026-04-28"
+    },
+    {
+      "id": "starlight-reader",
+      "name": "星光阅读器",
+      "description": "一个轻量级的电子书阅读器，支持 EPUB/MOBI 格式，带有舒适的夜间模式",
+      "url": "",
+      "status": "开发中",
+      "tags": ["桌面应用", "Electron", "阅读"],
+      "cover": "",
+      "version": "v0.3.0",
+      "updatedAt": "2026-04-25"
+    },
+    {
+      "id": "neko-wall",
+      "name": "猫壁纸",
+      "description": "自动爬取并轮播猫猫壁纸的桌面小工具，每天都有新猫猫",
+      "url": "",
+      "status": "已上线",
+      "tags": ["桌面工具", "Python", "壁纸"],
+      "cover": "",
+      "version": "v2.1.0",
+      "updatedAt": "2026-04-20"
+    },
+    {
+      "id": "pixel-journal",
+      "name": "像素日记",
+      "description": "用像素风格记录每日心情，生成可分享的像素小卡片",
+      "url": "",
+      "status": "已上线",
+      "tags": ["手机应用", "Flutter", "像素风"],
+      "cover": "",
+      "version": "v1.2.0",
+      "updatedAt": "2026-04-15"
+    },
+    {
+      "id": "music-box",
+      "name": "八音盒",
+      "description": "基于 Web Audio API 的在线音序器，可视化编曲，分享你的旋律",
+      "url": "",
+      "status": "开发中",
+      "tags": ["在线网站", "Web Audio", "音乐"],
+      "cover": "",
+      "version": "v0.5.0",
+      "updatedAt": "2026-04-10"
+    },
+    {
+      "id": "echo-bot",
+      "name": "Echo Bot",
+      "description": "基于大语言模型的聊天机器人，支持多轮对话与个性化人设",
+      "url": "",
+      "status": "已上线",
+      "tags": ["后端服务", "Python", "LLM", "API"],
+      "cover": "",
+      "version": "v1.0.0",
+      "updatedAt": "2026-03-28"
+    },
+    {
+      "id": "moe-icons",
+      "name": "萌图标集",
+      "description": "一套手绘风格的 SVG 图标库，含 100+ 可爱图标，适合二次元风格站点",
+      "url": "",
+      "status": "已上线",
+      "tags": ["设计资源", "SVG", "图标库"],
+      "cover": "",
+      "version": "v1.3.0",
+      "updatedAt": "2026-03-15"
+    },
+    {
+      "id": "memo-flame",
+      "name": "思维火花",
+      "description": "极简灵感捕捉工具，支持 Markdown 快捷记录 + 标签分类 + 全文搜索",
+      "url": "",
+      "status": "已上线",
+      "tags": ["在线网站", "React", "笔记"],
+      "cover": "",
+      "version": "v2.0.0",
+      "updatedAt": "2026-03-01"
+    },
+    {
+      "id": "windbell",
+      "name": "风铃通知",
+      "description": "自定义桌面通知工具，可绑定 Webhook、邮件、手机推送，铃声可换",
+      "url": "",
+      "status": "已下线",
+      "tags": ["桌面工具", "Rust", "通知"],
+      "cover": "",
+      "version": "v0.8.0",
+      "updatedAt": "2026-02-10"
+    },
+    {
+      "id": "color-palette",
+      "name": "色彩集",
+      "description": "从图片中智能提取配色方案，生成可导出的调色板，设计必备",
+      "url": "",
+      "status": "已上线",
+      "tags": ["在线网站", "颜色工具", "设计"],
+      "cover": "",
+      "version": "v1.1.0",
+      "updatedAt": "2026-01-20"
+    },
+    {
+      "id": "night-raven",
+      "name": "夜鸦助手",
+      "description": "终端下的 AI 命令行助手，自然语言转 Shell 命令，支持管道和脚本生成",
+      "url": "",
+      "status": "开发中",
+      "tags": ["CLI 工具", "Go", "AI"],
+      "cover": "",
+      "version": "v0.2.0",
+      "updatedAt": "2025-12-15"
     }
   ]
 }
