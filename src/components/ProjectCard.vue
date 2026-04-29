@@ -31,8 +31,7 @@
             <p class="text-lg text-white/90 line-clamp-2 max-w-2xl">{{ project.description }}</p>
           </div>
           <span 
-            :class="statusClass"
-            class="px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap status-badge bg-white/20 backdrop-blur-md border border-white/30 text-white"
+            class="px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap bg-white/20 backdrop-blur-md border border-white/30 text-white"
           >
             {{ project.status }}
           </span>
@@ -87,7 +86,7 @@
           <h3 class="text-lg font-semibold text-text-primary leading-tight group-hover:text-gradient transition-all duration-300">{{ project.name }}</h3>
           <span 
             :class="statusClass"
-            class="px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap status-badge"
+            class="px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap"
           >
             {{ project.status }}
           </span>

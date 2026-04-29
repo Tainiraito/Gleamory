@@ -31,7 +31,7 @@ const props = defineProps({
   // 特色卡片数量（独占一行的项目数），默认为 3
   featuredCount: {
     type: Number,
-    default: 5,
+    default: 1,
     validator: (value) => value >= 0
   }
 })
