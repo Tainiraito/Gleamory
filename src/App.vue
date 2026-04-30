@@ -1,8 +1,15 @@
 <template>
   <div class="min-h-screen bg-white flex flex-col">
     <!-- 顶部导航栏 -->
-    <header class="sticky top-0 z-50 bg-gradient-to-r from-primary-pink/10 via-white to-primary-purple/10 backdrop-blur-md border-b border-gray-100 shadow-sm">
-      <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+    <header 
+      class="sticky top-0 z-50 bg-gradient-to-r from-primary-pink/10 via-white to-primary-purple/10 backdrop-blur-md border-b border-gray-100 shadow-sm"
+    >
+      <!-- 白色 overlay：opacity 平滑过渡，不影响 header 原始渐变背景 -->
+      <div 
+        class="absolute inset-0 bg-white transition-opacity duration-1000"
+        :style="{ opacity: headerScrolled ? 0.72 : 0 }"
+      ></div>
+      <div class="relative container mx-auto px-4 py-3 flex items-center justify-between">
         <!-- 左侧标题 -->
         <h1 class="text-2xl font-bold text-gradient">Gleamory 微光集</h1>
         
@@ -58,6 +65,8 @@
 
     <!-- 主要内容 -->
     <main class="container mx-auto px-4 py-8 flex-1 main-content">
+      <!-- 滚动 sentinel：内容滚过导航栏时触发 header 增强背景 -->
+      <div class="header-sentinel" ref="sentinelRef"></div>
       <!-- 工具展示区域 -->
       <section class="mb-12">
         <div class="flex items-end gap-3 mb-6">
@@ -119,12 +128,26 @@ const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
 
 const handleScroll = () => { showBackTop.value = window.scrollY > 400 }
 
+// ---- 方案①：IntersectionObserver 检测内容滚动 ----
+// sentinel 元素滚入 header 下方时增强背景不透明度
+const headerScrolled = ref(false)
+const sentinelRef = ref(null)
+let headerObserver = null
+
 // 滚动动画观察器
 let scrollObserver = null
 
 onMounted(() => {
   // 初始化滚动监听
   window.addEventListener('scroll', handleScroll)
+  
+  // ---- header 背景 sentinel 观察器 ----
+  // 缩小顶部 60px（≈header 高度），sentinel 滚入该区域时增强背景
+  headerObserver = new IntersectionObserver(
+    ([entry]) => { headerScrolled.value = !entry.isIntersecting },
+    { rootMargin: '-60px 0px 0px 0px' }
+  )
+  if (sentinelRef.value) headerObserver.observe(sentinelRef.value)
   
   // 初始化滚动显示动画
   scrollObserver = new IntersectionObserver((entries) => {
@@ -140,10 +163,11 @@ onUnmounted(() => {
   // 清理事件监听器，防止内存泄漏
   window.removeEventListener('scroll', handleScroll)
   
-  // 清理观察器
-  if (scrollObserver) {
-    scrollObserver.disconnect()
-  }
+  // 清理 header 观察器
+  if (headerObserver) headerObserver.disconnect()
+  
+  // 清理滚动动画观察器
+  if (scrollObserver) scrollObserver.disconnect()
 })
 </script>
 
