@@ -64,8 +64,30 @@ body {
   padding: 0;
 }
 
-/* 
-   字重层级规范：
+/* ========================================
+   3.5 键盘焦点状态（可访问性）
+   ======================================== */
+/* 全局焦点指示 — 仅在键盘导航时可见 */
+:focus-visible {
+  outline: 2px solid var(--primary-pink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 卡片点击区域聚焦 */
+.cursor-pointer:focus-visible {
+  outline: 2px solid var(--primary-purple);
+  outline-offset: 2px;
+}
+
+/* 按钮聚焦 */
+button:focus-visible {
+  outline: 2px solid var(--primary-dark);
+  outline-offset: 2px;
+}
+
+/* ========================================
+   4. 卡片组件样式
    
    ### L1 核心标题（Bold 700）
    - 页面主标题（h1，如 header 中的站名 "Gleamory 微光集"）
@@ -120,7 +142,7 @@ p, a, button, li, td, th {
 }
 
 .glass-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   border-color: rgba(180, 144, 228, 0.4);
   box-shadow:
     inset 0 0 0 1px rgba(180, 144, 228, 0.3),
@@ -139,6 +161,7 @@ p, a, button, li, td, th {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  color: transparent; /* 后备：非 WebKit 浏览器回退 */
 }
 
 /* 文字渐变色 */
@@ -147,6 +170,7 @@ p, a, button, li, td, th {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  color: transparent; /* 后备：非 WebKit 浏览器回退 */
 }
 
 /* 发光文字 */
@@ -202,8 +226,8 @@ p, a, button, li, td, th {
   transform: translateY(0);
 }
 
-.back-to-top:hover {
-  transform: scale(1.1);
+.back-to-top.visible:hover {
+  transform: translateY(0) scale(1.1);
   box-shadow: 0 6px 25px rgba(247, 131, 172, 0.6);
 }
 
