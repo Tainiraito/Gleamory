@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+### Added
+- ✨ 导航栏背景自适应（IntersectionObserver + 白色 overlay 方案）
+  - 内容区顶部 sentinel 检测滚动位置
+  - 白色 overlay opacity 0→0.72 平滑过渡（500ms）
+  - 保留毛玻璃质感，提升粉紫色文字对比度
+- ✨ 空状态/加载/错误占位组件（EmptyState.vue）
+- 📱 移动端 ElDrawer 抽屉菜单导航
+
+### Changed
+- 🎨 全局 focus-visible 焦点样式统一
+- 🎨 卡片 hover 力度优化（-4px → -2px）
+- 🎨 GitHub 链接颜色改为粉色主题色
+- 🎨 渐变文字添加 color: transparent 后备
+- 🔧 back-to-top hover transform 冲突修复
+
 ---
 
 ## [1.3.0] - 2026-04-29
