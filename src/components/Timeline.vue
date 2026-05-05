@@ -2,11 +2,7 @@
   <div class="space-y-4 timeline-container">
     <el-timeline mode="start">
       <!-- :css="showAll" 为 false 时禁用 CSS 过渡类，收起时直接隐藏不延迟 -->
-      <transition-group 
-        name="timeline-fade" 
-        tag="div"
-        :css="showAll"
-      >
+      <transition-group name="timeline-fade" tag="div" :css="showAll">
         <el-timeline-item
           v-for="(update, index) in displayedUpdates"
           :key="update.id"
@@ -46,16 +42,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ElTimeline, ElTimelineItem } from 'element-plus'
+import type { Update } from '../types'
 
-const props = defineProps({
-  updates: {
-    type: Array,
-    required: true
-  }
-})
+const props = defineProps<{
+  updates: Update[]
+}>()
 
 const showAll = ref(false)
 
@@ -79,7 +73,7 @@ const displayedUpdates = computed(() => {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #F783AC, #B490E4);
+  background: linear-gradient(135deg, #f783ac, #b490e4);
 }
 
 /* 时间线条目载入动画 */

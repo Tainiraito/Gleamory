@@ -34,23 +34,23 @@
    ======================================== */
 :root {
   /* 主色调 */
-  --primary-pink: #F783AC;
-  --primary-dark: #E05A8A;
-  --primary-purple: #B490E4;
-  --primary-light: #FFF0F5;
-  --purple-light: #F3EEFF;
-  
+  --primary-pink: #f783ac;
+  --primary-dark: #e05a8a;
+  --primary-purple: #b490e4;
+  --primary-light: #fff0f5;
+  --purple-light: #f3eeff;
+
   /* 强调色 */
-  --accent-gold: #FFD700;
-  
+  --accent-gold: #ffd700;
+
   /* 文字颜色 */
-  --text-primary: #2D2D2D;
-  --text-body: #5A5A5A;
-  --text-secondary: #9A9A9A;
-  
+  --text-primary: #2d2d2d;
+  --text-body: #5a5a5a;
+  --text-secondary: #9a9a9a;
+
   /* 背景色 */
-  --bg-white: #FFFFFF;
-  --bg-cream: #FFFFFF;
+  --bg-white: #ffffff;
+
 }
 
 /* ========================================
@@ -65,7 +65,7 @@ body {
 }
 
 /* ========================================
-   3.5 键盘焦点状态（可访问性）
+   4. 键盘焦点状态（可访问性）
    ======================================== */
 /* 全局焦点指示 — 仅在键盘导航时可见 */
 :focus-visible {
@@ -87,8 +87,8 @@ button:focus-visible {
 }
 
 /* ========================================
-   4. 卡片组件样式
-   
+   5. 字体权重规范
+
    ### L1 核心标题（Bold 700）
    - 页面主标题（h1，如 header 中的站名 "Gleamory 微光集"）
    - Hero 区域大标题
@@ -104,31 +104,24 @@ h1 {
    - 卡片标题（h3）
    - Tailwind 类：`font-semibold` 或 `text-section`/`text-card-title`
 */
-h2, h3 {
+h2,
+h3 {
   font-weight: 600;
 }
 
 /* 正文字重规范 - L2 基础正文统一使用 Medium (500) */
-p, a, button, li, td, th {
+p,
+a,
+button,
+li,
+td,
+th {
   font-weight: 500;
 }
 
-/* Tailwind 字重类映射（覆盖默认值以符合思源宋体规范） */
-.font-normal { 
-  font-weight: 500 !important; 
-}
-.font-medium { 
-  font-weight: 500 !important; 
-}
-.font-semibold { 
-  font-weight: 600 !important; 
-}
-.font-bold { 
-  font-weight: 700 !important; 
-}
 
 /* ========================================
-   4. 卡片组件样式
+   6. 卡片组件样式
    ======================================== */
 /* 毛玻璃卡片基础样式（普通卡片） */
 .glass-card {
@@ -151,7 +144,7 @@ p, a, button, li, td, th {
 }
 
 /* ========================================
-   5. 文本样式工具类
+   7. 文本样式工具类
    ======================================== */
 /* 分区标题 */
 .section-title {
@@ -181,12 +174,14 @@ p, a, button, li, td, th {
 }
 
 /* ========================================
-   6. 滚动渐入动画
+   8. 滚动渐入动画
    ======================================== */
 .reveal-on-scroll {
   opacity: 0;
   transform: translateY(20px);
-  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  transition:
+    opacity 0.6s ease-out,
+    transform 0.6s ease-out;
 }
 
 .reveal-on-scroll.revealed {
@@ -194,13 +189,21 @@ p, a, button, li, td, th {
   transform: translateY(0);
 }
 
-.reveal-delay-1 { transition-delay: 0.1s; }
-.reveal-delay-2 { transition-delay: 0.2s; }
-.reveal-delay-3 { transition-delay: 0.3s; }
-.reveal-delay-4 { transition-delay: 0.4s; }
+.reveal-delay-1 {
+  transition-delay: 0.1s;
+}
+.reveal-delay-2 {
+  transition-delay: 0.2s;
+}
+.reveal-delay-3 {
+  transition-delay: 0.3s;
+}
+.reveal-delay-4 {
+  transition-delay: 0.4s;
+}
 
 /* ========================================
-   7. 返回顶部按钮
+   9. 返回顶部按钮
    ======================================== */
 .back-to-top {
   position: fixed;
@@ -230,5 +233,3 @@ p, a, button, li, td, th {
   transform: translateY(0) scale(1.1);
   box-shadow: 0 6px 25px rgba(247, 131, 172, 0.6);
 }
-
-

@@ -14,16 +14,19 @@
 
 ## Tech Stack
 
-| Category         | Technology       | Version       |
-|------------------|------------------|---------------|
-| Framework        | Vue 3            | ^3.4.21       |
-| UI Library       | Element Plus     | ^2.13.7       |
-| Build Tool       | Vite             | ^5.2.8        |
-| CSS Framework    | Tailwind CSS     | ^3.4.3        |
-| CSS Post-process | Autoprefixer     | ^10.4.19       |
-| Language         | JavaScript (ES Modules) | —      |
-| Font             | Source Han Serif CN (local OTF) | —   |
-| Data Storage     | Static JSON files | —            |
+| Category             | Technology                      | Version  |
+| -------------------- | ------------------------------- | -------- |
+| Framework            | Vue 3                           | ^3.4.21  |
+| UI Library           | Element Plus                    | ^2.13.7  |
+| Build Tool           | Vite                            | ^5.2.8   |
+| CSS Framework        | Tailwind CSS                    | ^3.4.3   |
+| CSS Post-process     | Autoprefixer                    | ^10.4.19 |
+| Language             | TypeScript                      | 6.0.3    |
+| Type Check           | vue-tsc                         | ^3.2.8   |
+| Linter               | ESLint                          | ^10.3.0  |
+| Formatter            | Prettier                        | ^3.8.3   |
+| Font                 | Source Han Serif CN (local OTF) | —        |
+| Data Storage         | Static JSON files               | —        |
 
 ## Project Structure
 
@@ -31,10 +34,14 @@
 Gleamory/
 ├── index.html               # HTML entry point (Vite root)
 ├── package.json             # Dependencies and scripts
-├── vite.config.js           # Vite config with Vue plugin + @ alias
+├── vite.config.ts           # Vite config with Vue plugin + ElementPlus auto-import + @ alias
+├── tsconfig.json            # TypeScript config (extends @vue/tsconfig)
+├── eslint.config.js         # ESLint flat config (TypeScript + Vue + Prettier)
+├── .prettierrc              # Prettier config (no semi, single quote, printWidth 100)
 ├── tailwind.config.js       # Tailwind theme (custom colors, fonts, fontSizes, borderRadius)
 ├── postcss.config.js        # PostCSS: tailwindcss + autoprefixer
 ├── .gitignore               # Git ignore rules
+├── env.d.ts                 # TypeScript ambient declarations (Vue SFC, JSON modules)
 ├── README.md                # Project readme
 ├── CHANGELOG.md             # Semantic versioning changelog
 ├── AGENTS.md                # This file
@@ -47,12 +54,15 @@ Gleamory/
 │   └── covers/              # Project cover images (served as static files)
 ├── node_modules/            # Dependencies (gitignored)
 └── src/
-    ├── main.js              # Vue app entry point (registers Element Plus)
+    ├── main.ts              # Vue app entry point (TypeScript)
     ├── App.vue              # Root layout: sticky navbar, sections, footer, back-to-top
     ├── components/
     │   ├── ProjectCard.vue  # Project card (featured + regular layouts)
     │   ├── ProjectGrid.vue  # Card layout: top 3 featured, rest in responsive grid
+    │   ├── EmptyState.vue   # Empty/error/loading placeholder component
     │   └── Timeline.vue     # Timeline/activity feed (Element Plus timeline)
+    ├── types/
+    │   └── index.ts          # TypeScript type definitions (Project, Update, etc.)
     ├── data/
     │   ├── projects.json    # Project data records (12 test projects)
     │   └── timeline.json    # Timeline update records (2 test entries)
@@ -73,13 +83,19 @@ npm run dev        # Start Vite dev server (HMR, localhost)
 ### Build & Preview
 
 ```bash
-npm run build      # Production build → dist/
+npm run build      # Type-check (vue-tsc) + Production build → dist/
 npm run preview    # Preview production build locally
 ```
 
-### Testing, Linting, Type-Checking
+### Linting & Formatting
 
-There are **no test, lint, or type-check commands** configured at the moment. The project uses plain JavaScript (no TypeScript). No ESLint, Prettier, or test framework is set up. When adding one, update this section and the `package.json` scripts.
+```bash
+npm run typecheck  # TypeScript type check only (vue-tsc --noEmit)
+npm run lint       # ESLint check (.vue, .ts)
+npm run format     # Prettier auto-format (src/**/*.{vue,ts,css}, *.md, etc.)
+```
+
+The project uses **ESLint** (flat config, `eslint.config.js`) with `typescript-eslint` and `eslint-plugin-vue`, plus **Prettier** (`.prettierrc`, semi-free, single quotes, printWidth 100) for formatting. No test framework is set up at the moment.
 
 ## Architecture
 
@@ -100,47 +116,51 @@ src/data/timeline.json ──┘                  │
 ### Component Props
 
 **ProjectCard.vue**
-```js
-props: {
-  project: Object,   // { id, name, description, url, status, tags, cover, version, updatedAt }
-  featured: Boolean   // top 3 projects get full-width featured layout, rest get grid cards
-}
+
+```ts
+defineProps<{
+  project: Project     // { id, name, description, url, status, tags, cover, version, updatedAt }
+  featured?: boolean   // top 3 get full-width featured layout, rest get grid cards
+}>()
 ```
 
 **ProjectGrid.vue**
-```js
-props: {
-  projects: Array  // Array of project objects; first 3 rendered as featured, rest as grid
-}
+
+```ts
+defineProps<{
+  projects: Project[]     // Array of project objects; first 3 featured, rest as grid
+  featuredCount?: number  // Number of featured items (default 3)
+}>()
 ```
 
 **Timeline.vue**
-```js
-props: {
-  updates: Array   // Array of update objects { id, projectId, content, date } (pre-sorted descending)
-}
+
+```ts
+defineProps<{
+  updates: Update[]    // Array of update objects { id, projectId, content, date }
+}>()
 ```
 
 ### Data Schema
 
 **projects.json** — `{ projects: [...] }`
 
-| Field       | Type    | Required | Description                              |
-|-------------|---------|----------|------------------------------------------|
-| id          | string  | yes      | Unique project identifier                |
-| name        | string  | yes      | Display name                             |
-| description | string  | yes      | One-line description                     |
-| url         | string  | yes      | External URL (opens in new tab via `window.open`) |
-| status      | string  | no       | 开发中 \| 已上线 \| 已下线               |
-| tags        | array   | no       | String tags (在线网站, 小游戏, 杂项, etc.) |
-| cover       | string  | no       | Public URL path e.g. `"/covers/xxx.png"`; empty string = gradient placeholder |
-| version     | string  | no       | e.g., "v1.0.0"                           |
-| updatedAt   | string  | no       | ISO date, e.g., "2026-04-29"             |
+| Field       | Type   | Required | Description                                                                   |
+| ----------- | ------ | -------- | ----------------------------------------------------------------------------- |
+| id          | string | yes      | Unique project identifier                                                     |
+| name        | string | yes      | Display name                                                                  |
+| description | string | yes      | One-line description                                                          |
+| url         | string | yes      | External URL (opens in new tab via `window.open`)                             |
+| status      | string | no       | 开发中 \| 已上线 \| 已下线                                                    |
+| tags        | array  | no       | String tags (在线网站, 小游戏, 杂项, etc.)                                    |
+| cover       | string | no       | Public URL path e.g. `"/covers/xxx.png"`; empty string = gradient placeholder |
+| version     | string | no       | e.g., "v1.0.0"                                                                |
+| updatedAt   | string | no       | ISO date, e.g., "2026-04-29"                                                  |
 
 **timeline.json** — `{ updates: [...] }`
 
 | Field     | Type   | Required | Description               |
-|-----------|--------|----------|---------------------------|
+| --------- | ------ | -------- | ------------------------- |
 | id        | string | yes      | Unique entry identifier   |
 | projectId | string | yes      | Foreign key to project.id |
 | content   | string | yes      | Update description        |
@@ -188,56 +208,66 @@ All colors are defined in `tailwind.config.js` and mirrored as CSS variables in 
 ### Tailwind Custom Utilities
 
 **fontSize** (defined in `tailwind.config.js`):
-| Key          | Size / Line-height / Weight |
+| Key | Size / Line-height / Weight |
 |--------------|-----------------------------|
-| `hero`       | 32px / 1.2 / 700            |
-| `section`    | 22px / 1.3 / 600            |
-| `card-title` | 18px / 1.4 / 600            |
-| `body`       | 15px / 1.6 / 500            |
-| `small`      | 13px / 1.5 / 500            |
+| `hero` | 32px / 1.2 / 700 |
+| `section` | 22px / 1.3 / 600 |
+| `card-title` | 18px / 1.4 / 600 |
+| `body` | 15px / 1.6 / 500 |
+| `small` | 13px / 1.5 / 500 |
 
 **borderRadius**: `rounded-8` (8px), `rounded-12` (12px)
 
 ### Custom CSS Classes (defined in `src/styles/main.css`)
 
 **Layout:**
+
 - `.flex-col-min-h` — flex column with min-height 100vh (sticky footer helper)
 
 **Hero (used in hero banner components):**
+
 - `.hero-banner` — gradient background (#F783AC → #B490E4) with floating blur decorations
 - `.hero-title` — fade-in + slide-up reveal animation (1s ease-out)
 - `.hero-subtitle` — fade-in + slide-up with 0.5s delay (1.5s ease-out)
 
 **Cards:**
+
 - `.glass-card` — frosted glass card with hover lift + pink/ purple glow shadow
 - `.featured-card` — full-width variant of glass card, min-height 320px
 - `.card-cover-placeholder` — gradient placeholder (primary-light → purple-light) for cards without cover images
 
 **Text:**
+
 - `.section-title` — gradient text (#F783AC → #B490E4), 22px, weight 700
 - `.text-gradient` — gradient text utility (pink → purple)
 - `.glow-text` — pink + purple text-shadow glow
 
 **Status:**
+
 - `.status-badge` — status label base styling (weight 500, letter-spacing)
 
 **Tags:**
+
 - `.tag-item` — scale(1.05) on hover
 
 **Scroll reveal:**
+
 - `.reveal-on-scroll` + `.revealed` — opacity + translateY transition triggered by IntersectionObserver
 - `.reveal-delay-1` through `.reveal-delay-4` — staggered delays for cascade effect
 
 **Back to top:**
+
 - `.back-to-top` — fixed bottom-right gradient circle button, fades in on scroll > 400px
 
 **Timeline:**
+
 - `.timeline-item-animate` — slide-in animation for timeline entries
 - `.timeline-fade-enter-active` / `.timeline-fade-leave-active` — Vue transition classes for expand/collapse
 
 ### Responsive Breakpoints
 
 Uses Tailwind default breakpoints:
+
 - Mobile: < 768px (`grid-cols-1`)
 - Tablet: 768px–1023px (`md:grid-cols-2`)
 - Desktop: ≥ 1024px (`lg:grid-cols-3`)
@@ -258,6 +288,7 @@ Uses Tailwind default breakpoints:
 Two distinct layouts controlled by the `featured` boolean prop:
 
 **Featured (top 3):**
+
 - Full-width card (inherits `.featured-card` styles)
 - Cover image as full background with dark gradient overlay for text readability
 - White text, large title (text-3xl), description, tags with glass backdrop
@@ -265,6 +296,7 @@ Two distinct layouts controlled by the `featured` boolean prop:
 - Version and date at bottom
 
 **Regular (grid items):**
+
 - Standard card (inherits `.glass-card` styles)
 - Cover image or gradient placeholder at top (h-48 / h-32)
 - Dark text with gradient-on-hover title effect
@@ -273,6 +305,7 @@ Two distinct layouts controlled by the `featured` boolean prop:
 - Click handler opens `project.url` in new tab via `window.open`
 
 **Status badge styling:**
+
 - 开发中: pink gradient background + pink border
 - 已上线: purple gradient background + purple border
 - 已下线: gray background + gray border
@@ -330,6 +363,7 @@ Two distinct layouts controlled by the `featured` boolean prop:
 ## Hermes Planning
 
 The `.hermes/plans/` directory contains AI agent planning documents used during development:
+
 - `2026-04-29_024500-project-init-plan.md` — Project initialization and workflow plan
 - `2026-04-29_031000-development-plan.md` — Detailed execution plan for all development phases
 

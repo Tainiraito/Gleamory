@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{vue,js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
@@ -16,26 +13,31 @@ export default {
         'text-primary': '#2D2D2D',
         'text-body': '#5A5A5A',
         'text-secondary': '#9A9A9A',
-        'bg-cream': '#FFFFFF',
         'bg-white': '#FFFFFF',
         'bg-noise-start': '#FFF5F7',
-        'bg-noise-end': '#F5EFFF',
+        'bg-noise-end': '#F5EFFF'
       },
       fontFamily: {
-        'sans': ['"Source Han Serif CN"', 'Georgia', 'serif'],
+        sans: ['"Source Han Serif CN"', 'Georgia', 'serif']
+      },
+      fontWeight: {
+        normal: '500',
+        medium: '500',
+        semibold: '600',
+        bold: '700'
       },
       borderRadius: {
-        '8': '8px',
-        '12': '12px',
+        8: '8px',
+        12: '12px'
       },
       fontSize: {
-        'hero': ['32px', { lineHeight: '1.2', fontWeight: '700' }],
-        'section': ['22px', { lineHeight: '1.3', fontWeight: '600' }],
+        hero: ['32px', { lineHeight: '1.2', fontWeight: '700' }],
+        section: ['22px', { lineHeight: '1.3', fontWeight: '600' }],
         'card-title': ['18px', { lineHeight: '1.4', fontWeight: '600' }],
-        'body': ['15px', { lineHeight: '1.6', fontWeight: '500' }],
-        'small': ['13px', { lineHeight: '1.5', fontWeight: '500' }],
-      },
-    },
+        body: ['15px', { lineHeight: '1.6', fontWeight: '500' }],
+        small: ['13px', { lineHeight: '1.5', fontWeight: '500' }]
+      }
+    }
   },
-  plugins: [],
+  plugins: []
 }
