@@ -1,8 +1,8 @@
 # Gleamory 项目需求文档
 
-> 版本: v1.3.0  
+> 版本: v2.0.0  
 > 创建时间: 2026-04-29  
-> 最后更新: 2026-04-29  
+> 最后更新: 2026-05-05  
 > 状态: 已实现
 
 ---
@@ -92,9 +92,13 @@
 
 | 类别 | 技术选择 | 说明 |
 |:---|:---|:---|
-| 框架 | Vue 3 | Composition API + `<script setup>` |
-| UI 库 | Element Plus | 时间线组件 |
-| 构建工具 | Vite | 开发热更新 + 生产构建 |
+| 框架 | Vue 3 | Composition API + `<script setup lang="ts">` |
+| 语言 | TypeScript 6.0 | 编译期类型安全，vue-tsc 检查 |
+| UI 库 | Element Plus | 时间线组件，unplugin-element-plus 自动导入样式 |
+| 构建工具 | Vite 5 | 开发热更新 + 生产构建 |
+| 类型检查 | vue-tsc ^3.2 | `vue-tsc --noEmit` 集成到构建流程 |
+| 代码规范 | ESLint（扁平配置） | typescript-eslint + eslint-plugin-vue |
+| 格式化 | Prettier | 无分号、单引号、printWidth 100 |
 | CSS 框架 | Tailwind CSS | 原子化 CSS |
 | 字体 | Source Han Serif CN | 本地 OTF 加载（3 个字重） |
 | 数据存储 | JSON 文件 | 静态数据，构建时打包 |
@@ -236,6 +240,7 @@ Gleamory/
 │   ├── assets/
 │   │   └── fonts/          # Source Han Serif CN 字体文件
 │   ├── components/
+│   │   ├── EmptyState.vue  # 空状态/加载/错误占位组件
 │   │   ├── ProjectCard.vue # 项目卡片（特色 + 普通两种布局）
 │   │   ├── ProjectGrid.vue # 项目网格布局
 │   │   └── Timeline.vue    # 时间线组件
@@ -244,11 +249,17 @@ Gleamory/
 │   │   └── timeline.json   # 时间线数据
 │   ├── styles/
 │   │   └── main.css        # 字体声明 + CSS 变量 + 工具类
+│   ├── types/
+│   │   └── index.ts        # TypeScript 类型定义
 │   ├── App.vue             # 主组件
-│   └── main.js             # 入口文件
+│   └── main.ts             # 入口文件（TypeScript）
 ├── index.html
 ├── package.json
-├── vite.config.js
+├── vite.config.ts
+├── tsconfig.json
+├── eslint.config.js
+├── .prettierrc
+├── env.d.ts
 ├── tailwind.config.js
 ├── postcss.config.js
 ├── README.md
