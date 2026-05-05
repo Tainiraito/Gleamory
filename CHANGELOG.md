@@ -19,6 +19,11 @@
 - 🎨 渐变文字添加 color: transparent 后备
 - 🔧 back-to-top hover transform 冲突修复
 
+### Infrastructure
+- 🚀 部署至 GitHub Pages（GitHub Actions 自动构建）
+- 🌐 绑定自定义域名 `gleamory.lovelysia.top`
+- 🔒 Cloudflare DNS 代理（自动 HTTPS + CDN）
+
 ---
 
 ## [1.3.0] - 2026-04-29
