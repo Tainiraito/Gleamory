@@ -43,3 +43,6 @@ coverage/
 
 # Hermes Agent 工作目录
 .hermes/
+
+# OpenCode 项目级配置（开发者个人环境，不参与构建）
+opencode.json
