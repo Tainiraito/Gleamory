@@ -1,0 +1,93 @@
+@import 'tailwindcss';
+
+/* ========================================
+   1. Font Face — Source Han Serif CN
+   ======================================== */
+@font-face {
+  font-family: 'Source Han Serif CN';
+  src: url('../assets/fonts/SourceHanSerifCN-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Source Han Serif CN';
+  src: url('../assets/fonts/SourceHanSerifCN-SemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Source Han Serif CN';
+  src: url('../assets/fonts/SourceHanSerifCN-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ========================================
+   2. Tailwind Theme Tokens
+   ======================================== */
+@theme inline {
+  --font-display: 'Source Han Serif CN', Georgia, serif;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ========================================
+   3. CSS Custom Properties — 素笺 (Clean Editorial)
+   ======================================== */
+:root {
+  --bg-page: #f7f4ef;
+  --bg-card: #ffffff;
+  --bg-elevated: #faf8f5;
+  --text-primary: #2c2a30;
+  --text-secondary: #6b6570;
+  --text-muted: #9c95a0;
+  --accent-pink: #f783ac;
+  --accent-glow: rgba(247, 131, 172, 0.1);
+  --border-line: rgba(44, 42, 48, 0.06);
+  --shadow-card: 0 2px 8px rgba(44, 42, 48, 0.04);
+  --shadow-card-hover: 0 4px 16px rgba(44, 42, 48, 0.08);
+}
+
+* {
+  border-color: var(--border-line);
+}
+
+html {
+  background-color: var(--bg-page);
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--accent-glow);
+  color: var(--text-primary);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-pink);
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-line);
+  border-radius: 2px;
+}

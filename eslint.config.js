@@ -1,24 +1,26 @@
+import { defineConfig } from 'eslint/config'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
 import js from '@eslint/js'
+import globals from 'globals'
 import tseslint from 'typescript-eslint'
-import pluginVue from 'eslint-plugin-vue'
-import vueTsEslintConfig from '@vue/eslint-config-typescript'
-import prettierConfig from 'eslint-config-prettier'
 
-export default [
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  ...pluginVue.configs['flat/recommended'],
-  ...vueTsEslintConfig(),
-  prettierConfig,
+export default defineConfig([
+  { ignores: ['dist'] },
   {
-    files: ['*.vue', '**/*.vue'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ['**/*.{ts,tsx}'],
     languageOptions: {
-      parserOptions: {
-        parser: tseslint.parser
-      }
-    }
+      ecmaVersion: 2020,
+      globals: globals.browser,
+    },
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
   },
-  {
-    ignores: ['dist/**', 'node_modules/**']
-  }
-]
+])
