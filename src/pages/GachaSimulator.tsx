@@ -72,14 +72,6 @@ function saveState(s: GachaState) {
   try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch { /* quota */ }
 }
 
-// singlePct = 1/total (per-card), groupedPct = sameNameCount/total (per-name-group)
-function cardProb(name: string, entries: Entry[], totalCards: number) {
-  const sameNameCount = entries.filter((e) => e.name === name).length
-  const single = ((1 / totalCards) * 100).toFixed(1)
-  const grouped = ((sameNameCount / totalCards) * 100).toFixed(1)
-  return { single, grouped, showBoth: single !== grouped }
-}
-
 const GachaSimulator = () => {
   const [entries, setEntries] = useState<Entry[]>([])
   const [history, setHistory] = useState<string[]>([])
@@ -98,7 +90,10 @@ const GachaSimulator = () => {
   }, [])
 
   useEffect(() => {
-    if (entries.length > 0) saveState({ entries, history, cardOrder, flipped })
+    if (entries.length > 0) {
+      const timer = setTimeout(() => saveState({ entries, history, cardOrder, flipped }), 300)
+      return () => clearTimeout(timer)
+    }
   }, [entries, history, cardOrder, flipped])
 
   const rebuild = useCallback((newEntries: Entry[]) => {
@@ -183,9 +178,55 @@ const GachaSimulator = () => {
     return s
   }, [history])
 
+  // Pre-compute card-face probabilities to avoid O(n²) filter per render
+  const cardProbMap = useMemo(() => {
+    const total = entries.length
+    return entries.map((entry) => {
+      const sameNameCount = entries.filter((e) => e.name === entry.name).length
+      const single = ((1 / total) * 100).toFixed(1)
+      const grouped = ((sameNameCount / total) * 100).toFixed(1)
+      return { single, grouped, showBoth: single !== grouped }
+    })
+  }, [entries])
+
+  // Memoize card grid: only re-render when card data changes, not on unrelated state (entryText, toggles)
+  const cardGrid = useMemo(() => {
+    return cardOrder.map((entryIdx, cardIdx) => {
+      const isFlipped = flipped[cardIdx]
+      const entry = entries[entryIdx]
+      const { single, grouped, showBoth } = cardProbMap[entryIdx]
+
+      return (
+        <motion.button key={cardIdx} onClick={() => handleCardClick(cardIdx)}
+          style={{ perspective: 600, aspectRatio: '2/3', cursor: isFlipped ? 'default' : 'pointer', padding: 0, border: 'none', background: 'transparent' }}
+          whileHover={!isFlipped ? { scale: 1.08, zIndex: 10 } : {}}
+          whileTap={!isFlipped ? { scale: 0.95 } : {}}>
+          <motion.div
+            animate={{ rotateY: isFlipped ? 180 : 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            style={{ width: '100%', height: '100%', transformStyle: 'preserve-3d', position: 'relative' }}>
+            {/* Back — warm paper */}
+            <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', background: '#e2d8c8', border: '0.5px solid rgba(196, 149, 106, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="font-display text-xl font-bold select-none" style={{ color: 'rgba(196, 149, 106, 0.3)' }}>?</span>
+            </div>
+            {/* Front — warm paper */}
+            <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: 'var(--bg-card)', border: '0.5px solid var(--border-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
+              <span className="block font-display text-sm font-semibold text-center leading-snug mb-1" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{entry.name}</span>
+              {isFlipped && (
+                <span className="text-xs text-center" style={{ color: 'var(--accent-amber)' }}>
+                  {single}%{showBoth ? ` (${grouped}%)` : ''}
+                </span>
+              )}
+            </div>
+          </motion.div>
+        </motion.button>
+      )
+    })
+  }, [cardOrder, entries, flipped, cardProbMap])
+
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
-      <div className="fixed top-6 sm:top-8 left-6 sm:left-8 z-50">
+      <div className="fixed top-6 sm:top-8 left-6 sm:left-8 z-50 px-3 py-1.5 rounded-sm" style={{ background: 'var(--bg-card-warm)', border: '0.5px solid var(--border-line)' }}>
         <Link to="/" className="font-display text-[0.6rem] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }}>Gleamory</Link>
       </div>
 
@@ -304,44 +345,14 @@ const GachaSimulator = () => {
 
                 {/* Card grid — 5 columns max */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
-                  {cardOrder.map((entryIdx, cardIdx) => {
-                    const isFlipped = flipped[cardIdx]
-                    const entry = entries[entryIdx]
-                    const { single, grouped, showBoth } = cardProb(entry.name, entries, totalCards)
-
-                    return (
-                      <motion.button key={cardIdx} onClick={() => handleCardClick(cardIdx)}
-                        style={{ perspective: 600, aspectRatio: '2/3', cursor: isFlipped ? 'default' : 'pointer', padding: 0, border: 'none', background: 'transparent' }}
-                        whileHover={!isFlipped ? { scale: 1.08, zIndex: 10 } : {}}
-                        whileTap={!isFlipped ? { scale: 0.95 } : {}}>
-                        <motion.div
-                          animate={{ rotateY: isFlipped ? 180 : 0 }}
-                          transition={{ duration: 0.5, ease: 'easeOut' }}
-                          style={{ width: '100%', height: '100%', transformStyle: 'preserve-3d', position: 'relative' }}>
-                          {/* Back — warm paper */}
-                          <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', background: '#e2d8c8', border: '0.5px solid rgba(196, 149, 106, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span className="font-display text-xl font-bold select-none" style={{ color: 'rgba(196, 149, 106, 0.3)' }}>?</span>
-                          </div>
-                          {/* Front — warm paper */}
-                          <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: 'var(--bg-card)', border: '0.5px solid var(--border-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
-                            <span className="block font-display text-sm font-semibold text-center leading-snug mb-1" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{entry.name}</span>
-                            {isFlipped && (
-                              <span className="text-xs text-center" style={{ color: 'var(--accent-amber)' }}>
-                                {single}%{showBoth ? ` (${grouped}%)` : ''}
-                              </span>
-                            )}
-                          </div>
-                        </motion.div>
-                      </motion.button>
-                    )
-                  })}
+                  {cardGrid}
                 </div>
               </div>
             )}
           </div>
 
-          {/* === Right: Drawn Results === */}
-          <div className="w-full lg:w-64 shrink-0 space-y-5">
+          {/* === Right: Drawn Results — hidden on mobile (shown below) === */}
+          <div className="hidden lg:block w-full lg:w-64 shrink-0 space-y-5">
             {history.length > 0 ? (
               <div className="p-5" style={{ background: 'var(--bg-card-warm)', border: '0.5px solid var(--border-line)' }}>
                 <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
