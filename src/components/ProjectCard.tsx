@@ -14,7 +14,7 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
   const inner = (
     <div className="flex flex-col h-full">
       {/* Top accent line */}
-      <div style={{ height: '1px', background: 'var(--accent-pink)', width: '48px' }} />
+      <div style={{ height: '1px', background: 'linear-gradient(to right, var(--accent-pink), transparent)', width: '80px' }} />
 
       {/* Cover image */}
       {project.cover ? (
@@ -41,10 +41,17 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
             </div>
           </div>
         )
-      ) : null}
+      ) : (
+        <div
+          style={{
+            height: isFeatured ? '100px' : '60px',
+            background: `linear-gradient(to bottom, var(--accent-glow), var(--bg-elevated))`,
+          }}
+        />
+      )}
 
       {/* Text area */}
-      <div className="flex flex-col justify-center flex-1 px-6 sm:px-8 py-6 sm:py-8">
+      <div className="flex flex-col justify-center flex-1 px-6 sm:px-8 py-8 sm:py-10">
         <h2
           className="font-display mb-3 tracking-wide"
           style={{
@@ -107,12 +114,14 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
 
   const motionProps = {
     className: 'group block h-full rounded-sm transition-all duration-300',
-    style: { background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' },
+    style: { background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(44,42,48,0.04), 0 4px 12px rgba(44,42,48,0.04), 0 8px 24px rgba(44,42,48,0.03)' },
     initial: { opacity: 0, y: 24 },
     whileInView: { opacity: 1, y: 0 },
     viewport: { once: true },
     transition: { duration: 0.6, delay: index * 0.12, ease: [0.25, 0.1, 0.25, 1] as const },
-    whileHover: { y: -2, boxShadow: 'var(--shadow-card-hover)' },
+    whileHover: isFeatured
+      ? { y: -2, scale: 1.005, boxShadow: 'var(--shadow-card-hover)' }
+      : { y: -2, boxShadow: 'var(--shadow-card-hover)' },
   }
 
   if (hasUrl) {
