@@ -201,7 +201,7 @@ const GachaSimulator = () => {
           {/* === Left: Add cards + Remaining === */}
           <div className="w-full lg:w-64 shrink-0 space-y-5">
             <div className="p-5" style={{ background: 'var(--bg-card-warm)', border: '0.5px solid var(--border-line)' }}>
-              <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>✦ 添加卡牌</h2>
+              <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>添加卡牌</h2>
               <textarea value={entryText} onChange={(e) => setEntryText(e.target.value)}
                 placeholder={'每行一个条目...'} rows={4}
                 className="w-full p-3 text-sm resize-y mb-3 placeholder:opacity-40"
@@ -209,32 +209,32 @@ const GachaSimulator = () => {
               <div className="flex mb-2" style={{ border: '0.5px solid var(--border-line)' }}>
                 <button onClick={() => setDedupEnabled(true)}
                   className="px-3 py-1.5 text-xs transition-all flex-1"
-                  style={{ background: dedupEnabled ? 'var(--accent-amber-subtle)' : 'transparent', color: dedupEnabled ? 'var(--accent-amber)' : 'var(--text-muted)' }}>❦ 去重</button>
+                  style={{ background: dedupEnabled ? 'var(--accent-glow)' : 'transparent', color: dedupEnabled ? 'var(--accent-pink)' : 'var(--text-muted)' }}>去重</button>
                 <button onClick={() => setDedupEnabled(false)}
                   className="px-3 py-1.5 text-xs transition-all flex-1"
-                  style={{ borderLeft: '0.5px solid var(--border-line)', background: !dedupEnabled ? 'var(--accent-amber-subtle)' : 'transparent', color: !dedupEnabled ? 'var(--accent-amber)' : 'var(--text-muted)' }}>❦ 不去重</button>
+                  style={{ borderLeft: '0.5px solid var(--border-line)', background: !dedupEnabled ? 'var(--accent-glow)' : 'transparent', color: !dedupEnabled ? 'var(--accent-pink)' : 'var(--text-muted)' }}>不去重</button>
               </div>
               <div className="flex mb-2" style={{ border: '0.5px solid var(--border-line)' }}>
                 <button onClick={() => setEntryMode('append')}
                   className="px-3 py-1.5 text-xs transition-all flex-1"
-                  style={{ background: entryMode === 'append' ? 'var(--accent-amber-subtle)' : 'transparent', color: entryMode === 'append' ? 'var(--accent-amber)' : 'var(--text-muted)' }}>❦ 追加</button>
+                  style={{ background: entryMode === 'append' ? 'var(--accent-glow)' : 'transparent', color: entryMode === 'append' ? 'var(--accent-pink)' : 'var(--text-muted)' }}>追加</button>
                 <button onClick={() => setEntryMode('overwrite')}
                   className="px-3 py-1.5 text-xs transition-all flex-1"
-                  style={{ borderLeft: '0.5px solid var(--border-line)', background: entryMode === 'overwrite' ? 'var(--accent-amber-subtle)' : 'transparent', color: entryMode === 'overwrite' ? 'var(--accent-amber)' : 'var(--text-muted)' }}>❦ 覆盖</button>
+                  style={{ borderLeft: '0.5px solid var(--border-line)', background: entryMode === 'overwrite' ? 'var(--accent-glow)' : 'transparent', color: entryMode === 'overwrite' ? 'var(--accent-pink)' : 'var(--text-muted)' }}>覆盖</button>
               </div>
               <button onClick={handleAddEntries}
                 className="w-full py-2 text-xs transition-all"
-                style={{ border: '0.5px solid var(--border-line)', background: 'transparent', color: 'var(--accent-amber)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-amber)'; e.currentTarget.style.color = 'var(--bg-page)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent-amber)' }}>
-                ❦ 添加卡牌
+                style={{ border: '0.5px solid var(--border-line)', background: 'transparent', color: 'var(--text-secondary)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink-stamp)'; e.currentTarget.style.color = 'var(--bg-page)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' }}>
+                添加卡牌
               </button>
             </div>
 
             {/* Remaining cards */}
             <div className="p-5" style={{ background: 'var(--bg-card-warm)', border: '0.5px solid var(--border-line)' }}>
               <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
-                ✦ 剩余卡牌 <span style={{ color: 'var(--accent-amber)' }}>{remainingCount}</span> / {totalCards}
+                剩余卡牌 {remainingCount} / {totalCards}
               </h2>
               <div className="max-h-80 overflow-y-auto space-y-0.5">
                 {cardOrder
@@ -255,7 +255,7 @@ const GachaSimulator = () => {
                 })}
               </div>
               <div className="flex justify-between mt-3 pt-3" style={{ borderTop: '0.5px solid var(--border-line)' }}>
-                <button onClick={handleReset} className="text-xs transition-colors hover:opacity-70" style={{ color: 'var(--accent-amber)' }}>❦ 重新洗牌</button>
+                <button onClick={handleReset} className="text-xs transition-colors hover:opacity-70" style={{ color: 'var(--text-muted)' }}>重新洗牌</button>
                 <button onClick={handleResetDefault} className="text-xs transition-colors hover:opacity-70" style={{ color: 'var(--text-muted)' }}>恢复预设</button>
               </div>
             </div>
@@ -272,13 +272,13 @@ const GachaSimulator = () => {
                 {/* All-flipped banner */}
                 {allFlipped && (
                   <div className="text-center mb-4 py-3" style={{ background: 'var(--accent-glow)' }}>
-                    <p className="font-display text-base mb-2" style={{ color: 'var(--text-primary)' }}>✦ 全部翻完啦 ✦</p>
+                    <p className="font-display text-base mb-2" style={{ color: 'var(--text-primary)' }}>全部翻完啦 ✦</p>
                     <button onClick={handleReset}
                       className="px-4 py-1.5 text-xs transition-all"
-                      style={{ border: '0.5px solid var(--border-line)', background: 'transparent', color: 'var(--accent-amber)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-amber)'; e.currentTarget.style.color = 'var(--bg-page)' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent-amber)' }}>
-                      ❦ 重新洗牌
+                      style={{ border: '0.5px solid var(--border-line)', background: 'transparent', color: 'var(--text-secondary)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink-stamp)'; e.currentTarget.style.color = 'var(--bg-page)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' }}>
+                      重新洗牌
                     </button>
                   </div>
                 )}
@@ -291,13 +291,13 @@ const GachaSimulator = () => {
                         animate={{ width: totalCards > 0 ? `${(flippedCount / totalCards) * 100}%` : '0%' }}
                         transition={{ duration: 0.3 }} />
                     </div>
-                    <span className="text-xs shrink-0" style={{ color: 'var(--accent-amber)' }}>{flippedCount}/{totalCards}</span>
+                    <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{flippedCount}/{totalCards}</span>
                     <button onClick={handleReset}
                       className="text-xs transition-all hover:opacity-70 shrink-0 px-2 py-0.5"
                       style={{ border: '0.5px solid var(--border-line)', color: 'var(--text-muted)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber)' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-line)' }}>
-                      ❦ 洗牌
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--accent-pink)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}>
+                      洗牌
                     </button>
                   </div>
                 )}
@@ -318,10 +318,9 @@ const GachaSimulator = () => {
                           animate={{ rotateY: isFlipped ? 180 : 0 }}
                           transition={{ duration: 0.5, ease: 'easeOut' }}
                           style={{ width: '100%', height: '100%', transformStyle: 'preserve-3d', position: 'relative' }}>
-                          {/* Back — warm black with subtle pattern */}
-                          <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', background: 'linear-gradient(135deg, #0c0a12 0%, #1a141c 100%)', border: '0.5px solid rgba(247, 131, 172, 0.15)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                          {/* Back */}
+                          <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', background: 'linear-gradient(135deg, #0c0a12 0%, #1a141c 100%)', border: '0.5px solid rgba(247, 131, 172, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <span className="font-display text-xl font-bold select-none" style={{ color: 'rgba(247, 131, 172, 0.2)' }}>?</span>
-                            <span className="text-[0.4rem] mt-1 select-none" style={{ color: 'rgba(196, 149, 106, 0.15)' }}>✦ ✦ ✦</span>
                           </div>
                           {/* Front — warm paper */}
                           <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: 'var(--bg-card)', border: '0.5px solid var(--border-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
@@ -346,17 +345,17 @@ const GachaSimulator = () => {
             {history.length > 0 ? (
               <div className="p-5" style={{ background: 'var(--bg-card-warm)', border: '0.5px solid var(--border-line)' }}>
                 <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
-                  ✦ 已抽结果 ({history.length})
+                  已抽结果 ({history.length})
                 </h2>
                 <div className="max-h-60 overflow-y-auto space-y-1 mb-4">
                   {[...history].reverse().map((name, i) => (
                     <div key={`h-${name}-${i}`} className="flex items-center gap-1.5">
-                      <span className="text-[0.6rem] shrink-0" style={{ color: 'var(--accent-amber)' }}>#{history.length - i}</span>
+                      <span className="text-[0.6rem] shrink-0" style={{ color: 'var(--text-muted)' }}>#{history.length - i}</span>
                       <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{name}</span>
                     </div>
                   ))}
                 </div>
-                <h3 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--accent-amber)' }}>❦ 抽卡统计</h3>
+                <h3 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>抽卡统计</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {Array.from(drawnStats.entries()).sort((a, b) => b[1] - a[1]).map(([name, count]) => {
                     const pct = ((count / history.length) * 100).toFixed(1)
@@ -387,16 +386,16 @@ const GachaSimulator = () => {
       {history.length > 0 && (
         <div className="lg:hidden px-4 sm:px-6 pb-12">
           <div className="p-5" style={{ background: 'var(--bg-card-warm)', border: '0.5px solid var(--border-line)' }}>
-            <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>✦ 已抽结果 ({history.length})</h2>
+            <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>已抽结果 ({history.length})</h2>
             <div className="max-h-48 overflow-y-auto space-y-1 mb-3">
               {[...history].reverse().map((name, i) => (
                 <div key={`mh-${name}-${i}`} className="flex items-center gap-1.5">
-                  <span className="text-[0.6rem] shrink-0" style={{ color: 'var(--accent-amber)' }}>#{history.length - i}</span>
+                  <span className="text-[0.6rem] shrink-0" style={{ color: 'var(--text-muted)' }}>#{history.length - i}</span>
                   <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{name}</span>
                 </div>
               ))}
             </div>
-            <h3 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--accent-amber)' }}>❦ 抽卡统计</h3>
+            <h3 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>抽卡统计</h3>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {Array.from(drawnStats.entries()).sort((a, b) => b[1] - a[1]).map(([name, count]) => {
                 const pct = ((count / history.length) * 100).toFixed(1)
