@@ -1,30 +1,92 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { getUniqueNames, fisherYatesShuffle } from '@/lib/gacha'
 
 interface Entry {
   name: string
   enabled: boolean
 }
 
-interface HistoryRound {
-  round: number
-  results: string[]
-}
-
 interface GachaState {
   entries: Entry[]
-  mode: 'unique' | 'repeat'
-  history: HistoryRound[]
-  poolExhausted: boolean
-  dedupEnabled: boolean
+  history: string[]   // drawn entry names in order
+  cardOrder: number[]  // shuffled entry indices for card positions
+  flipped: boolean[]   // which cards are flipped
 }
 
 const STORAGE_KEY = 'gacha-simulator-state'
-const GRID_COLS = 4
-const GRID_ROWS = 3
-const TOTAL_CARDS = GRID_COLS * GRID_ROWS
+
+const DEFAULT_ENTRIES = [
+  'gbc所有人',
+  '尼尔机械纪元-2B',
+  '魔禁-神裂火织',
+  '刀剑神域-亚丝娜',
+  '旋风管家-天王州雅典娜',
+  '约会大作战-所有精灵',
+  '中二病也要谈恋爱-MoriSummer',
+  '恶魔高校-所有女角色',
+  '甘城光辉游乐园-千斗五十铃',
+  '转生史莱姆-井泽静江',
+  '转生史莱姆-朱莱',
+  '转生史莱姆-紫苑',
+  '兔女郎-樱岛麻衣',
+  '辉夜大小姐-辉夜',
+  '辉夜大小姐-藤原',
+  '辉夜大小姐-早坂爱',
+  '罗小黑-师姐',
+  'jojo-承太郎',
+  'jojo-dio',
+  'jojo-空条徐伦',
+  'jojo-天气预报',
+  '斩服少女-缠流子',
+  '轻音少女-所有人',
+  '魔女之旅-伊蕾娜',
+  '碧蓝之海-千纱',
+  'lycoris recoil-两主角',
+  '石纪元-杠',
+  '石纪元-大葱哥',
+  '孤独摇滚-所有人',
+  '无职转生-卢迪乌斯',
+  '无职转生-洛琪希',
+  '无职转生-希露菲',
+  '无职转生-艾丽丝',
+  '我独自升级-车惠怡',
+  '葬送的芙莉莲-芙莉莲',
+  '葬送的芙莉莲-肥伦',
+  '赛博朋克-露西',
+  '擅长捉弄的高木同学-高木',
+  '明日酱的水手服-明日小路',
+  '明日酱的水手服-木崎江利花',
+  '跃动青春-村重结月',
+  '胆大党-momo',
+  '我心里危险的东西-山田杏奈',
+  '薰香花朵凛然绽放-薰子',
+  '原神-克洛琳德',
+  '原神-仆人',
+  '原神-月神',
+  '原神-八重神子',
+  '崩铁-星',
+  '崩铁-流萤',
+  '崩铁-八重樱',
+  '绝区零-星见雅',
+  '绝区零-仪玄',
+  '绝区零-叶瞬光',
+  '终末地-庄方宜',
+  '终末地-洁哥',
+  '终末地-42',
+  '鸣潮-长离',
+  '鸣潮-坎特蕾拉',
+  '鸣潮-爱弥斯',
+]
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
 
 function loadState(): GachaState {
   try {
@@ -39,220 +101,135 @@ function loadState(): GachaState {
               typeof (e as Entry).enabled === 'boolean'
           )
         : []
-      return {
-        entries,
-        mode: parsed.mode === 'unique' || parsed.mode === 'repeat' ? parsed.mode : 'unique',
-        history: Array.isArray(parsed.history) ? parsed.history : [],
-        poolExhausted: typeof parsed.poolExhausted === 'boolean' ? parsed.poolExhausted : false,
-        dedupEnabled: typeof parsed.dedupEnabled === 'boolean' ? parsed.dedupEnabled : true,
-      }
+      const history = Array.isArray(parsed.history) ? parsed.history : []
+      const cardOrder = Array.isArray(parsed.cardOrder) ? parsed.cardOrder : []
+      const flipped = Array.isArray(parsed.flipped) ? parsed.flipped : []
+      return { entries, history, cardOrder, flipped }
     }
   } catch {
-    /* corrupted data, reset */
+    /* corrupted */
   }
-  return { entries: [], mode: 'unique', history: [], poolExhausted: false, dedupEnabled: true }
+  // First visit: auto-load default preset
+  const preset = DEFAULT_ENTRIES.map((name) => ({ name, enabled: true }))
+  return {
+    entries: preset,
+    history: [],
+    cardOrder: shuffleArray(preset.map((_, i) => i)),
+    flipped: new Array(preset.length).fill(false),
+  }
 }
 
 function saveState(state: GachaState) {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch {
-    /* quota exceeded, silently ignore */
+    /* quota */
   }
 }
 
 const GachaSimulator = () => {
   const [entries, setEntries] = useState<Entry[]>([])
-  const [mode, setMode] = useState<'unique' | 'repeat'>('unique')
-  const [history, setHistory] = useState<HistoryRound[]>([])
+  const [history, setHistory] = useState<string[]>([])
+  const [cardOrder, setCardOrder] = useState<number[]>([])
+  const [flipped, setFlipped] = useState<boolean[]>([])
   const [entryText, setEntryText] = useState('')
-  const [entryMode, setEntryMode] = useState<'append' | 'overwrite'>('append')
   const [dedupEnabled, setDedupEnabled] = useState(true)
-  const [poolExhausted, setPoolExhausted] = useState(false)
-  const [activeTab, setActiveTab] = useState(0)
-  // Card flip state
-  const [flippedIdx, setFlippedIdx] = useState<number | null>(null)
-  const [currentRound, setCurrentRound] = useState<number>(0)
-  const [lastDrawnName, setLastDrawnName] = useState<string | null>(null)
-  const [lastDrawnProb, setLastDrawnProb] = useState<string>('')
 
-  // Ref that always mirrors latest entries (used for name lookup in callbacks)
-  const entriesRef = useRef(entries)
-  entriesRef.current = entries
-
-  // Snapshot of the "full pool" before unique-mode draws remove entries
-  const fullPoolRef = useRef<Entry[]>([])
-  const updateFullPoolRef = useCallback((e: Entry[]) => {
-    fullPoolRef.current = e
-  }, [])
-
-  const enabledEntries = useMemo(() => entries.filter((e) => e.enabled), [entries])
-  const enabledCount = enabledEntries.length
-
-  // Restore state from sessionStorage on mount
+  // Restore state on mount
   useEffect(() => {
     const saved = loadState()
     setEntries(saved.entries)
-    setMode(saved.mode)
     setHistory(saved.history)
-    setPoolExhausted(saved.poolExhausted)
-    fullPoolRef.current = saved.entries
+    setCardOrder(saved.cardOrder)
+    setFlipped(saved.flipped)
   }, [])
 
-  // Persist state to sessionStorage on change
+  // Persist
   useEffect(() => {
-    saveState({ entries, mode, history, poolExhausted, dedupEnabled })
-  }, [entries, mode, history, poolExhausted, dedupEnabled])
+    if (entries.length > 0) {
+      saveState({ entries, history, cardOrder, flipped })
+    }
+  }, [entries, history, cardOrder, flipped])
+
+  // Rebuild card order when entries change
+  const rebuildCards = useCallback((newEntries: Entry[]) => {
+    const order = shuffleArray(newEntries.map((_, i) => i))
+    setCardOrder(order)
+    setFlipped(new Array(newEntries.length).fill(false))
+    setHistory([])
+  }, [])
 
   const handleAddEntries = useCallback(() => {
     const lines = entryText
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => l.length > 0)
-
     if (lines.length === 0) return
-    setFlippedIdx(null)
 
     const newEntries: Entry[] = lines.map((name) => ({ name, enabled: true }))
 
-    if (entryMode === 'overwrite') {
-      const seen = new Set<string>()
+    if (dedupEnabled) {
+      const existingNames = new Set(entries.map((e) => e.name))
       const deduped = newEntries.filter((e) => {
-        if (seen.has(e.name)) return false
-        seen.add(e.name)
+        if (existingNames.has(e.name)) return false
+        existingNames.add(e.name)
         return true
       })
-      setEntries(dedupEnabled ? deduped : newEntries)
-      updateFullPoolRef(dedupEnabled ? deduped : newEntries)
-      setHistory([])
-      setPoolExhausted(false)
-    } else {
-      if (dedupEnabled) {
-        const existingNames = new Set(entries.map((e) => e.name))
-        const deduped = newEntries.filter((e) => {
-          if (existingNames.has(e.name)) return false
-          existingNames.add(e.name)
-          return true
-        })
-        if (deduped.length > 0) {
-          setEntries((prev) => {
-            const merged = [...prev, ...deduped]
-            updateFullPoolRef(merged)
-            return merged
-          })
-          setPoolExhausted(false)
-        }
-      } else {
-        setEntries((prev) => {
-          const merged = [...prev, ...newEntries]
-          updateFullPoolRef(merged)
-          return merged
-        })
-        setPoolExhausted(false)
+      if (deduped.length > 0) {
+        const merged = [...entries, ...deduped]
+        setEntries(merged)
+        rebuildCards(merged)
       }
+    } else {
+      const merged = [...entries, ...newEntries]
+      setEntries(merged)
+      rebuildCards(merged)
     }
 
     setEntryText('')
-  }, [entryText, entryMode, entries, dedupEnabled])
+  }, [entryText, entries, dedupEnabled, rebuildCards])
 
-  const handleModeSwitch = useCallback((newMode: 'unique' | 'repeat') => {
-    if (newMode !== mode) {
-      setMode(newMode)
-      setHistory([])
-      setPoolExhausted(false)
-      setEntries(fullPoolRef.current)
-      setFlippedIdx(null)
-      // nop
-    }
-  }, [mode])
+  // Click a card to flip it (draw)
+  const handleCardClick = useCallback((cardIdx: number) => {
+    if (flipped[cardIdx]) return // already flipped
 
-  // Single draw: draw one entry randomly
-  const handleDraw = useCallback(() => {
-    if (enabledCount === 0) return
+    const newFlipped = [...flipped]
+    newFlipped[cardIdx] = true
 
-    let drawn: string
-    if (mode === 'unique') {
-      const uniqueNames = getUniqueNames(enabledEntries)
-      const shuffled = fisherYatesShuffle(uniqueNames)
-      drawn = shuffled[0]
-      // Remove only ONE instance
-      setEntries((prev) => {
-        const removed = new Set<string>()
-        return prev.filter((e) => {
-          if (e.name === drawn && !removed.has(e.name)) {
-            removed.add(e.name)
-            return false
-          }
-          return true
-        })
-      })
-      if (enabledCount - 1 <= 0) {
-        setPoolExhausted(true)
-      }
-    } else {
-      drawn = enabledEntries[Math.floor(Math.random() * enabledEntries.length)].name
-    }
+    // The drawn entry is at entries[cardOrder[cardIdx]]
+    const drawnEntry = entries[cardOrder[cardIdx]].name
 
-    // Calculate probability based on count/total
-    const countOfDrawn = enabledEntries.filter((e) => e.name === drawn).length
-    const prob = ((countOfDrawn / enabledCount) * 100).toFixed(1)
+    setFlipped(newFlipped)
+    setHistory((prev) => [...prev, drawnEntry])
+  }, [flipped, entries, cardOrder])
 
-    setLastDrawnName(drawn)
-    setLastDrawnProb(prob)
-  }, [enabledCount, mode, enabledEntries])
+  // Reset all cards (reshuffle)
+  const handleReset = useCallback(() => {
+    rebuildCards(entries)
+  }, [entries, rebuildCards])
 
-  // Handle card click
-  const onCardClick = useCallback((idx: number) => {
-    if (flippedIdx !== null) return // already flipped this round
-    if (enabledCount === 0) return
-    setFlippedIdx(idx)
-    handleDraw()
-  }, [flippedIdx, enabledCount, handleDraw])
-
-  // Handle "draw again"
-  const handleNextDraw = useCallback(() => {
-    if (flippedIdx !== null && lastDrawnName) {
-      // Record this draw before resetting
-      const newRound = currentRound + 1
-      setCurrentRound(newRound)
-      setHistory((prev) => [...prev, { round: newRound, results: [lastDrawnName] }])
-    }
-    setFlippedIdx(null)
-    setLastDrawnName(null)
-  }, [flippedIdx, lastDrawnName, currentRound])
-
-  const handleClearHistory = useCallback(() => {
+  // Reset to default preset
+  const handleResetToDefault = useCallback(() => {
+    const preset = DEFAULT_ENTRIES.map((name) => ({ name, enabled: true }))
+    setEntries(preset)
+    const order = shuffleArray(preset.map((_, i) => i))
+    setCardOrder(order)
+    setFlipped(new Array(preset.length).fill(false))
     setHistory([])
-    setPoolExhausted(false)
-    setCurrentRound(0)
   }, [])
 
-  // Compute per-entry draw statistics
-  const entryStats = useMemo(() => {
-    const stats = new Map<string, { count: number; percentage: string }>()
-    let total = 0
-    history.forEach((round) => {
-      round.results.forEach((name) => {
-        total++
-        const existing = stats.get(name)
-        if (existing) {
-          existing.count++
-        } else {
-          stats.set(name, { count: 1, percentage: '' })
-        }
-      })
+  const flippedCount = flipped.filter(Boolean).length
+  const remainingCount = entries.length - flippedCount
+  const allFlipped = flippedCount === entries.length && entries.length > 0
+
+  // Get unique drawn names for stats
+  const drawnStats = useMemo(() => {
+    const stats = new Map<string, number>()
+    history.forEach((name) => {
+      stats.set(name, (stats.get(name) || 0) + 1)
     })
-    stats.forEach((stat) => {
-      stat.percentage = total > 0 ? ((stat.count / total) * 100).toFixed(1) + '%' : '0%'
-    })
-    return { stats, total }
+    return stats
   }, [history])
-
-  const uniqueNames = useMemo(() => getUniqueNames(entries), [entries])
-  const uniqueCount = uniqueNames.length
-
-  // Card grid indices
-  const cardIndices = Array.from({ length: TOTAL_CARDS }, (_, i) => i)
 
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
@@ -267,72 +244,38 @@ const GachaSimulator = () => {
         </Link>
       </div>
 
-      <main className="max-w-4xl mx-auto px-6 py-20 sm:py-24">
+      <main className="max-w-7xl mx-auto px-6 py-20 sm:py-24">
         {/* Page Title */}
         <motion.h1
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: 'easeOut' }}
           className="font-display text-4xl sm:text-5xl tracking-tight text-center mb-2"
           style={{ color: 'var(--text-primary)' }}
         >
-          抽卡模拟
+          翻牌抽卡
         </motion.h1>
         <p className="text-sm text-center mb-10" style={{ color: 'var(--text-muted)' }}>
-          玄不改非，氪不改命
+          翻开一张卡，看看是谁来找你
         </p>
 
-        {/* Tabs */}
-        <div className="flex justify-center gap-8 mb-12 border-b" style={{ borderColor: 'var(--border-line)' }}>
-          {['简单抽取', '原神抽卡', '更多'].map((label, i) => {
-            const isActive = activeTab === i
-            return (
-              <button
-                key={label}
-                onClick={() => setActiveTab(i)}
-                className={`relative pb-2 text-sm transition-colors ${isActive ? 'font-semibold' : ''}`}
-                style={{ color: isActive ? 'var(--accent-pink)' : 'var(--text-muted)' }}
-              >
-                {label}
-                {isActive && (
-                  <motion.div
-                    layoutId="active-tab-underline"
-                    className="absolute bottom-0 left-0 right-0 h-[2px]"
-                    style={{ background: 'var(--accent-pink)' }}
-                  />
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {activeTab !== 0 ? (
-          <div className="flex items-center justify-center py-32">
-            <span className="font-display text-2xl" style={{ color: 'var(--text-muted)' }}>
-              开发中...
-            </span>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {/* ===== Block 1: Entry Management ===== */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-              className="p-6"
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* ===== Left Column: Management + Status ===== */}
+          <div className="w-full lg:w-80 shrink-0 space-y-4">
+            {/* Add entries */}
+            <div
+              className="p-5"
               style={{
                 background: 'var(--bg-card)',
                 border: '0.5px solid var(--border-line)',
               }}
             >
-              <h2 className="text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--text-secondary)' }}>
-                条目管理
+              <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
+                添加条目
               </h2>
-
               <textarea
                 value={entryText}
                 onChange={(e) => setEntryText(e.target.value)}
-                placeholder={'每行一个条目...\n例如：\n角色A\n角色B\n道具C'}
+                placeholder={'每行一个条目...'}
                 rows={4}
                 className="w-full p-3 text-sm resize-y mb-3 placeholder:opacity-40"
                 style={{
@@ -341,10 +284,7 @@ const GachaSimulator = () => {
                   background: 'transparent',
                 }}
               />
-
-              {/* Buttons row: [去重 group] [追加/覆盖 group] [添加条目] */}
-              <div className="flex items-center gap-3 flex-wrap">
-                {/* Dedup toggle group */}
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex" style={{ border: '0.5px solid var(--border-line)' }}>
                   <button
                     onClick={() => setDedupEnabled(true)}
@@ -368,33 +308,6 @@ const GachaSimulator = () => {
                     不去重
                   </button>
                 </div>
-
-                {/* Append/Overwrite toggle group */}
-                <div className="flex" style={{ border: '0.5px solid var(--border-line)' }}>
-                  <button
-                    onClick={() => setEntryMode('append')}
-                    className="px-3 py-1.5 text-xs transition-all duration-200"
-                    style={{
-                      background: entryMode === 'append' ? 'rgba(44,42,48,0.04)' : 'transparent',
-                      color: entryMode === 'append' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    }}
-                  >
-                    追加
-                  </button>
-                  <button
-                    onClick={() => setEntryMode('overwrite')}
-                    className="px-3 py-1.5 text-xs transition-all duration-200"
-                    style={{
-                      borderLeft: '0.5px solid var(--border-line)',
-                      background: entryMode === 'overwrite' ? 'rgba(44,42,48,0.04)' : 'transparent',
-                      color: entryMode === 'overwrite' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    }}
-                  >
-                    覆盖
-                  </button>
-                </div>
-
-                {/* Add entries button */}
                 <button
                   onClick={handleAddEntries}
                   className="px-4 py-1.5 text-xs transition-all duration-200"
@@ -412,285 +325,282 @@ const GachaSimulator = () => {
                     e.currentTarget.style.color = 'var(--text-secondary)'
                   }}
                 >
-                  添加条目
+                  添加
                 </button>
               </div>
+            </div>
 
-              {/* Entry count + mode indicator */}
-              {entries.length > 0 && (
-                <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: '0.5px solid var(--border-line)' }}>
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    共 {entries.length} 条 · {uniqueCount} 个不同条目
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <div className="flex" style={{ border: '0.5px solid var(--border-line)' }}>
-                      <button
-                        onClick={() => handleModeSwitch('unique')}
-                        className="px-2.5 py-1 text-[0.6rem] transition-all duration-200"
-                        style={{
-                          background: mode === 'unique' ? 'rgba(44,42,48,0.04)' : 'transparent',
-                          color: mode === 'unique' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        }}
-                      >
-                        不重复
-                      </button>
-                      <button
-                        onClick={() => handleModeSwitch('repeat')}
-                        className="px-2.5 py-1 text-[0.6rem] transition-all duration-200"
-                        style={{
-                          borderLeft: '0.5px solid var(--border-line)',
-                          background: mode === 'repeat' ? 'rgba(44,42,48,0.04)' : 'transparent',
-                          color: mode === 'repeat' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        }}
-                      >
-                        可重复
-                      </button>
-                    </div>
-                    <span className="text-[0.6rem]" style={{ color: 'var(--text-muted)' }}>
-                      {mode === 'unique' ? '抽中即移出' : '独立抽取'}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-
-            {/* ===== Block 2: Card Flip Area ===== */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-              className="p-6"
+            {/* Counter */}
+            <div
+              className="p-5"
               style={{
                 background: 'var(--bg-card)',
                 border: '0.5px solid var(--border-line)',
               }}
             >
-              <h2 className="text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--text-secondary)' }}>
-                翻牌抽卡
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  全部 {entries.length} 张
+                </span>
+                <span className="text-xs" style={{ color: 'var(--accent-pink)' }}>
+                  已翻 {flippedCount} 张
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full" style={{ background: 'var(--border-line)' }}>
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ background: 'var(--accent-pink)' }}
+                  animate={{ width: entries.length > 0 ? `${(flippedCount / entries.length) * 100}%` : '0%' }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-3">
+                <button
+                  onClick={handleReset}
+                  className="text-[0.6rem] transition-colors duration-200 hover:opacity-70"
+                  style={{ color: 'rgba(44,42,48,0.3)' }}
+                >
+                  重新洗牌
+                </button>
+                <button
+                  onClick={handleResetToDefault}
+                  className="text-[0.6rem] transition-colors duration-200 hover:opacity-70"
+                  style={{ color: 'rgba(44,42,48,0.3)' }}
+                >
+                  恢复预设
+                </button>
+              </div>
+            </div>
+
+            {/* Remaining entries */}
+            <div
+              className="p-5"
+              style={{
+                background: 'var(--bg-card)',
+                border: '0.5px solid var(--border-line)',
+              }}
+            >
+              <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
+                剩余条目 ({remainingCount})
               </h2>
-
-              {entries.length === 0 ? (
-                <div className="py-16 text-center">
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                    ✦ 请先添加条目
-                  </p>
-                </div>
-              ) : poolExhausted ? (
-                <div className="py-16 text-center">
-                  <p className="text-sm" style={{ color: 'var(--accent-pink)' }}>
-                    奖池已耗尽！添加新条目继续
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {/* Card grid */}
-                  <div
-                    className="grid gap-4 mb-6"
-                    style={{
-                      gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
-                    }}
-                  >
-                    {cardIndices.map((idx) => {
-                      const isFlipped = flippedIdx === idx
-                      return (
-                        <motion.button
-                          key={idx}
-                          onClick={() => onCardClick(idx)}
-                          disabled={flippedIdx !== null && flippedIdx !== idx}
-                          style={{
-                            perspective: 800,
-                            aspectRatio: '3/4',
-                            cursor: flippedIdx === null && enabledCount > 0 ? 'pointer' : 'default',
-                            padding: 0,
-                            border: 'none',
-                            background: 'transparent',
-                          }}
-                          whileHover={flippedIdx === null ? { scale: 1.05 } : {}}
-                          whileTap={flippedIdx === null ? { scale: 0.95 } : {}}
-                        >
-                          <motion.div
-                            animate={{ rotateY: isFlipped ? 180 : 0 }}
-                            transition={{ duration: 0.6, ease: 'easeOut' }}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              transformStyle: 'preserve-3d',
-                              position: 'relative',
-                            }}
-                          >
-                            {/* Card Back (face-down) */}
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
-                                backfaceVisibility: 'hidden',
-                                background: '#0c0a12',
-                                border: '0.5px solid rgba(255,255,255,0.1)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                overflow: 'hidden',
-                              }}
-                            >
-                              <div className="flex flex-col items-center gap-2 select-none">
-                                <span
-                                  className="font-display text-lg font-bold"
-                                  style={{ color: 'rgba(247, 131, 172, 0.3)' }}
-                                >
-                                  ?
-                                </span>
-                                <span
-                                  className="text-[6px] uppercase tracking-[0.2em]"
-                                  style={{ color: 'rgba(255,255,255,0.15)' }}
-                                >
-                                  gleamory
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Card Front (revealed) */}
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
-                                backfaceVisibility: 'hidden',
-                                transform: 'rotateY(180deg)',
-                                background: 'var(--bg-elevated)',
-                                border: '0.5px solid var(--border-line)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                padding: '8px',
-                              }}
-                            >
-                              {isFlipped && lastDrawnName && (
-                                <>
-                                  <span
-                                    className="block font-display text-sm font-semibold text-center leading-tight mb-1"
-                                    style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}
-                                  >
-                                    {lastDrawnName}
-                                  </span>
-                                  <span
-                                    className="text-[0.55rem]"
-                                    style={{ color: 'var(--accent-pink)' }}
-                                  >
-                                    {lastDrawnProb}%
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </motion.div>
-                        </motion.button>
-                      )
-                    })}
-                  </div>
-
-                  {/* Action buttons below cards */}
-                  <div className="flex justify-center gap-4">
-                    {flippedIdx === null ? (
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        点击任意卡牌翻开
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {entries.map((entry, i) => {
+                  const cardIdx = cardOrder.indexOf(i)
+                  const isFlipped = cardIdx !== -1 && flipped[cardIdx]
+                  if (isFlipped) return null
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <span style={{ width: '4px', height: '4px', background: 'var(--border-line)', borderRadius: '50%', display: 'inline-block' }} />
+                      <span className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                        {entry.name}
                       </span>
-                    ) : (
-                      <button
-                        onClick={handleNextDraw}
-                        className="px-6 py-2 text-xs transition-all duration-200"
-                        style={{
-                          border: '0.5px solid var(--border-line)',
-                          background: 'transparent',
-                          color: 'var(--text-secondary)',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--text-primary)'
-                          e.currentTarget.style.color = 'var(--bg-page)'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent'
-                          e.currentTarget.style.color = 'var(--text-secondary)'
-                        }}
-                      >
-                        翻下一张
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </motion.div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
 
-            {/* ===== Block 3: Statistics ===== */}
-            {entryStats.total > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.3 }}
-                className="p-6"
+            {/* Drawn results (recent first) */}
+            {history.length > 0 && (
+              <div
+                className="p-5"
                 style={{
                   background: 'var(--bg-card)',
                   border: '0.5px solid var(--border-line)',
                 }}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
-                    统计摘要
-                  </h2>
-                  <button
-                    onClick={handleClearHistory}
-                    className="text-[0.6rem] transition-colors duration-200 hover:opacity-70"
-                    style={{ color: 'rgba(44,42,48,0.3)' }}
-                  >
-                    清除记录
-                  </button>
+                <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>
+                  已抽结果
+                </h2>
+                <div className="max-h-48 overflow-y-auto space-y-1.5">
+                  {[...history].reverse().map((name, i) => (
+                    <div key={`${name}-${i}`} className="flex items-center gap-2">
+                      <span
+                        className="text-[0.55rem] shrink-0"
+                        style={{ color: 'var(--accent-pink)' }}
+                      >
+                        #{history.length - i}
+                      </span>
+                      <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>
+                        {name}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-                  共抽取 {entryStats.total} 次
-                </p>
-                <div className="space-y-2.5">
-                  {Array.from(entryStats.stats.entries())
-                    .sort((a, b) => b[1].count - a[1].count)
-                    .map(([name, stat]) => (
-                      <div key={name} className="flex items-center gap-3 text-sm">
-                        <span className="w-24 truncate flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
-                          {name}
-                        </span>
-                        <div className="flex-1 h-2 rounded-full" style={{ background: 'var(--border-line)' }}>
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: stat.percentage }}
-                            transition={{ duration: 0.6, ease: 'easeOut' }}
-                            className="h-full rounded-full"
-                            style={{ background: 'var(--accent-pink)' }}
-                          />
-                        </div>
-                        <span className="flex-shrink-0 text-xs w-20 text-right" style={{ color: 'var(--text-muted)' }}>
-                          {stat.count} 次 ({stat.percentage})
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </motion.div>
-            )}
 
-            {/* Empty state: no draws yet */}
-            {entryStats.total === 0 && entries.length > 0 && flippedIdx === null && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.3 }}
-                className="p-10 text-center"
+                {/* Stats */}
+                <div className="mt-4 pt-3" style={{ borderTop: '0.5px solid var(--border-line)' }}>
+                  <h3 className="text-[0.6rem] uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
+                    抽卡统计
+                  </h3>
+                  <div className="space-y-1.5">
+                    {Array.from(drawnStats.entries())
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([name, count]) => {
+                        const pct = ((count / history.length) * 100).toFixed(1)
+                        return (
+                          <div key={name} className="flex items-center gap-2">
+                            <span className="text-xs flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{name}</span>
+                            <div className="flex-1 h-1.5 rounded-full" style={{ background: 'var(--border-line)' }}>
+                              <div
+                                className="h-full rounded-full"
+                                style={{ width: pct + '%', background: 'var(--accent-pink)' }}
+                              />
+                            </div>
+                            <span className="text-[0.6rem] w-14 text-right shrink-0" style={{ color: 'var(--text-muted)' }}>
+                              {count} ({pct}%)
+                            </span>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ===== Right: Card Wall ===== */}
+          <div className="flex-1">
+            {entries.length === 0 ? (
+              <div
+                className="flex items-center justify-center py-32"
                 style={{
                   background: 'var(--bg-card)',
                   border: '0.5px solid var(--border-line)',
                 }}
               >
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  ✦ 翻开卡牌开始抽取
+                  ✦ 添加条目开始抽卡
                 </p>
-              </motion.div>
+              </div>
+            ) : allFlipped ? (
+              <div
+                className="flex flex-col items-center justify-center py-32 gap-4"
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '0.5px solid var(--border-line)',
+                }}
+              >
+                <p className="font-display text-lg" style={{ color: 'var(--text-primary)' }}>
+                  全部翻完啦 ✦
+                </p>
+                <button
+                  onClick={handleReset}
+                  className="px-6 py-2 text-xs transition-all duration-200"
+                  style={{
+                    border: '0.5px solid var(--border-line)',
+                    background: 'transparent',
+                    color: 'var(--text-secondary)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--text-primary)'
+                    e.currentTarget.style.color = 'var(--bg-page)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-secondary)'
+                  }}
+                >
+                  重新洗牌
+                </button>
+              </div>
+            ) : (
+              <div
+                className="p-6"
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '0.5px solid var(--border-line)',
+                }}
+              >
+                <div
+                  className="grid gap-3"
+                  style={{
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                  }}
+                >
+                  {cardOrder.map((entryIdx, cardIdx) => {
+                    const isFlipped = flipped[cardIdx]
+                    const entry = entries[entryIdx]
+                    return (
+                      <motion.button
+                        key={cardIdx}
+                        onClick={() => handleCardClick(cardIdx)}
+                        disabled={allFlipped}
+                        style={{
+                          perspective: 600,
+                          aspectRatio: '2/3',
+                          cursor: isFlipped ? 'default' : 'pointer',
+                          padding: 0,
+                          border: 'none',
+                          background: 'transparent',
+                        }}
+                        whileHover={!isFlipped ? { scale: 1.08, zIndex: 10 } : {}}
+                        whileTap={!isFlipped ? { scale: 0.95 } : {}}
+                      >
+                        <motion.div
+                          animate={{ rotateY: isFlipped ? 180 : 0 }}
+                          transition={{ duration: 0.5, ease: 'easeOut' }}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            transformStyle: 'preserve-3d',
+                            position: 'relative',
+                          }}
+                        >
+                          {/* Card Back */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              backfaceVisibility: 'hidden',
+                              background: '#0c0a12',
+                              border: '0.5px solid rgba(255,255,255,0.08)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <span
+                              className="font-display text-lg font-bold select-none"
+                              style={{ color: 'rgba(247, 131, 172, 0.25)' }}
+                            >
+                              ?
+                            </span>
+                          </div>
+
+                          {/* Card Front */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              backfaceVisibility: 'hidden',
+                              transform: 'rotateY(180deg)',
+                              background: 'var(--bg-elevated)',
+                              border: '0.5px solid var(--border-line)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '6px',
+                            }}
+                          >
+                            <span
+                              className="block font-display text-[0.6rem] font-semibold text-center leading-tight"
+                              style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}
+                            >
+                              {entry.name}
+                            </span>
+                          </div>
+                        </motion.div>
+                      </motion.button>
+                    )
+                  })}
+                </div>
+              </div>
             )}
           </div>
-        )}
+        </div>
       </main>
 
       {/* Footer */}
