@@ -248,22 +248,22 @@ const GachaSimulator = () => {
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)' }} />
               <div className="flex mb-2" style={{ border: '0.5px solid var(--border-line)' }}>
                 <button onClick={() => setDedupEnabled(true)}
-                  className="px-3 py-1.5 text-xs transition-all flex-1"
+                  className="px-3 py-1.5 text-xs transition-all flex-1 cursor-pointer"
                   style={{ background: dedupEnabled ? 'var(--accent-subtle)' : 'transparent', color: dedupEnabled ? 'var(--accent-amber)' : 'var(--text-muted)' }}>去重</button>
                 <button onClick={() => setDedupEnabled(false)}
-                  className="px-3 py-1.5 text-xs transition-all flex-1"
+                  className="px-3 py-1.5 text-xs transition-all flex-1 cursor-pointer"
                   style={{ borderLeft: '0.5px solid var(--border-line)', background: !dedupEnabled ? 'var(--accent-subtle)' : 'transparent', color: !dedupEnabled ? 'var(--accent-amber)' : 'var(--text-muted)' }}>不去重</button>
               </div>
               <div className="flex mb-2" style={{ border: '0.5px solid var(--border-line)' }}>
                 <button onClick={() => setEntryMode('append')}
-                  className="px-3 py-1.5 text-xs transition-all flex-1"
+                  className="px-3 py-1.5 text-xs transition-all flex-1 cursor-pointer"
                   style={{ background: entryMode === 'append' ? 'var(--accent-subtle)' : 'transparent', color: entryMode === 'append' ? 'var(--accent-amber)' : 'var(--text-muted)' }}>追加</button>
                 <button onClick={() => setEntryMode('overwrite')}
-                  className="px-3 py-1.5 text-xs transition-all flex-1"
+                  className="px-3 py-1.5 text-xs transition-all flex-1 cursor-pointer"
                   style={{ borderLeft: '0.5px solid var(--border-line)', background: entryMode === 'overwrite' ? 'var(--accent-subtle)' : 'transparent', color: entryMode === 'overwrite' ? 'var(--accent-amber)' : 'var(--text-muted)' }}>覆盖</button>
               </div>
               <button onClick={handleAddEntries}
-                className="w-full py-2 text-xs transition-all"
+                className="w-full py-2 text-xs transition-all cursor-pointer"
                 style={{ border: '0.5px solid var(--border-line)', background: 'transparent', color: 'var(--text-secondary)' }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink-stamp)'; e.currentTarget.style.color = 'var(--bg-page)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' }}>
@@ -288,15 +288,15 @@ const GachaSimulator = () => {
                       <span className="text-xs flex-1 truncate" style={{ color: 'var(--text-muted)' }}>{entry.name}</span>
                       <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{single}%{showBoth ? `(${grouped}%)` : ''}</span>
                       <button onClick={() => handleRemoveEntry(entryIdx)}
-                        className="text-[0.6rem] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 px-1"
+                        className="text-[0.6rem] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 px-1 cursor-pointer"
                         style={{ color: 'var(--accent-amber)' }}>×</button>
                     </div>
                   )
                 })}
               </div>
               <div className="flex justify-between mt-3 pt-3" style={{ borderTop: '0.5px solid var(--border-line)' }}>
-                <button onClick={handleReset} className="text-xs transition-colors hover:opacity-70" style={{ color: 'var(--text-muted)' }}>重新洗牌</button>
-                <button onClick={handleResetDefault} className="text-xs transition-colors hover:opacity-70" style={{ color: 'var(--text-muted)' }}>恢复预设</button>
+                <button onClick={handleReset} className="text-xs transition-colors hover:opacity-70 cursor-pointer" style={{ color: 'var(--text-muted)' }}>重新洗牌</button>
+                <button onClick={handleResetDefault} className="text-xs transition-colors hover:opacity-70 cursor-pointer" style={{ color: 'var(--text-muted)' }}>恢复预设</button>
               </div>
             </div>
           </div>
@@ -314,8 +314,8 @@ const GachaSimulator = () => {
                   <div className="text-center mb-4 py-3" style={{ background: 'var(--accent-glow)' }}>
                     <p className="font-display text-base mb-2" style={{ color: 'var(--text-primary)' }}>全部翻完啦 ✦</p>
                     <button onClick={handleReset}
-                      className="px-4 py-1.5 text-xs transition-all"
-                      style={{ border: '0.5px solid var(--border-line)', background: 'transparent', color: 'var(--text-secondary)' }}
+                      className="px-4 py-1.5 text-xs transition-all cursor-pointer"
+                      style={{ border: '0.5px solid var(--border-line)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer' }}
                       onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink-stamp)'; e.currentTarget.style.color = 'var(--bg-page)' }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' }}>
                       重新洗牌
@@ -333,8 +333,8 @@ const GachaSimulator = () => {
                     </div>
                     <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{flippedCount}/{totalCards}</span>
                     <button onClick={handleReset}
-                      className="text-xs transition-all hover:opacity-70 shrink-0 px-2 py-0.5"
-                      style={{ border: '0.5px solid var(--border-line)', color: 'var(--text-muted)' }}
+                      className="text-xs transition-all hover:opacity-70 shrink-0 px-2 py-0.5 cursor-pointer"
+                      style={{ border: '0.5px solid var(--border-line)', color: 'var(--text-muted)', cursor: 'pointer' }}
                       onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--accent-amber)' }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}>
                       洗牌
