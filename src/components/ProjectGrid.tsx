@@ -17,54 +17,24 @@ const ProjectGrid = ({ projects }: ProjectGridProps) => {
   }
 
   const featured = projects[0]
-  const secondary = projects[1]
-  const rest = projects.slice(2)
+  const rest = projects.slice(1)
 
   return (
-    <>
-      {/* Magazine grid: featured (7 cols) + secondary (5 cols) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-        <div className="md:col-span-7">
-          {featured && <ProjectCard project={featured} index={0} variant="featured" />}
-        </div>
-        <div className="md:col-span-5">
-          {secondary && (
-            <div className="h-full">
-              <ProjectCard project={secondary} index={1} variant="secondary" />
-            </div>
-          )}
-        </div>
+    <div className="space-y-12 sm:space-y-16">
+      {/* Featured project — full width, prominent */}
+      <div className="w-full">
+        <ProjectCard project={featured} index={0} variant="featured" />
       </div>
 
-      {/* Additional projects in compact list */}
+      {/* Rest projects — simple list, one per row */}
       {rest.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-16 sm:mt-20">
+        <div className="space-y-4">
           {rest.map((project, i) => (
-            <div className="h-full" key={project.id}>
-              <ProjectCard project={project} index={i + 2} variant="list" />
-            </div>
+            <ProjectCard key={project.id} project={project} index={i + 1} variant="list" />
           ))}
         </div>
-      ) : (
-        <div className="mt-16 sm:mt-20">
-          <div
-            className="flex flex-col items-center justify-center py-12"
-            style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
-          >
-            <div style={{ height: '1px', background: 'var(--accent-pink)', width: '48px', marginBottom: '16px' }} />
-            <p
-              className="font-display text-sm text-center leading-relaxed px-8"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              更多项目筹备中...
-            </p>
-            <span className="text-[0.6rem] uppercase tracking-widest mt-2" style={{ color: 'var(--text-muted)' }}>
-              Coming Soon
-            </span>
-          </div>
-        </div>
-      )}
-    </>
+      ) : null}
+    </div>
   )
 }
 
