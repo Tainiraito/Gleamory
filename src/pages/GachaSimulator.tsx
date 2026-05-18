@@ -143,7 +143,7 @@ const GachaSimulator = () => {
 
   const enabledEntries = useMemo(() => entries.filter((e) => e.enabled), [entries])
   const enabledCount = enabledEntries.length
-  const disabledCount = entries.length - enabledCount
+
 
   // Restore state from sessionStorage on mount
   useEffect(() => {
@@ -226,7 +226,23 @@ const GachaSimulator = () => {
     setEntryText('')
   }, [entryText, entryMode, entries, dedupEnabled])
 
-  const handleRemoveGroup = useCallback((name: string) => {
+  const handleRemoveOne = useCallback((name: string) => {
+    setEntries((prev) => {
+      const idx = prev.findIndex((e) => e.name === name)
+      if (idx === -1) return prev
+      const next = [...prev]
+      next.splice(idx, 1)
+      return next
+    })
+    const fpIdx = fullPoolRef.current.findIndex((e) => e.name === name)
+    if (fpIdx !== -1) {
+      fullPoolRef.current = fullPoolRef.current.filter((_, i) => i !== fpIdx)
+    }
+    setHistory([])
+    setPoolExhausted(false)
+  }, [])
+
+  const handleRemoveAll = useCallback((name: string) => {
     setEntries((prev) => prev.filter((e) => e.name !== name))
     fullPoolRef.current = fullPoolRef.current.filter((e) => e.name !== name)
     setHistory([])
@@ -430,7 +446,7 @@ const GachaSimulator = () => {
           </div>
         </div>
 
-        {/* Entry List + Stats */}
+        {/* Entry List — table layout */}
         {entries.length > 0 && (
           <div
             className="rounded-lg p-5 mb-6"
@@ -438,69 +454,75 @@ const GachaSimulator = () => {
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs" style={sectionLabel}>
-                共 {entries.length} 条
-                {uniqueCount > 0 && (
-                  <span style={{ color: 'var(--text-muted)' }}>
-                    {' '}| {uniqueCount} 个不同条目
-                  </span>
-                )}
-                {disabledCount > 0 && (
-                  <span style={{ color: 'var(--text-muted)' }}>
-                    {' '}| 已禁用 {disabledCount} 条
-                  </span>
-                )}
-              </span>
-              <span className="text-xs" style={textMuted}>
-                当前概率: 1/{uniqueCount > 0 ? uniqueCount : '—'} × {(uniqueCount > 0 ? (1 / uniqueCount * 100).toFixed(2) : 0)}%
+                共 {entries.length} 条 · {uniqueCount} 个不同条目
               </span>
             </div>
 
-            {/* Entry list — consolidated by name */}
-            <ul className="space-y-1 max-h-64 overflow-y-auto">
-              <AnimatePresence>
-                {uniqueNames.map((name) => {
-                  const groupEntries = entries.filter((e) => e.name === name)
-                  const count = groupEntries.length
-                  const someEnabled = groupEntries.some((e) => e.enabled)
-                  return (
-                    <motion.li
-                      key={name}
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center justify-between py-1.5 px-2 rounded text-sm"
-                      style={{
-                        borderBottom: '1px solid var(--border-line)',
-                      }}
+            {/* Table header */}
+            <div className="grid grid-cols-[1fr_64px_100px_auto] gap-2 items-center py-2 px-2 mb-1 text-xs" style={textMuted}>
+              <span>条目</span>
+              <span className="text-center">数量</span>
+              <span className="text-center">概率</span>
+              <span>操作</span>
+            </div>
+
+            {/* Table rows */}
+            <div className="max-h-64 overflow-y-auto">
+              {uniqueNames.map((name) => {
+                const groupEntries = entries.filter((e) => e.name === name)
+                const count = groupEntries.length
+                const someEnabled = groupEntries.some((e) => e.enabled)
+                const entryProb = uniqueCount > 0 ? ((1 / uniqueCount) * 100).toFixed(1) : '0'
+                return (
+                  <div
+                    key={name}
+                    className="grid grid-cols-[1fr_64px_100px_auto] gap-2 items-center py-2 px-2 rounded text-sm"
+                    style={{ borderBottom: '1px solid var(--border-line)' }}
+                  >
+                    <span
+                      className="truncate"
+                      style={someEnabled ? textPrimary : lineThrough}
                     >
-                      <span
-                        className="flex-1 truncate"
-                        style={someEnabled ? textPrimary : lineThrough}
-                      >
-                        {name}
-                        {count > 1 && (
-                          <span className="ml-1" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
-                            × {count}
-                          </span>
-                        )}
-                      </span>
-                      <div className="flex items-center gap-2 ml-2 shrink-0">
-                        {/* Enable/disable toggle */}
+                      {name}
+                    </span>
+                    <span className="text-center" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
+                      × {count}
+                    </span>
+                    <span className="text-center text-xs" style={textMuted}>
+                      1/{uniqueCount} · {entryProb}%
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {count > 1 ? (
+                        <>
+                          <button
+                            onClick={() => handleRemoveOne(name)}
+                            className="text-xs px-1.5 py-0.5 rounded transition-opacity hover:opacity-70"
+                            style={{ color: 'var(--text-muted)', border: '1px solid var(--border-line)' }}
+                          >
+                            移除一条
+                          </button>
+                          <button
+                            onClick={() => handleRemoveAll(name)}
+                            className="text-xs px-1.5 py-0.5 rounded transition-opacity hover:opacity-70"
+                            style={dangerBtnStyle}
+                          >
+                            移除全部
+                          </button>
+                        </>
+                      ) : (
                         <button
-                          onClick={() => handleRemoveGroup(name)}
-                          className="text-sm w-5 h-5 flex items-center justify-center rounded-full transition-opacity hover:opacity-70"
+                          onClick={() => handleRemoveOne(name)}
+                          className="text-xs px-2 py-0.5 rounded transition-opacity hover:opacity-70"
                           style={dangerBtnStyle}
-                          title="移除所有"
                         >
-                          ×
+                          移除
                         </button>
-                      </div>
-                    </motion.li>
-                  )
-                })}
-              </AnimatePresence>
-            </ul>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 
