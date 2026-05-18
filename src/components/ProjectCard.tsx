@@ -4,134 +4,150 @@ import type { Project } from '@/types'
 interface ProjectCardProps {
   project: Project
   index: number
-  variant: 'featured' | 'secondary'
+  variant: 'featured' | 'secondary' | 'list'
 }
 
 const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
   const isFeatured = variant === 'featured'
+  const isList = variant === 'list'
   const hasUrl = project.url && project.url.length > 0
+
+  const titleClass = isFeatured
+    ? 'font-display text-3xl sm:text-4xl font-semibold'
+    : isList
+      ? 'font-display text-xl'
+      : 'font-display text-2xl sm:text-3xl font-semibold'
+
+  const textPadding = isFeatured
+    ? 'px-8 sm:px-10 py-10 sm:py-12'
+    : isList
+      ? 'py-6 sm:py-8'
+      : 'px-6 sm:px-8 py-8 sm:py-10'
+
+  const delay = isFeatured ? index * 0.12 : index * 0.08
 
   const inner = (
     <div className="flex flex-col h-full">
-      {/* Top accent line */}
-      <div style={{ height: '1px', background: 'linear-gradient(to right, var(--accent-pink), transparent)', width: '80px' }} />
-
-      {/* Cover image */}
+      {/* Cover image — flush with card edge */}
       {project.cover ? (
-        isFeatured ? (
-          <div style={{ minHeight: '400px' }}>
-            <img
-              src={project.cover}
-              alt=""
-              className="w-full object-cover transition-transform duration-500 group-hover:scale-[1.01]"
-              style={{ minHeight: '400px' }}
-              loading={index < 2 ? 'eager' : 'lazy'}
-            />
-          </div>
-        ) : (
-          <div className="px-6 sm:px-8 pt-6 sm:pt-8">
-            <div className="bg-white p-1 shadow-sm">
-              <img
-                src={project.cover}
-                alt=""
-                className="w-full object-cover rounded-[1px] transition-transform duration-500 group-hover:scale-[1.01]"
-                style={{ aspectRatio: '16/9' }}
-                loading={index < 2 ? 'eager' : 'lazy'}
-              />
-            </div>
-          </div>
-        )
+        <div className="overflow-hidden">
+          <img
+            src={project.cover}
+            alt=""
+            className={`w-full object-cover transition-transform duration-700 ${
+              isFeatured
+                ? 'min-h-[360px] group-hover:scale-[1.02]'
+                : 'aspect-[16/9]'
+            }`}
+            loading={index < 2 ? 'eager' : 'lazy'}
+          />
+        </div>
       ) : (
-        <div
-          style={{
-            height: isFeatured ? '100px' : '60px',
-            background: `linear-gradient(to bottom, var(--accent-glow), var(--bg-elevated))`,
-          }}
-        />
+        !isList && (
+          <div
+            style={{
+              height: isFeatured ? '110px' : '70px',
+              background: 'linear-gradient(to bottom, var(--accent-glow), var(--bg-elevated))',
+            }}
+          />
+        )
       )}
 
       {/* Text area */}
-      <div className="flex flex-col justify-center flex-1 px-6 sm:px-8 py-8 sm:py-10">
+      <div className={`flex flex-col justify-center flex-1 ${textPadding}`}>
+        {/* Title */}
         <h2
-          className="font-display mb-3 tracking-wide"
-          style={{
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            fontSize: isFeatured ? 'clamp(1.75rem, 4vw, 2.5rem)' : 'clamp(1.5rem, 3vw, 2rem)',
-          }}
+          className={`${titleClass} mb-2 tracking-wide`}
+          style={{ color: 'var(--text-primary)' }}
         >
           {project.name}
         </h2>
 
+        {/* Divider */}
+        {!isList && (
+          <div className="mb-4" style={{ height: '0.5px', width: '40%', background: 'var(--border-line)' }} />
+        )}
+
+        {/* Description */}
         <p
-          className="text-sm leading-relaxed mb-5 max-w-xl"
+          className={`text-sm leading-relaxed mb-5 ${isFeatured ? 'max-w-xl' : ''}`}
           style={{ color: 'var(--text-secondary)' }}
         >
           {project.description}
         </p>
 
-        <div className="flex flex-wrap gap-2 items-center mb-3">
-          {project.tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-[0.65rem] px-3 py-1 rounded-full"
-              style={{ color: 'var(--text-muted)', border: '1px solid var(--border-line)' }}
-            >
-              {tag}
-            </span>
-          ))}
-          {project.status && (
-            <span
-              className="text-[0.65rem] px-3 py-1 rounded-full"
-              style={{ color: 'var(--accent-pink)', border: '1px solid var(--accent-pink)' }}
-            >
-              {project.status}
-            </span>
-          )}
-        </div>
+        {/* Tags */}
+        {project.tags && project.tags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            {project.tags.map((tag, i) => {
+              const rotation = i % 3 === 0 ? '-1deg' : i % 3 === 1 ? '1deg' : '0deg'
+              return (
+                <span
+                  key={tag}
+                  className="text-[0.65rem] px-2 py-0.5 select-none"
+                  style={{
+                    color: 'var(--text-muted)',
+                    border: '0.5px solid rgba(44,42,48,0.12)',
+                    background: 'transparent',
+                    transform: `rotate(${rotation})`,
+                  }}
+                >
+                  {tag}
+                </span>
+              )
+            })}
+            {project.status && (
+              <span
+                className="text-[0.65rem] px-2 py-0.5 select-none"
+                style={{
+                  color: 'var(--accent-pink)',
+                  border: '0.5px solid rgba(44,42,48,0.12)',
+                  background: 'transparent',
+                  transform: 'rotate(-1deg)',
+                }}
+              >
+                {project.status}
+              </span>
+            )}
+          </div>
+        )}
 
-        <div className="flex gap-4">
-          {project.version && (
-            <span
-              className="text-[0.6rem] uppercase tracking-widest"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              {project.version}
-            </span>
-          )}
-          {project.updatedAt && project.updatedAt !== '-' && (
-            <span
-              className="text-[0.6rem] uppercase tracking-widest"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              {project.updatedAt}
-            </span>
-          )}
-        </div>
+        {/* Version + UpdatedAt */}
+        {(project.version || (project.updatedAt && project.updatedAt !== '-')) && (
+          <div className="flex gap-4">
+            {project.version && (
+              <span className="text-[0.6rem] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                {project.version}
+              </span>
+            )}
+            {project.updatedAt && project.updatedAt !== '-' && (
+              <span className="text-[0.6rem] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                {project.updatedAt}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
 
   const motionProps = {
-    className: 'group block h-full rounded-sm transition-all duration-300',
-    style: { background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(44,42,48,0.04), 0 4px 12px rgba(44,42,48,0.04), 0 8px 24px rgba(44,42,48,0.03)' },
-    initial: { opacity: 0, y: 24 },
+    className: 'group block h-full',
+    style: {
+      background: 'var(--bg-card)',
+      border: '0.5px solid var(--border-line)',
+      transition: 'box-shadow 0.4s ease-out',
+    },
+    initial: { opacity: 0, y: 16 },
     whileInView: { opacity: 1, y: 0 },
     viewport: { once: true },
-    transition: { duration: 0.6, delay: index * 0.12, ease: [0.25, 0.1, 0.25, 1] as const },
-    whileHover: isFeatured
-      ? { y: -2, scale: 1.005, boxShadow: 'var(--shadow-card-hover)' }
-      : { y: -2, boxShadow: 'var(--shadow-card-hover)' },
+    transition: { duration: 0.6, delay },
+    whileHover: { y: -2, boxShadow: '0 0 20px rgba(247, 131, 172, 0.1)' },
   }
 
   if (hasUrl) {
     return (
-      <motion.a
-        href={project.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        {...motionProps}
-      >
+      <motion.a href={project.url} target="_blank" rel="noopener noreferrer" {...motionProps}>
         {inner}
       </motion.a>
     )
