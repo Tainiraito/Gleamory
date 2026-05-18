@@ -38,18 +38,18 @@ const ProjectGrid = ({ projects }: ProjectGridProps) => {
 
       {/* Additional projects in compact list */}
       {rest.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-16 sm:mt-20">
           {rest.map((project, i) => (
             <div className="h-full" key={project.id}>
-              <ProjectCard project={project} index={i + 2} variant="secondary" />
+              <ProjectCard project={project} index={i + 2} variant="list" />
             </div>
           ))}
         </div>
       ) : (
-        <div className="mt-8">
+        <div className="mt-16 sm:mt-20">
           <div
-            className="rounded-sm flex flex-col items-center justify-center py-12"
-            style={{ background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' }}
+            className="flex flex-col items-center justify-center py-12"
+            style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
           >
             <div style={{ height: '1px', background: 'var(--accent-pink)', width: '48px', marginBottom: '16px' }} />
             <p
@@ -58,10 +58,7 @@ const ProjectGrid = ({ projects }: ProjectGridProps) => {
             >
               更多项目筹备中...
             </p>
-            <span
-              className="text-[0.6rem] uppercase tracking-widest mt-2"
-              style={{ color: 'var(--border-line)' }}
-            >
+            <span className="text-[0.6rem] uppercase tracking-widest mt-2" style={{ color: 'var(--text-muted)' }}>
               Coming Soon
             </span>
           </div>
