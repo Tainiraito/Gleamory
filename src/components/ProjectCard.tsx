@@ -12,7 +12,7 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
   const hasUrl = project.url && project.url.length > 0
 
   const inner = (
-    <>
+    <div className="flex flex-col h-full">
       {/* Top accent line */}
       <div style={{ height: '1px', background: 'var(--accent-pink)', width: '48px' }} />
 
@@ -41,15 +41,10 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
             </div>
           </div>
         )
-      ) : (
-        <div
-          className={isFeatured ? 'mx-0' : 'mx-6 sm:mx-8 mt-6 sm:mt-8'}
-          style={{ aspectRatio: '16/9', background: 'var(--bg-elevated)' }}
-        />
-      )}
+      ) : null}
 
       {/* Text area */}
-      <div className="px-6 sm:px-8 py-6 sm:py-8">
+      <div className="flex flex-col justify-center flex-1 px-6 sm:px-8 py-6 sm:py-8">
         <h2
           className="font-display mb-3 tracking-wide"
           style={{
@@ -107,11 +102,11 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
           )}
         </div>
       </div>
-    </>
+    </div>
   )
 
   const motionProps = {
-    className: 'group block rounded-sm transition-all duration-300',
+    className: 'group block h-full rounded-sm transition-all duration-300',
     style: { background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' },
     initial: { opacity: 0, y: 24 },
     whileInView: { opacity: 1, y: 0 },

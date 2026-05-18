@@ -27,16 +27,22 @@ const ProjectGrid = ({ projects }: ProjectGridProps) => {
         <div className="md:col-span-7">
           {featured && <ProjectCard project={featured} index={0} variant="featured" />}
         </div>
-        <div className="md:col-span-5 flex flex-col gap-8">
-          {secondary && <ProjectCard project={secondary} index={1} variant="secondary" />}
+        <div className="md:col-span-5">
+          {secondary && (
+            <div className="h-full">
+              <ProjectCard project={secondary} index={1} variant="secondary" />
+            </div>
+          )}
         </div>
       </div>
 
       {/* Additional projects in compact list */}
       {rest.length > 0 ? (
-        <div className="flex flex-col gap-8 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
           {rest.map((project, i) => (
-            <ProjectCard key={project.id} project={project} index={i + 2} variant="secondary" />
+            <div className="h-full" key={project.id}>
+              <ProjectCard project={project} index={i + 2} variant="secondary" />
+            </div>
           ))}
         </div>
       ) : (
