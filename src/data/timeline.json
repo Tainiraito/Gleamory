@@ -17,6 +17,18 @@
       "projectId": "gleamory",
       "content": "杂志版式重构，新增日历与每日古诗功能",
       "date": "2026-05-15"
+    },
+    {
+      "id": "4",
+      "projectId": "gacha-simulator",
+      "content": "翻牌抽卡模拟器上线——琥珀暖纸风，60+预设角色",
+      "date": "2026-05-19"
+    },
+    {
+      "id": "5",
+      "projectId": "gleamory",
+      "content": "全宽 SiteHeader 导航栏重构，配色更新为琥珀+暖纸+墨黑",
+      "date": "2026-05-19"
     }
   ]
 }

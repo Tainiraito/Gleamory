@@ -5,21 +5,21 @@
       "name": "微光集",
       "description": "个人项目展示首页，汇聚所有微光般的创意与灵感",
       "url": "https://gleamory.lovelysia.top",
-      "status": "开发中",
+      "status": "在线",
       "tags": ["在线网站", "展示页"],
       "cover": "/covers/interlude_RinLen_3.png",
-      "version": "v0.1.0",
-      "updatedAt": "2026-04-29"
+      "version": "v1.0.0",
+      "updatedAt": "2026-05-19"
     },
     {
       "id": "gacha-simulator",
       "name": "抽卡模拟",
-      "description": "玄不改非，氪不改命",
+      "description": "玄不改非，氪不改命。翻牌抽卡，看看今天是谁来找你~",
       "url": "#/gacha-simulator",
       "status": "在线",
       "tags": ["小工具", "抽卡"],
-      "version": "v0.1.0",
-      "updatedAt": "2026-05-18"
+      "version": "v1.0.0",
+      "updatedAt": "2026-05-19"
     },
     {
       "id": "moreAni",
