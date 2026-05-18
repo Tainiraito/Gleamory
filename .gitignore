@@ -49,3 +49,6 @@ coverage/
 
 # OpenCode 项目级配置（开发者个人环境，不参与构建）
 opencode.json
+
+# Claude Code 规划产物
+docs/superpowers/

@@ -2,6 +2,32 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+
+- ✨ **翻牌抽卡页面** — `GachaSimulator.tsx`（`/gacha` 路由）
+  - 三栏布局：管理面板 | 5列翻牌区 | 已抽结果+统计
+  - 卡牌翻面动画（Framer Motion 3D rotateY）
+  - 同名条目概率计算、去重/追加/覆盖添加模式
+  - 剩余概率基于未翻卡牌动态计算
+  - 重新洗牌动画：先盖回→延迟500ms打乱
+  - sessionStorage 持久化（300ms 防抖）
+  - 60+ 预设角色条目
+
+### Changed
+
+- 🎨 **配色统一为「琥珀 + 暖纸 + 墨黑」**
+  - `/gacha` 页面：全部粉色替换为琥珀（`--accent-amber: #c4956a`）
+  - 卡背由黑渐变改为暖纸色 `#e2d8c8`
+  - 黑色仅作 ink-stamp 按钮悬停和文字点缀
+  - 首页变量 `--accent-pink` 保留为琥珀别名保证兼容
+- 📱 移动端已抽结果不再重复显示（`hidden lg:block`）
+- ⚡ 概率预计算 `useMemo`、卡牌 grid 提取为 memo、header 加暖纸背景防重叠
+- 🔤 全局字阶规范化：移除 `text-[0.55rem]`，统一 Tailwind 系统
+
+---
+
 ## [3.0.0] - 2026-05-18
 
 ### 重大变更 — 全面重构
