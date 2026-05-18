@@ -44,6 +44,14 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
+// Probability based on remaining (unflipped) cards only — next-click chance
+function remainingProb(name: string, remainingEntries: Entry[], remainingTotal: number) {
+  const sameNameCount = remainingEntries.filter((e) => e.name === name).length
+  const single = ((1 / remainingTotal) * 100).toFixed(1)
+  const grouped = ((sameNameCount / remainingTotal) * 100).toFixed(1)
+  return { single, grouped, showBoth: single !== grouped }
+}
+
 function loadState(): GachaState {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
@@ -134,7 +142,17 @@ const GachaSimulator = () => {
     setHistory((prev) => [...prev, drawn])
   }, [flipped, entries, cardOrder])
 
-  const handleReset = useCallback(() => { rebuild(entries) }, [entries, rebuild])
+  const handleReset = useCallback(() => {
+    // ① Briefly show all cards face-up (reveal remaining deck)
+    setFlipped(new Array(entries.length).fill(true))
+    // ② Shuffle, then flip back
+    const timer = setTimeout(() => {
+      setCardOrder(shuffle(entries.map((_, i) => i)))
+      setFlipped(new Array(entries.length).fill(false))
+      setHistory([])
+    }, 700)
+    return () => clearTimeout(timer)
+  }, [entries])
   const handleResetDefault = useCallback(() => {
     const preset = DEFAULT_ENTRIES.map((n) => ({ name: n, enabled: true }))
     setEntries(preset)
@@ -152,6 +170,12 @@ const GachaSimulator = () => {
   const flippedCount = flipped.filter(Boolean).length
   const totalCards = entries.length
   const remainingCount = totalCards - flippedCount
+  const remainingEntries = useMemo(() => {
+    return cardOrder
+      .map((entryIdx, cardIdx) => ({ entryIdx, cardIdx, entry: entries[entryIdx] }))
+      .filter(({ cardIdx }) => !flipped[cardIdx])
+      .map(({ entry }) => entry)
+  }, [cardOrder, flipped, entries])
   const allFlipped = flippedCount === entries.length && entries.length > 0
 
   const drawnStats = useMemo(() => {
@@ -219,21 +243,21 @@ const GachaSimulator = () => {
                   .filter(({ cardIdx }) => !flipped[cardIdx])
                   .sort((a, b) => a.entry.name.localeCompare(b.entry.name, 'zh-CN'))
                   .map(({ entryIdx, cardIdx, entry }) => {
-                  const { single, grouped, showBoth } = cardProb(entry.name, entries, totalCards)
+                  const { single, grouped, showBoth } = remainingProb(entry.name, remainingEntries, remainingCount)
                   return (
                     <div key={cardIdx} className="flex items-center gap-1 py-0.5 group hover:bg-black/5 rounded px-1 -mx-1 transition-colors">
                       <span className="text-xs flex-1 truncate" style={{ color: 'var(--text-muted)' }}>{entry.name}</span>
-                      <span className="text-[0.6rem] shrink-0" style={{ color: 'var(--text-muted)' }}>{single}%{showBoth ? `(${grouped}%)` : ''}</span>
+                      <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{single}%{showBoth ? `(${grouped}%)` : ''}</span>
                       <button onClick={() => handleRemoveEntry(entryIdx)}
-                        className="text-[0.5rem] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 px-1"
+                        className="text-[0.6rem] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 px-1"
                         style={{ color: 'var(--accent-pink)' }}>×</button>
                     </div>
                   )
                 })}
               </div>
               <div className="flex justify-between mt-3 pt-3" style={{ borderTop: '0.5px solid var(--border-line)' }}>
-                <button onClick={handleReset} className="text-[0.55rem] transition-colors hover:opacity-70" style={{ color: 'rgba(44,42,48,0.3)' }}>重新洗牌</button>
-                <button onClick={handleResetDefault} className="text-[0.55rem] transition-colors hover:opacity-70" style={{ color: 'rgba(44,42,48,0.3)' }}>恢复预设</button>
+                <button onClick={handleReset} className="text-xs transition-colors hover:opacity-70" style={{ color: 'rgba(44,42,48,0.3)' }}>重新洗牌</button>
+                <button onClick={handleResetDefault} className="text-xs transition-colors hover:opacity-70" style={{ color: 'rgba(44,42,48,0.3)' }}>恢复预设</button>
               </div>
             </div>
           </div>
@@ -268,7 +292,7 @@ const GachaSimulator = () => {
                         animate={{ width: totalCards > 0 ? `${(flippedCount / totalCards) * 100}%` : '0%' }}
                         transition={{ duration: 0.3 }} />
                     </div>
-                    <span className="text-[0.55rem] shrink-0" style={{ color: 'var(--text-muted)' }}>{flippedCount}/{totalCards}</span>
+                    <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{flippedCount}/{totalCards}</span>
                   </div>
                 )}
 
@@ -296,7 +320,7 @@ const GachaSimulator = () => {
                           <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: 'var(--bg-elevated)', border: '0.5px solid var(--border-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
                             <span className="block font-display text-sm font-semibold text-center leading-snug mb-1" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{entry.name}</span>
                             {isFlipped && (
-                              <span className="text-[0.6rem] text-center" style={{ color: 'var(--accent-pink)' }}>
+                              <span className="text-xs text-center" style={{ color: 'var(--accent-pink)' }}>
                                 {single}%{showBoth ? ` (${grouped}%)` : ''}
                               </span>
                             )}
@@ -320,22 +344,22 @@ const GachaSimulator = () => {
                 <div className="max-h-60 overflow-y-auto space-y-1 mb-4">
                   {[...history].reverse().map((name, i) => (
                     <div key={`h-${name}-${i}`} className="flex items-center gap-1.5">
-                      <span className="text-[0.5rem] shrink-0" style={{ color: 'var(--accent-pink)' }}>#{history.length - i}</span>
+                      <span className="text-[0.6rem] shrink-0" style={{ color: 'var(--accent-pink)' }}>#{history.length - i}</span>
                       <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{name}</span>
                     </div>
                   ))}
                 </div>
-                <h3 className="text-[0.55rem] uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>抽卡统计</h3>
+                <h3 className="text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>抽卡统计</h3>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto">
                   {Array.from(drawnStats.entries()).sort((a, b) => b[1] - a[1]).map(([name, count]) => {
                     const pct = ((count / history.length) * 100).toFixed(1)
                     return (
                       <div key={`s-${name}`} className="flex items-center gap-2">
-                        <span className="text-[0.6rem] w-14 truncate shrink-0" style={{ color: 'var(--text-primary)' }}>{name}</span>
+                        <span className="text-xs w-14 truncate shrink-0" style={{ color: 'var(--text-primary)' }}>{name}</span>
                         <div className="flex-1 h-1 rounded-full" style={{ background: 'var(--border-line)' }}>
                           <div className="h-full rounded-full" style={{ width: pct + '%', background: 'var(--accent-pink)' }} />
                         </div>
-                        <span className="text-[0.5rem] w-14 text-right shrink-0" style={{ color: 'var(--text-muted)' }}>{count}({pct}%)</span>
+                        <span className="text-[0.6rem] w-14 text-right shrink-0" style={{ color: 'var(--text-muted)' }}>{count}({pct}%)</span>
                       </div>
                     )
                   })}
@@ -360,22 +384,22 @@ const GachaSimulator = () => {
             <div className="max-h-48 overflow-y-auto space-y-1 mb-3">
               {[...history].reverse().map((name, i) => (
                 <div key={`mh-${name}-${i}`} className="flex items-center gap-1.5">
-                  <span className="text-[0.5rem] shrink-0" style={{ color: 'var(--accent-pink)' }}>#{history.length - i}</span>
+                  <span className="text-[0.6rem] shrink-0" style={{ color: 'var(--accent-pink)' }}>#{history.length - i}</span>
                   <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{name}</span>
                 </div>
               ))}
             </div>
-            <h3 className="text-[0.55rem] uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>抽卡统计</h3>
+            <h3 className="text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>抽卡统计</h3>
             <div className="space-y-1.5 max-h-40 overflow-y-auto">
               {Array.from(drawnStats.entries()).sort((a, b) => b[1] - a[1]).map(([name, count]) => {
                 const pct = ((count / history.length) * 100).toFixed(1)
                 return (
                   <div key={`ms-${name}`} className="flex items-center gap-2">
-                    <span className="text-[0.6rem] w-14 truncate shrink-0" style={{ color: 'var(--text-primary)' }}>{name}</span>
+                    <span className="text-xs w-14 truncate shrink-0" style={{ color: 'var(--text-primary)' }}>{name}</span>
                     <div className="flex-1 h-1 rounded-full" style={{ background: 'var(--border-line)' }}>
                       <div className="h-full rounded-full" style={{ width: pct + '%', background: 'var(--accent-pink)' }} />
                     </div>
-                    <span className="text-[0.5rem] w-14 text-right shrink-0" style={{ color: 'var(--text-muted)' }}>{count}({pct}%)</span>
+                    <span className="text-[0.6rem] w-14 text-right shrink-0" style={{ color: 'var(--text-muted)' }}>{count}({pct}%)</span>
                   </div>
                 )
               })}
