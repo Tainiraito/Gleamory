@@ -16,7 +16,7 @@ const { updates } = updatesData as UpdatesData
 const HomePage = () => (
   <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
     <SiteHeader />
-    <main className="max-w-5xl mx-auto px-6 py-20 sm:py-24">
+    <main className="px-6 sm:px-[15%] py-20 sm:py-24">
       {/* Magazine grid for projects */}
       <ProjectGrid projects={projects} />
 
