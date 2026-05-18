@@ -9,20 +9,10 @@ interface ProjectCardProps {
 
 const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
   const isFeatured = variant === 'featured'
+  const hasUrl = project.url && project.url.length > 0
 
-  return (
-    <motion.a
-      href={project.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block rounded-sm transition-all duration-300"
-      style={{ background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' }}
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6, delay: index * 0.12, ease: [0.25, 0.1, 0.25, 1] }}
-      whileHover={{ y: -2, boxShadow: 'var(--shadow-card-hover)' }}
-    >
+  const inner = (
+    <>
       {/* Top accent line */}
       <div style={{ height: '1px', background: 'var(--accent-pink)', width: '48px' }} />
 
@@ -117,7 +107,36 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
           )}
         </div>
       </div>
-    </motion.a>
+    </>
+  )
+
+  const motionProps = {
+    className: 'group block rounded-sm transition-all duration-300',
+    style: { background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' },
+    initial: { opacity: 0, y: 24 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true },
+    transition: { duration: 0.6, delay: index * 0.12, ease: [0.25, 0.1, 0.25, 1] as const },
+    whileHover: { y: -2, boxShadow: 'var(--shadow-card-hover)' },
+  }
+
+  if (hasUrl) {
+    return (
+      <motion.a
+        href={project.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        {...motionProps}
+      >
+        {inner}
+      </motion.a>
+    )
+  }
+
+  return (
+    <motion.div {...motionProps}>
+      {inner}
+    </motion.div>
   )
 }
 

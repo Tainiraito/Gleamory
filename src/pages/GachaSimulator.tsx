@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getUniqueNames } from '@/lib/gacha'
 
 interface Entry {
   name: string
@@ -17,6 +18,7 @@ interface GachaState {
   mode: 'unique' | 'repeat'
   history: HistoryRound[]
   poolExhausted: boolean
+  dedupEnabled: boolean
 }
 
 const STORAGE_KEY = 'gacha-simulator-state'
@@ -39,12 +41,13 @@ function loadState(): GachaState {
         mode: parsed.mode === 'unique' || parsed.mode === 'repeat' ? parsed.mode : 'unique',
         history: Array.isArray(parsed.history) ? parsed.history : [],
         poolExhausted: typeof parsed.poolExhausted === 'boolean' ? parsed.poolExhausted : false,
+        dedupEnabled: typeof parsed.dedupEnabled === 'boolean' ? parsed.dedupEnabled : true,
       }
     }
   } catch {
     /* corrupted data, reset */
   }
-  return { entries: [], mode: 'unique', history: [], poolExhausted: false }
+  return { entries: [], mode: 'unique', history: [], poolExhausted: false, dedupEnabled: true }
 }
 
 function saveState(state: GachaState) {
@@ -123,6 +126,7 @@ const GachaSimulator = () => {
   const [history, setHistory] = useState<HistoryRound[]>([])
   const [entryText, setEntryText] = useState('')
   const [entryMode, setEntryMode] = useState<'append' | 'overwrite'>('append')
+  const [dedupEnabled, setDedupEnabled] = useState(true)
   const [drawCount, setDrawCount] = useState(1)
   const [poolExhausted, setPoolExhausted] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
@@ -153,8 +157,8 @@ const GachaSimulator = () => {
 
   // Persist state to sessionStorage on change
   useEffect(() => {
-    saveState({ entries, mode, history, poolExhausted })
-  }, [entries, mode, history, poolExhausted])
+    saveState({ entries, mode, history, poolExhausted, dedupEnabled })
+  }, [entries, mode, history, poolExhausted, dedupEnabled])
 
   // Clamp drawCount when enabled count changes
   useEffect(() => {
@@ -186,21 +190,32 @@ const GachaSimulator = () => {
         seen.add(e.name)
         return true
       })
-      setEntries(deduped)
-      updateFullPoolRef(deduped)
+      setEntries(dedupEnabled ? deduped : newEntries)
+      updateFullPoolRef(dedupEnabled ? deduped : newEntries)
       setHistory([])
       setPoolExhausted(false)
     } else {
-      // Append: merge, skip names that already exist
-      const existingNames = new Set(entries.map((e) => e.name))
-      const deduped = newEntries.filter((e) => {
-        if (existingNames.has(e.name)) return false
-        existingNames.add(e.name)
-        return true
-      })
-      if (deduped.length > 0) {
+      // Append
+      if (dedupEnabled) {
+        // Append: merge, skip names that already exist
+        const existingNames = new Set(entries.map((e) => e.name))
+        const deduped = newEntries.filter((e) => {
+          if (existingNames.has(e.name)) return false
+          existingNames.add(e.name)
+          return true
+        })
+        if (deduped.length > 0) {
+          setEntries((prev) => {
+            const merged = [...prev, ...deduped]
+            updateFullPoolRef(merged)
+            return merged
+          })
+          setPoolExhausted(false)
+        }
+      } else {
+        // Append without dedup
         setEntries((prev) => {
-          const merged = [...prev, ...deduped]
+          const merged = [...prev, ...newEntries]
           updateFullPoolRef(merged)
           return merged
         })
@@ -209,28 +224,12 @@ const GachaSimulator = () => {
     }
 
     setEntryText('')
-  }, [entryText, entryMode, entries])
+  }, [entryText, entryMode, entries, dedupEnabled])
 
-  const handleToggleEntry = useCallback((index: number) => {
-    const name = entriesRef.current[index]?.name
-    setEntries((prev) =>
-      prev.map((e, i) => (i === index ? { ...e, enabled: !e.enabled } : e))
-    )
-    if (name) {
-      fullPoolRef.current = fullPoolRef.current.map((e) =>
-        e.name === name ? { ...e, enabled: !e.enabled } : e
-      )
-    }
-    // Toggling doesn't clear history per spec
-  }, [])
-
-  const handleRemoveEntry = useCallback((index: number) => {
-    const name = entriesRef.current[index]?.name
-    setEntries((prev) => prev.filter((_, i) => i !== index))
-    if (name) {
-      fullPoolRef.current = fullPoolRef.current.filter((e) => e.name !== name)
-    }
-    setHistory([]) // Remove entry clears all draw history
+  const handleRemoveGroup = useCallback((name: string) => {
+    setEntries((prev) => prev.filter((e) => e.name !== name))
+    fullPoolRef.current = fullPoolRef.current.filter((e) => e.name !== name)
+    setHistory([])
     setPoolExhausted(false)
   }, [])
 
@@ -301,6 +300,8 @@ const GachaSimulator = () => {
   })
 
   const maxDraw = Math.max(1, enabledCount)
+  const uniqueNames = useMemo(() => getUniqueNames(entries), [entries])
+  const uniqueCount = uniqueNames.length
 
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
@@ -321,7 +322,7 @@ const GachaSimulator = () => {
           className="font-display text-3xl sm:text-4xl text-center mb-2"
           style={{ color: 'var(--text-primary)' }}
         >
-          抽卡模拟器
+          抽卡模拟
         </h1>
         <p
           className="text-sm text-center mb-10"
@@ -417,6 +418,16 @@ const GachaSimulator = () => {
             >
               添加条目
             </button>
+            <label className="flex items-center gap-1.5 ml-auto text-xs" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={dedupEnabled}
+                onChange={(e) => setDedupEnabled(e.target.checked)}
+                className="w-3 h-3 rounded"
+                style={{ accentColor: 'var(--accent-pink)' }}
+              />
+              去重
+            </label>
           </div>
         </div>
 
@@ -429,6 +440,11 @@ const GachaSimulator = () => {
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs" style={sectionLabel}>
                 共 {entries.length} 条
+                {uniqueCount > 0 && (
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {' '}| {uniqueCount} 个不同条目
+                  </span>
+                )}
                 {disabledCount > 0 && (
                   <span style={{ color: 'var(--text-muted)' }}>
                     {' '}| 已禁用 {disabledCount} 条
@@ -436,57 +452,54 @@ const GachaSimulator = () => {
                 )}
               </span>
               <span className="text-xs" style={textMuted}>
-                当前概率: 1/{enabledCount > 0 ? enabledCount : '—'} × {enabledCount > 0 ? (1 / enabledCount * 100).toFixed(2) + '%' : '—'}
+                当前概率: 1/{uniqueCount > 0 ? uniqueCount : '—'} × {(uniqueCount > 0 ? (1 / uniqueCount * 100).toFixed(2) : 0)}%
               </span>
             </div>
 
-            {/* Entry list */}
+            {/* Entry list — consolidated by name */}
             <ul className="space-y-1 max-h-64 overflow-y-auto">
               <AnimatePresence>
-                {entries.map((entry, i) => (
-                  <motion.li
-                    key={entry.name}
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex items-center justify-between py-1.5 px-2 rounded text-sm"
-                    style={{
-                      borderBottom: '1px solid var(--border-line)',
-                    }}
-                  >
-                    <span
-                      className="flex-1 truncate"
-                      style={entry.enabled ? textPrimary : lineThrough}
+                {uniqueNames.map((name) => {
+                  const groupEntries = entries.filter((e) => e.name === name)
+                  const count = groupEntries.length
+                  const someEnabled = groupEntries.some((e) => e.enabled)
+                  return (
+                    <motion.li
+                      key={name}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex items-center justify-between py-1.5 px-2 rounded text-sm"
+                      style={{
+                        borderBottom: '1px solid var(--border-line)',
+                      }}
                     >
-                      {entry.name}
-                    </span>
-                    <div className="flex items-center gap-2 ml-2 shrink-0">
-                      {/* Enable/disable toggle */}
-                      <button
-                        onClick={() => handleToggleEntry(i)}
-                        className="text-[0.65rem] px-2 py-0.5 rounded transition-colors"
-                        style={
-                          entry.enabled
-                            ? { ...buttonBase, opacity: 0.8 }
-                            : { ...buttonBase, opacity: 0.35 }
-                        }
-                        title={entry.enabled ? '禁用' : '启用'}
+                      <span
+                        className="flex-1 truncate"
+                        style={someEnabled ? textPrimary : lineThrough}
                       >
-                        {entry.enabled ? '启用' : '禁用'}
-                      </button>
-                      {/* Remove button */}
-                      <button
-                        onClick={() => handleRemoveEntry(i)}
-                        className="text-sm w-5 h-5 flex items-center justify-center rounded-full transition-opacity hover:opacity-70"
-                        style={dangerBtnStyle}
-                        title="移除"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </motion.li>
-                ))}
+                        {name}
+                        {count > 1 && (
+                          <span className="ml-1" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
+                            × {count}
+                          </span>
+                        )}
+                      </span>
+                      <div className="flex items-center gap-2 ml-2 shrink-0">
+                        {/* Enable/disable toggle */}
+                        <button
+                          onClick={() => handleRemoveGroup(name)}
+                          className="text-sm w-5 h-5 flex items-center justify-center rounded-full transition-opacity hover:opacity-70"
+                          style={dangerBtnStyle}
+                          title="移除所有"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </motion.li>
+                  )
+                })}
               </AnimatePresence>
             </ul>
           </div>

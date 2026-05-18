@@ -29,8 +29,20 @@ const ProjectGrid = ({ projects }: ProjectGridProps) => {
         </div>
         <div className="md:col-span-5 flex flex-col gap-8">
           {secondary && <ProjectCard project={secondary} index={1} variant="secondary" />}
+        </div>
+      </div>
+
+      {/* Additional projects in compact list */}
+      {rest.length > 0 ? (
+        <div className="flex flex-col gap-8 mt-8">
+          {rest.map((project, i) => (
+            <ProjectCard key={project.id} project={project} index={i + 2} variant="secondary" />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-8">
           <div
-            className="rounded-sm flex flex-col items-center justify-center py-12 flex-1"
+            className="rounded-sm flex flex-col items-center justify-center py-12"
             style={{ background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' }}
           >
             <div style={{ height: '1px', background: 'var(--accent-pink)', width: '48px', marginBottom: '16px' }} />
@@ -47,15 +59,6 @@ const ProjectGrid = ({ projects }: ProjectGridProps) => {
               Coming Soon
             </span>
           </div>
-        </div>
-      </div>
-
-      {/* Additional projects in compact list */}
-      {rest.length > 0 && (
-        <div className="flex flex-col gap-8 mt-8">
-          {rest.map((project, i) => (
-            <ProjectCard key={project.id} project={project} index={i + 2} variant="secondary" />
-          ))}
         </div>
       )}
     </>
