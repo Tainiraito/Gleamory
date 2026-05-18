@@ -1,6 +1,6 @@
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import type { ProjectsData, UpdatesData } from '@/types'
-import FloatingLogo from '@/components/FloatingLogo'
+import SiteHeader from '@/components/SiteHeader'
 import ProjectGrid from '@/components/ProjectGrid'
 import CalendarCard from '@/components/CalendarCard'
 import PoemCard from '@/components/PoemCard'
@@ -15,7 +15,7 @@ const { updates } = updatesData as UpdatesData
 
 const HomePage = () => (
   <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
-    <FloatingLogo />
+    <SiteHeader />
     <main className="max-w-5xl mx-auto px-6 py-20 sm:py-24">
       {/* Magazine grid for projects */}
       <ProjectGrid projects={projects} />
