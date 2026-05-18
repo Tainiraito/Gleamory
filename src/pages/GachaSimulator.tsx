@@ -53,9 +53,15 @@ const TAROT_RANKS = ['Ace', '2', '3', '4', '5', '6', '7', '8', '9', '10', '侍�
 const MINOR_ARCANA = TAROT_SUITS.flatMap((s) => TAROT_RANKS.map((r) => `${s}${r}`))
 const TAROT_PRESET = [...MAJOR_ARCANA, ...MINOR_ARCANA]
 
+const MINE_PRESET = [
+  ...Array.from({ length: 5 }, () => '💣 爆弹'),
+  ...Array.from({ length: 45 }, (_, i) => `安全-${i + 1}`),
+]
+
 const PRESETS: Record<string, string[]> = {
   '二次元角色': ANIME_PRESET,
   '扑克牌': POKER_PRESET,
+  '扫雷': MINE_PRESET,
   '塔罗牌': TAROT_PRESET,
 }
 const PRESET_NAMES = Object.keys(PRESETS)
