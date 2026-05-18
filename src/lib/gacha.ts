@@ -13,6 +13,7 @@ export interface GachaState {
   mode: 'unique' | 'repeat'
   history: HistoryRound[]
   poolExhausted: boolean
+  dedupEnabled: boolean
 }
 
 export const STORAGE_KEY = 'gacha-simulator-state'
@@ -50,25 +51,40 @@ export function getEntryProbability(enabledCount: number): number {
   return enabledCount > 0 ? 1 / enabledCount : 0
 }
 
-/** Draw `count` items without replacement from the pool using Fisher-Yates shuffle */
+/** Extract unique names from entries, preserving first-seen order */
+export function getUniqueNames<T extends { name: string }>(items: readonly T[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const item of items) {
+    if (!seen.has(item.name)) {
+      seen.add(item.name)
+      result.push(item.name)
+    }
+  }
+  return result
+}
+
+/** Draw `count` items without replacement from unique entry names */
 export function drawUnique<T extends { name: string }>(
   pool: readonly T[],
   count: number
 ): string[] {
-  const safe = Math.min(count, pool.length)
+  const uniqueNames = getUniqueNames(pool)
+  const safe = Math.min(count, uniqueNames.length)
   if (safe <= 0) return []
-  const shuffled = fisherYatesShuffle(pool)
-  return shuffled.slice(0, safe).map((e) => e.name)
+  const shuffled = fisherYatesShuffle(uniqueNames)
+  return shuffled.slice(0, safe)
 }
 
-/** Draw `count` items with replacement — each draw is independent */
+/** Draw `count` items with replacement from unique entry names */
 export function drawRepeat<T extends { name: string }>(
   pool: readonly T[],
   count: number
 ): string[] {
-  if (pool.length === 0) return []
+  const uniqueNames = getUniqueNames(pool)
+  if (uniqueNames.length === 0) return []
   return Array.from({ length: count }, () => {
-    return pool[Math.floor(Math.random() * pool.length)].name
+    return uniqueNames[Math.floor(Math.random() * uniqueNames.length)]
   })
 }
 
@@ -100,12 +116,13 @@ export function loadState(): GachaState {
         mode: parsed.mode === 'unique' || parsed.mode === 'repeat' ? parsed.mode : 'unique',
         history: Array.isArray(parsed.history) ? parsed.history : [],
         poolExhausted: typeof parsed.poolExhausted === 'boolean' ? parsed.poolExhausted : false,
+        dedupEnabled: typeof parsed.dedupEnabled === 'boolean' ? parsed.dedupEnabled : true,
       }
     }
   } catch {
     /* corrupted data, reset */
   }
-  return { entries: [], mode: 'unique', history: [], poolExhausted: false }
+  return { entries: [], mode: 'unique', history: [], poolExhausted: false, dedupEnabled: true }
 }
 
 export function saveState(state: GachaState): void {

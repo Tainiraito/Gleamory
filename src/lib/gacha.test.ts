@@ -4,6 +4,7 @@ import {
   deduplicateByName,
   parseEntryText,
   getEntryProbability,
+  getUniqueNames,
   drawUnique,
   drawRepeat,
   computeModeSwitch,
@@ -92,6 +93,36 @@ describe('deduplicateByName', () => {
 
   it('handles single-element array', () => {
     expect(deduplicateByName(['only'])).toEqual(['only'])
+  })
+})
+
+// ==================== getUniqueNames ====================
+describe('getUniqueNames', () => {
+  it('extracts unique names, preserving first-seen order', () => {
+    const items: Entry[] = [
+      { name: 'A', enabled: true },
+      { name: 'B', enabled: true },
+      { name: 'A', enabled: false },
+      { name: 'C', enabled: true },
+      { name: 'B', enabled: true },
+    ]
+    expect(getUniqueNames(items)).toEqual(['A', 'B', 'C'])
+  })
+
+  it('returns empty array for empty input', () => {
+    expect(getUniqueNames([])).toEqual([])
+  })
+
+  it('returns same names when no duplicates', () => {
+    const items: Entry[] = [
+      { name: 'X', enabled: true },
+      { name: 'Y', enabled: false },
+    ]
+    expect(getUniqueNames(items)).toEqual(['X', 'Y'])
+  })
+
+  it('handles single item', () => {
+    expect(getUniqueNames([{ name: 'only', enabled: true }])).toEqual(['only'])
   })
 })
 
@@ -301,6 +332,7 @@ describe('sessionStorage persistence', () => {
       mode: 'unique',
       history: [{ round: 1, results: ['X'] }],
       poolExhausted: false,
+      dedupEnabled: true,
     }
     saveState(state)
     expect(sessionStorage.setItem).toHaveBeenCalledWith(
@@ -316,6 +348,7 @@ describe('sessionStorage persistence', () => {
       mode: 'unique',
       history: [],
       poolExhausted: false,
+      dedupEnabled: true,
     })
   })
 
@@ -328,6 +361,7 @@ describe('sessionStorage persistence', () => {
       mode: 'repeat',
       history: [{ round: 1, results: ['A'] }],
       poolExhausted: true,
+      dedupEnabled: false,
     }
     mockStorage.set(STORAGE_KEY, JSON.stringify(saved))
     const loaded = loadState()
@@ -335,6 +369,7 @@ describe('sessionStorage persistence', () => {
     expect(loaded.mode).toBe('repeat')
     expect(loaded.history).toEqual(saved.history)
     expect(loaded.poolExhausted).toBe(true)
+    expect(loaded.dedupEnabled).toBe(false)
   })
 
   it('loadState filters invalid entry objects', () => {
@@ -387,7 +422,7 @@ describe('sessionStorage persistence', () => {
     })
     // Should not throw
     expect(() =>
-      saveState({ entries: [], mode: 'unique', history: [], poolExhausted: false })
+      saveState({ entries: [], mode: 'unique', history: [], poolExhausted: false, dedupEnabled: true })
     ).not.toThrow()
   })
 })
