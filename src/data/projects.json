@@ -2,7 +2,7 @@
   "projects": [
     {
       "id": "gleamory",
-      "name": "Gleamory 微光集",
+      "name": "微光集",
       "description": "个人项目展示首页，汇聚所有微光般的创意与灵感",
       "url": "https://github.com/Tainiraito/Gleamory",
       "status": "开发中",
@@ -13,7 +13,7 @@
     },
     {
       "id": "moreAni",
-      "name": "MoreAni 又看一集",
+      "name": "又看一集",
       "description": "群友们的番剧小站，安利你心中的好番",
       "url": "https://github.com/Tainiraito/personal_website_lumine",
       "status": "开发中",
@@ -21,6 +21,17 @@
       "cover": "/covers/荧月.png",
       "version": "v0.0.1",
       "updatedAt": "-"
+    },
+    {
+      "id": "gacha-simulator",
+      "name": "抽卡模拟器",
+      "description": "玄不改非，氪不改命",
+      "url": "#/gacha-simulator",
+      "status": "在线",
+      "tags": ["小工具", "抽卡"],
+      "cover": "/covers/interlude_RinLen_3.png",
+      "version": "v0.1.0",
+      "updatedAt": "2026-05-18"
     }
   ]
 }

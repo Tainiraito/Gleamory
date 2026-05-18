@@ -1,3 +1,4 @@
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import type { ProjectsData, UpdatesData } from '@/types'
 import FloatingLogo from '@/components/FloatingLogo'
 import ProjectGrid from '@/components/ProjectGrid'
@@ -5,13 +6,14 @@ import CalendarCard from '@/components/CalendarCard'
 import PoemCard from '@/components/PoemCard'
 import Timeline from '@/components/Timeline'
 import Footer from '@/components/Footer'
+import GachaSimulator from '@/pages/GachaSimulator'
 import projectsData from '@/data/projects.json'
 import updatesData from '@/data/timeline.json'
 
 const { projects } = projectsData as ProjectsData
 const { updates } = updatesData as UpdatesData
 
-const App = () => (
+const HomePage = () => (
   <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
     <FloatingLogo />
     <main className="max-w-5xl mx-auto px-6 py-20 sm:py-24">
@@ -40,6 +42,15 @@ const App = () => (
     </main>
     <Footer />
   </div>
+)
+
+const App = () => (
+  <HashRouter>
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/gacha-simulator" element={<GachaSimulator />} />
+    </Routes>
+  </HashRouter>
 )
 
 export default App
