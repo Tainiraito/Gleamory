@@ -343,7 +343,7 @@ const GachaSimulator = () => {
                 )}
 
                 {/* Card grid — 5 columns max */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: '0.5rem' }}>
                   {cardGrid}
                 </div>
               </div>
