@@ -60,7 +60,7 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
 
       {/* Text area */}
       <div className="px-6 sm:px-8 py-6 sm:py-8">
-        <h1
+        <h2
           className="font-display mb-3 tracking-wide"
           style={{
             fontWeight: 600,
@@ -69,7 +69,7 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
           }}
         >
           {project.name}
-        </h1>
+        </h2>
 
         <p
           className="text-sm leading-relaxed mb-5 max-w-xl"

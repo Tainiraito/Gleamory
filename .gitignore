@@ -41,6 +41,9 @@ coverage/
 *.tmp
 *.temp
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Hermes Agent 工作目录
 .hermes/
 

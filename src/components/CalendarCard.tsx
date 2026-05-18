@@ -84,7 +84,7 @@ const CalendarCard = () => {
               key={i}
               className="text-center text-sm py-1.5"
               style={{
-                color: isDimmed ? 'rgba(44,42,48,0.08)' : isToday ? 'var(--accent-pink)' : 'var(--text-primary)',
+                color: isDimmed ? 'var(--text-dimmed)' : isToday ? 'var(--accent-pink)' : 'var(--text-primary)',
                 fontWeight: isToday ? 600 : 400,
               }}
             >

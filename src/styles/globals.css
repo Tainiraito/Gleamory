@@ -51,6 +51,7 @@
   --border-line: rgba(44, 42, 48, 0.06);
   --shadow-card: 0 2px 8px rgba(44, 42, 48, 0.04);
   --shadow-card-hover: 0 4px 16px rgba(44, 42, 48, 0.08);
+  --text-dimmed: rgba(44, 42, 48, 0.08);
 }
 
 * {

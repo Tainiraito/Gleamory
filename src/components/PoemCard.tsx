@@ -13,15 +13,21 @@ const PoemCard = () => {
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 8000)
 
-    fetch('https://v1.jinrishici.com/all.json')
+    fetch('https://v1.jinrishici.com/all.json', { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error('API error')
         return res.json()
       })
       .then((data) => {
         if (!cancelled) {
-          setPoem({ content: data.content, origin: data.origin, author: data.author })
+          if (data?.content && data?.origin && data?.author) {
+            setPoem({ content: data.content, origin: data.origin, author: data.author })
+          } else {
+            throw new Error('Invalid response format')
+          }
           setLoading(false)
         }
       })
@@ -35,6 +41,8 @@ const PoemCard = () => {
 
     return () => {
       cancelled = true
+      clearTimeout(timeoutId)
+      controller.abort()
     }
   }, [])
 

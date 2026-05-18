@@ -2,7 +2,67 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [3.0.0] - 2026-05-18
+
+### 重大变更 — 全面重构
+
+- 🚀 **框架迁移：Vue 3 → React 19**
+  - 全部组件重写为 React 函数组件（TypeScript）
+  - 入口从 `src/main.ts` (Vue) 迁移至 `src/main.tsx` (React)
+  - 使用 `@vitejs/plugin-react` 替代 `@vitejs/plugin-vue`
+
+- 🎨 **样式重构：Tailwind v3 → Tailwind v4 + CSS 主题**
+  - Tailwind v4 CSS-first 配置，`@theme inline` 替代 `tailwind.config.js`
+  - 全新「素笺」设计系统：暖米纸色背景 `#f7f4ef` + 白色卡片
+  - 所有设计标记统一为 CSS 自定义属性（`--bg-page`, `--text-primary`, `--accent-pink` 等）
+
+- ✨ **动画引擎：自定义 CSS → Framer Motion**
+  - 引入 Framer Motion v12 驱动所有动画
+  - 项目卡片：滚动渐入 + hover 上浮 + 阴影过渡
+  - 时间线：交错动画，从左淡入
+
+### 新功能
+
+- 📰 **杂志布局** — `ProjectGrid.tsx`
+  - 7/5 列网格分割（前 2 个项目高低搭配）
+  - 后续项目以垂直清单排列，告别网格大盘
+
+- 📅 **实时日历组件** — `CalendarCard.tsx`
+  - 基于 JS Date 动态渲染当前月份
+  - 上月/下月日期间淡化，今日粉色圆圈高亮
+
+- 📝 **每日诗句组件** — `PoemCard.tsx`
+  - 首次加载从 `v1.jinrishici.com` API 获取
+  - API 失败时从本地 `poems.json`（31 首）回退
+  - 霞鹜文楷字体展示，优雅手写感
+
+- 🏷️ **浮动品牌标识** — `FloatingLogo.tsx`
+  - 固定左上角「Gleamory」文字，hover 淡化
+
+### 架构变更
+
+- 🔧 **构建工具链更新**
+  - `@tailwindcss/vite` 插件替代 PostCSS + autoprefixer
+  - `env.d.ts` (Vue 类型声明) 移除 → `vite-env.d.ts` (Vite 通用类型声明)
+  - `tsc -b` 类型检查替代 `vue-tsc`
+  - ESLint 扁平配置更新为 `react-hooks` + `react-refresh`
+
+- 🗑️ **移除已废弃文件**
+  - `tailwind.config.js`（Tailwind v4 CSS-first）
+  - `postcss.config.js`（已由 `@tailwindcss/vite` 接管）
+  - `env.d.ts`（Vue 专用，React 项目无需）
+  - `postcss` / `autoprefixer` 依赖
+
+### 页面功能
+
+- ✨ 滚动渐入动画（Framer Motion `whileInView`）
+- 🔤 **霞鹜文楷** — 诗句区域专有字体（Google Fonts）
+- 🎨 自定义 favicon（粉紫渐变星形微光图标）
+- 🌐 保留 GitHub Pages 部署 + 自定义域名 `gleamory.lovelysia.top`
+
+---
+
+## [2.0.0] (Unreleased)
 
 ### Added
 
@@ -79,7 +139,7 @@
 
 - 🎨 品牌色升级：主粉 #FFB7C5 → #F783AC，新增主紫 #B490E4
 - 📐 布局重构：Hero 大横幅 → 粘性导航栏 + 分区布局
-- 📝 模块标题重命名："妙妙工具" → "拾光集录"，"时间夹缝" → "流光忆庭"
+- 📝 模块标题重命名：「妙妙工具」→「拾光集录」，「时间夹缝」→「流光忆庭」
 - 🔤 字体从 Google Fonts Noto Sans SC 切换为本地思源宋体
 - 🎨 背景从米白 #FFFAF0 改为纯白
 - 📐 卡片圆角统一为 12px，标签圆角统一为 8px

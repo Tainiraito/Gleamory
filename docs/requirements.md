@@ -1,8 +1,8 @@
 # Gleamory 项目需求文档
 
-> 版本: v2.0.0  
+> 版本: v3.0.0  
 > 创建时间: 2026-04-29  
-> 最后更新: 2026-05-05  
+> 最后更新: 2026-05-18  
 > 状态: 已实现
 
 ---
@@ -92,15 +92,16 @@
 
 | 类别 | 技术选择 | 说明 |
 |:---|:---|:---|
-| 框架 | Vue 3 | Composition API + `<script setup lang="ts">` |
-| 语言 | TypeScript 6.0 | 编译期类型安全，vue-tsc 检查 |
-| UI 库 | Element Plus | 时间线组件，unplugin-element-plus 自动导入样式 |
-| 构建工具 | Vite 5 | 开发热更新 + 生产构建 |
-| 类型检查 | vue-tsc ^3.2 | `vue-tsc --noEmit` 集成到构建流程 |
-| 代码规范 | ESLint（扁平配置） | typescript-eslint + eslint-plugin-vue |
+| 框架 | React 19 | 函数组件 + TypeScript |
+| 语言 | TypeScript (strict) | 编译期类型安全，tsc -b 检查 |
+| 动画 | Framer Motion v12 | 滚动渐入、hover 过渡、交错动画 |
+| 构建工具 | Vite | `@vitejs/plugin-react` + `@tailwindcss/vite` |
+| 样式系统 | Tailwind CSS v4 | CSS-first 配置，`@theme inline`，无 PostCSS |
+| 类型检查 | tsc -b | 项目引用模式（tsconfig.app + tsconfig.node） |
+| 代码规范 | ESLint（扁平配置） | typescript-eslint + react-hooks |
 | 格式化 | Prettier | 无分号、单引号、printWidth 100 |
-| CSS 框架 | Tailwind CSS | 原子化 CSS |
 | 字体 | Source Han Serif CN | 本地 OTF 加载（3 个字重） |
+|     | LXGW WenKai | Google Fonts（诗句区域专用） |
 | 数据存储 | JSON 文件 | 静态数据，构建时打包 |
 
 ### 3.2 响应式设计
