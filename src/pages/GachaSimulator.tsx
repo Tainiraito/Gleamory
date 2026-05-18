@@ -333,12 +333,15 @@ const GachaSimulator = () => {
 
       <main className="max-w-5xl mx-auto px-6 py-20 sm:py-24">
         {/* Page Title */}
-        <h1
-          className="font-display text-3xl sm:text-4xl text-center mb-2"
+        <motion.h1
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="font-display text-4xl sm:text-5xl tracking-tight text-center mb-2"
           style={{ color: 'var(--text-primary)' }}
         >
           抽卡模拟
-        </h1>
+        </motion.h1>
         <p
           className="text-sm text-center mb-10"
           style={{ color: 'var(--text-muted)' }}
@@ -383,376 +386,419 @@ const GachaSimulator = () => {
             </span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* LEFT COLUMN */}
-            <div>
-              {/* ===== Entry Management ===== */}
-        <div
-          className="rounded-lg p-5 mb-6"
-          style={cardBg}
-        >
-          <h2
-            className="text-xs uppercase tracking-widest mb-4"
-            style={sectionLabel}
-          >
-            条目管理
-          </h2>
-
-          {/* Textarea */}
-          <textarea
-            value={entryText}
-            onChange={(e) => setEntryText(e.target.value)}
-            placeholder={'每行一个条目...\n例如：\n角色A\n角色B\n道具C'}
-            rows={5}
-            className="w-full rounded-md p-3 text-sm resize-y mb-3 placeholder:opacity-40"
-            style={inputStyle}
-          />
-
-          {/* Append/Overwrite toggle + Add button */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex rounded-md overflow-hidden" style={borderStyle}>
-              <button
-                onClick={() => setEntryMode('append')}
-                className="px-3 py-1.5 text-xs transition-colors"
-                style={entryMode === 'append' ? activePill : buttonBase}
-              >
-                追加
-              </button>
-              <button
-                onClick={() => setEntryMode('overwrite')}
-                className="px-3 py-1.5 text-xs transition-colors"
-                style={entryMode === 'overwrite' ? activePill : buttonBase}
-              >
-                覆盖
-              </button>
-            </div>
-            <button
-              onClick={handleAddEntries}
-              className="px-4 py-1.5 text-xs rounded-md transition-opacity hover:opacity-80"
-              style={buttonActive}
+          <div className="space-y-6">
+            {/* ===== Entry Management ===== */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="rounded-xl p-5"
+              style={cardBg}
             >
-              添加条目
-            </button>
-            <label className="flex items-center gap-1.5 ml-auto text-xs" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={dedupEnabled}
-                onChange={(e) => setDedupEnabled(e.target.checked)}
-                className="w-3 h-3 rounded"
-                style={{ accentColor: 'var(--accent-pink)' }}
+              <h2
+                className="text-xs uppercase tracking-widest mb-4"
+                style={sectionLabel}
+              >
+                条目管理
+              </h2>
+
+              {/* Textarea */}
+              <textarea
+                value={entryText}
+                onChange={(e) => setEntryText(e.target.value)}
+                placeholder={'每行一个条目...\n例如：\n角色A\n角色B\n道具C'}
+                rows={5}
+                className="w-full rounded-md p-3 text-sm resize-y mb-3 placeholder:opacity-40"
+                style={inputStyle}
               />
-              去重
-            </label>
-          </div>
-        </div>
 
-        {/* Entry List — table layout */}
-        {entries.length > 0 && (
-          <div
-            className="rounded-lg p-5 mb-6"
-            style={cardBg}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs" style={sectionLabel}>
-                共 {entries.length} 条 · {uniqueCount} 个不同条目
-              </span>
-            </div>
-
-            {/* Table header */}
-            <div className="grid grid-cols-[1fr_64px_100px_auto] gap-2 items-center py-2 px-2 mb-1 text-xs" style={textMuted}>
-              <span>条目</span>
-              <span className="text-center">数量</span>
-              <span className="text-center">概率</span>
-              <span>操作</span>
-            </div>
-
-            {/* Table rows */}
-            <div className="max-h-64 overflow-y-auto">
-              {uniqueNames.map((name) => {
-                const groupEntries = entries.filter((e) => e.name === name)
-                const count = groupEntries.length
-                const someEnabled = groupEntries.some((e) => e.enabled)
-                const entryProb = uniqueCount > 0 ? ((1 / uniqueCount) * 100).toFixed(1) : '0'
-                return (
-                  <div
-                    key={name}
-                    className="grid grid-cols-[1fr_64px_100px_auto] gap-2 items-center py-2 px-2 rounded text-sm"
-                    style={{ borderBottom: '1px solid var(--border-line)' }}
-                  >
-                    <span
-                      className="truncate"
-                      style={someEnabled ? textPrimary : lineThrough}
-                    >
-                      {name}
-                    </span>
-                    <span className="text-center" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
-                      × {count}
-                    </span>
-                    <span className="text-center text-xs" style={textMuted}>
-                      1/{uniqueCount} · {entryProb}%
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {count > 1 ? (
-                        <>
-                          <button
-                            onClick={() => handleRemoveOne(name)}
-                            className="text-xs px-1.5 py-0.5 rounded transition-opacity hover:opacity-70"
-                            style={{ color: 'var(--text-muted)', border: '1px solid var(--border-line)' }}
-                          >
-                            移除一条
-                          </button>
-                          <button
-                            onClick={() => handleRemoveAll(name)}
-                            className="text-xs px-1.5 py-0.5 rounded transition-opacity hover:opacity-70"
-                            style={dangerBtnStyle}
-                          >
-                            移除全部
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => handleRemoveOne(name)}
-                          className="text-xs px-2 py-0.5 rounded transition-opacity hover:opacity-70"
-                          style={dangerBtnStyle}
-                        >
-                          移除
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Empty state: no entries */}
-        {entries.length === 0 && (
-          <div
-            className="rounded-lg p-10 mb-6 text-center"
-            style={cardBg}
-          >
-            <p className="text-sm" style={textMuted}>
-              暂无条目，请在上方添加
-            </p>
-          </div>
-        )}
-
-            </div>
-
-            {/* RIGHT COLUMN */}
-            <div>
-              {/* ===== Draw Controls ===== */}
-        <div
-          className="rounded-lg p-5 mb-6"
-          style={cardBg}
-        >
-          <h2
-            className="text-xs uppercase tracking-widest mb-4"
-            style={sectionLabel}
-          >
-            抽取控制
-          </h2>
-
-          {poolExhausted ? (
-            <div
-              className="rounded-md p-4 text-center mb-3"
-              style={{ background: 'var(--accent-glow)' }}
-            >
-              <p className="text-sm" style={pinkSpan}>
-                {mode === 'unique'
-                  ? '奖池已耗尽！请添加新条目继续抽取'
-                  : '所有条目已禁用，请启用或添加新条目'}
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* N input */}
-              <div className="flex items-center gap-3 mb-4">
-                <label className="text-xs" style={sectionLabel}>
-                  抽取数量
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={maxDraw}
-                  value={drawCount}
-                  onChange={(e) => {
-                    if (e.target.value === '') {
-                      setDrawCount(1)
-                      return
-                    }
-                    const v = parseInt(e.target.value, 10)
-                    if (!isNaN(v) && v >= 1) {
-                      setDrawCount(Math.min(v, maxDraw))
-                    }
-                  }}
-                  className="w-20 rounded-md px-3 py-1.5 text-sm text-center"
-                  style={inputStyle}
-                />
-                <span className="text-xs" style={textMuted}>
-                  / {maxDraw}
-                </span>
-              </div>
-
-              {/* Mode toggle */}
-              <div className="flex items-center gap-3 mb-4">
+              {/* Append/Overwrite toggle + Add button */}
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex rounded-md overflow-hidden" style={borderStyle}>
                   <button
-                    onClick={() => handleModeSwitch('unique')}
+                    onClick={() => setEntryMode('append')}
                     className="px-3 py-1.5 text-xs transition-colors"
-                    style={mode === 'unique' ? activePill : buttonBase}
+                    style={entryMode === 'append' ? activePill : buttonBase}
                   >
-                    不重复
+                    追加
                   </button>
                   <button
-                    onClick={() => handleModeSwitch('repeat')}
+                    onClick={() => setEntryMode('overwrite')}
                     className="px-3 py-1.5 text-xs transition-colors"
-                    style={mode === 'repeat' ? activePill : buttonBase}
+                    style={entryMode === 'overwrite' ? activePill : buttonBase}
                   >
-                    可重复
+                    覆盖
                   </button>
                 </div>
-                <span className="text-xs" style={textMuted}>
-                  {mode === 'unique'
-                    ? '抽中即移出奖池'
-                    : '每次独立抽取'}
-                </span>
-              </div>
-
-              {/* Draw button */}
-              <button
-                onClick={handleDraw}
-                disabled={enabledCount === 0}
-                className="w-full py-2.5 rounded-md text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
-                style={buttonActive}
-              >
-                抽 取
-              </button>
-
-              {/* Clear history */}
-              {history.length > 0 && (
                 <button
-                  onClick={handleClearHistory}
-                  className="mt-3 text-xs transition-opacity hover:opacity-70"
-                  style={{ color: 'var(--text-muted)' }}
+                  onClick={handleAddEntries}
+                  className="px-4 py-1.5 text-xs rounded-md transition-opacity hover:opacity-80"
+                  style={buttonActive}
                 >
-                  清除抽取记录
+                  添加条目
                 </button>
-              )}
-            </>
-          )}
-        </div>
+                <label className="flex items-center gap-1.5 ml-auto text-xs" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={dedupEnabled}
+                    onChange={(e) => setDedupEnabled(e.target.checked)}
+                    className="w-3 h-3 rounded"
+                    style={{ accentColor: 'var(--accent-pink)' }}
+                  />
+                  去重
+                </label>
+              </div>
+            </motion.div>
 
-        {/* ===== Results ===== */}
-        {history.length > 0 && (
-          <div
-            className="rounded-lg p-5 mb-6"
-            style={cardBg}
-          >
-            <h2
-              className="text-xs uppercase tracking-widest mb-4"
-              style={sectionLabel}
-            >
-              抽取结果
-            </h2>
+            {/* ===== Entry List ===== */}
+            {entries.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.15 }}
+                className="rounded-xl p-5"
+                style={cardBg}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs" style={sectionLabel}>
+                    共 {entries.length} 条 · {uniqueCount} 个不同条目
+                  </span>
+                </div>
 
-            <div className="space-y-4">
-              <AnimatePresence>
-                {history.map((round) => (
-                  <motion.div
-                    key={round.round}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35, ease: 'easeOut' }}
-                    className="p-3 rounded-md"
-                    style={{
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-line)',
-                    }}
-                  >
-                    <div
-                      className="text-[0.65rem] uppercase tracking-widest mb-2"
-                      style={textMuted}
-                    >
-                      第 {round.round} 轮
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {round.results.map((name, j) => (
+                {/* Table header */}
+                <div className="grid grid-cols-[1fr_64px_100px_auto] gap-2 items-center py-2 px-2 mb-1 text-xs" style={textMuted}>
+                  <span>条目</span>
+                  <span className="text-center">数量</span>
+                  <span className="text-center">概率</span>
+                  <span>操作</span>
+                </div>
+
+                {/* Table rows */}
+                <div className="max-h-64 overflow-y-auto">
+                  {uniqueNames.map((name) => {
+                    const groupEntries = entries.filter((e) => e.name === name)
+                    const count = groupEntries.length
+                    const someEnabled = groupEntries.some((e) => e.enabled)
+                    const entryProb = uniqueCount > 0 ? ((1 / uniqueCount) * 100).toFixed(1) : '0'
+                    return (
+                      <div
+                        key={name}
+                        className="grid grid-cols-[1fr_64px_100px_auto] gap-2 items-center py-2 px-2 rounded text-sm"
+                        style={{ borderBottom: '1px solid var(--border-line)' }}
+                      >
                         <span
-                          key={j}
-                          className="inline-block px-2.5 py-1 rounded text-sm"
-                          style={{
-                            background: 'var(--accent-glow)',
-                            color: 'var(--accent-pink)',
-                          }}
+                          className="truncate"
+                          style={someEnabled ? textPrimary : lineThrough}
                         >
                           {name}
                         </span>
-                      ))}
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+                        <span className="text-center" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
+                          × {count}
+                        </span>
+                        <span className="text-center text-xs" style={textMuted}>
+                          1/{uniqueCount} · {entryProb}%
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {count > 1 ? (
+                            <>
+                              <button
+                                onClick={() => handleRemoveOne(name)}
+                                className="text-xs px-1.5 py-0.5 rounded transition-opacity hover:opacity-70"
+                                style={{ color: 'var(--text-muted)', border: '1px solid var(--border-line)' }}
+                              >
+                                移除一条
+                              </button>
+                              <button
+                                onClick={() => handleRemoveAll(name)}
+                                className="text-xs px-1.5 py-0.5 rounded transition-opacity hover:opacity-70"
+                                style={dangerBtnStyle}
+                              >
+                                移除全部
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleRemoveOne(name)}
+                              className="text-xs px-2 py-0.5 rounded transition-opacity hover:opacity-70"
+                              style={dangerBtnStyle}
+                            >
+                              移除
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </motion.div>
+            )}
 
-            {/* Summary statistics */}
-            {totalDraws > 0 && (
-              <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border-line)' }}>
+            {/* Empty state: no entries */}
+            {entries.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.15 }}
+                className="rounded-xl p-10 text-center"
+                style={cardBg}
+              >
+                <p className="text-sm" style={textMuted}>
+                  暂无条目，请在上方添加
+                </p>
+              </motion.div>
+            )}
+
+            {/* ===== Draw Controls ===== */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+              className="rounded-xl p-5"
+              style={cardBg}
+            >
+              <h2
+                className="text-xs uppercase tracking-widest mb-4"
+                style={sectionLabel}
+              >
+                抽取控制
+              </h2>
+
+              {poolExhausted ? (
                 <div
-                  className="text-[0.65rem] uppercase tracking-widest mb-3"
+                  className="rounded-md p-4 text-center mb-3"
+                  style={{ background: 'var(--accent-glow)' }}
+                >
+                  <p className="text-sm" style={pinkSpan}>
+                    {mode === 'unique'
+                      ? '奖池已耗尽！请添加新条目继续抽取'
+                      : '所有条目已禁用，请启用或添加新条目'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* N input */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <label className="text-xs" style={sectionLabel}>
+                      抽取数量
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={maxDraw}
+                      value={drawCount}
+                      onChange={(e) => {
+                        if (e.target.value === '') {
+                          setDrawCount(1)
+                          return
+                        }
+                        const v = parseInt(e.target.value, 10)
+                        if (!isNaN(v) && v >= 1) {
+                          setDrawCount(Math.min(v, maxDraw))
+                        }
+                      }}
+                      className="w-20 rounded-md px-3 py-1.5 text-sm text-center"
+                      style={inputStyle}
+                    />
+                    <span className="text-xs" style={textMuted}>
+                      / {maxDraw}
+                    </span>
+                  </div>
+
+                  {/* Mode toggle */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex rounded-md overflow-hidden" style={borderStyle}>
+                      <button
+                        onClick={() => handleModeSwitch('unique')}
+                        className="px-3 py-1.5 text-xs transition-colors"
+                        style={mode === 'unique' ? activePill : buttonBase}
+                      >
+                        不重复
+                      </button>
+                      <button
+                        onClick={() => handleModeSwitch('repeat')}
+                        className="px-3 py-1.5 text-xs transition-colors"
+                        style={mode === 'repeat' ? activePill : buttonBase}
+                      >
+                        可重复
+                      </button>
+                    </div>
+                    <span className="text-xs" style={textMuted}>
+                      {mode === 'unique'
+                        ? '抽中即移出奖池'
+                        : '每次独立抽取'}
+                    </span>
+                  </div>
+
+                  {/* Draw button */}
+                  <motion.button
+                    onClick={handleDraw}
+                    disabled={enabledCount === 0}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="w-full py-4 rounded-xl text-base font-semibold tracking-widest transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{
+                      background: 'var(--accent-pink)',
+                      color: '#fff',
+                      boxShadow: '0 0 30px var(--accent-glow), 0 0 60px var(--accent-glow)',
+                    }}
+                  >
+                    抽 取
+                  </motion.button>
+
+                  {/* Clear history */}
+                  {history.length > 0 && (
+                    <button
+                      onClick={handleClearHistory}
+                      className="mt-3 text-xs transition-opacity hover:opacity-70"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      清除抽取记录
+                    </button>
+                  )}
+                </>
+              )}
+            </motion.div>
+
+            {/* ===== Results ===== */}
+            {history.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.25 }}
+                className="rounded-xl p-5"
+                style={cardBg}
+              >
+                <h2
+                  className="text-xs uppercase tracking-widest mb-4"
+                  style={sectionLabel}
+                >
+                  抽取结果
+                </h2>
+
+                <div className="space-y-4">
+                  <AnimatePresence>
+                    {history.map((round) => (
+                      <motion.div
+                        key={round.round}
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                        className="p-3 rounded-md"
+                        style={{
+                          background: 'var(--bg-elevated)',
+                          border: '1px solid var(--border-line)',
+                        }}
+                      >
+                        <div
+                          className="text-[0.65rem] uppercase tracking-widest mb-2"
+                          style={textMuted}
+                        >
+                          第 {round.round} 轮
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {round.results.map((name, i) => (
+                            <motion.span
+                              key={i}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.06, duration: 0.3 }}
+                              className="inline-block px-2.5 py-1 rounded text-sm"
+                              style={{
+                                background: 'var(--accent-glow)',
+                                color: 'var(--accent-pink)',
+                              }}
+                            >
+                              {name}
+                            </motion.span>
+                          ))}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Empty state: no draws yet */}
+            {history.length === 0 && entries.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.25 }}
+                className="rounded-xl p-10 text-center"
+                style={cardBg}
+              >
+                <p className="text-sm" style={textMuted}>
+                  尚未抽取，点击「抽取」按钮开始
+                </p>
+              </motion.div>
+            )}
+
+            {/* Pool exhausted message when no entries but had draws */}
+            {history.length > 0 && entries.length === 0 && mode === 'unique' && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.25 }}
+                className="rounded-xl p-5 text-center"
+                style={{ ...cardBg, border: '1px solid var(--accent-glow)' }}
+              >
+                <p className="text-sm" style={pinkSpan}>
+                  奖池已完全耗尽，所有条目均已被抽取
+                </p>
+              </motion.div>
+            )}
+
+            {/* ===== Stats ===== */}
+            {totalDraws > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.3 }}
+                className="rounded-xl p-5"
+                style={cardBg}
+              >
+                <h2
+                  className="text-xs uppercase tracking-widest mb-4"
                   style={sectionLabel}
                 >
                   统计摘要
-                </div>
-                <p className="text-xs mb-3" style={textMuted}>
+                </h2>
+                <p className="text-xs mb-4" style={textMuted}>
                   共抽取 {totalDraws} 次，{history.length} 轮
                 </p>
-                <div className="space-y-1.5">
+                <div className="space-y-2.5">
                   {Array.from(entryStats.entries())
                     .sort((a, b) => b[1].count - a[1].count)
                     .map(([name, stat]) => (
                       <div
                         key={name}
-                        className="flex items-center justify-between text-sm py-1 px-2 rounded"
+                        className="flex items-center gap-3 text-sm"
                       >
-                        <span style={textPrimary}>{name}</span>
-                        <span style={textMuted}>
+                        <span className="w-24 truncate flex-shrink-0" style={textPrimary}>
+                          {name}
+                        </span>
+                        <div
+                          className="flex-1 h-2 rounded-full"
+                          style={{ background: 'var(--border-line)' }}
+                        >
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: stat.percentage }}
+                            transition={{ duration: 0.6, ease: 'easeOut' }}
+                            className="h-full rounded-full"
+                            style={{ background: 'var(--accent-pink)' }}
+                          />
+                        </div>
+                        <span className="flex-shrink-0 text-xs w-20 text-right" style={textMuted}>
                           {stat.count} 次 ({stat.percentage})
                         </span>
                       </div>
                     ))}
                 </div>
-              </div>
+              </motion.div>
             )}
-          </div>
-        )}
-
-        {/* Empty state: no draws yet */}
-        {history.length === 0 && entries.length > 0 && (
-          <div
-            className="rounded-lg p-10 mb-6 text-center"
-            style={cardBg}
-          >
-            <p className="text-sm" style={textMuted}>
-              尚未抽取，点击「抽取」按钮开始
-            </p>
-          </div>
-        )}
-
-        {/* Pool exhausted message when no entries but had draws */}
-        {history.length > 0 && entries.length === 0 && mode === 'unique' && (
-          <div
-            className="rounded-lg p-5 mb-6 text-center"
-            style={{ ...cardBg, border: '1px solid var(--accent-glow)' }}
-          >
-            <p className="text-sm" style={pinkSpan}>
-              奖池已完全耗尽，所有条目均已被抽取
-            </p>
-          </div>
-        )}
-
-            </div>
           </div>
         )}
       </main>
