@@ -40,14 +40,17 @@
    3. CSS Custom Properties
    ======================================== */
 :root {
-  --bg-page: #f7f4ef;
-  --bg-card: #ffffff;
-  --bg-elevated: #faf8f5;
+  --bg-page: #f2eee7;
+  --bg-card: #faf6f0;
+  --bg-card-warm: #f3ede4;
+  --bg-elevated: #f5f0e8;
   --text-primary: #0c0a12;
   --text-secondary: #4a4550;
-  --text-muted: #7a7580;
+  --text-muted: #8a8590;
   --accent-pink: #f783ac;
   --accent-glow: rgba(247, 131, 172, 0.1);
+  --accent-amber: #c4956a;
+  --accent-amber-subtle: rgba(196, 149, 106, 0.1);
   --border-line: rgba(44, 42, 48, 0.07);
   --ink-stamp: #0c0a12;
 }
