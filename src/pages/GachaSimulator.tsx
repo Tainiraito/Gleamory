@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -16,6 +16,7 @@ interface GachaState {
   entries: Entry[]
   mode: 'unique' | 'repeat'
   history: HistoryRound[]
+  poolExhausted: boolean
 }
 
 const STORAGE_KEY = 'gacha-simulator-state'
@@ -25,16 +26,25 @@ function loadState(): GachaState {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
+      const entries = Array.isArray(parsed.entries)
+        ? parsed.entries.filter(
+            (e: unknown) =>
+              e != null &&
+              typeof (e as Entry).name === 'string' &&
+              typeof (e as Entry).enabled === 'boolean'
+          )
+        : []
       return {
-        entries: parsed.entries || [],
-        mode: parsed.mode || 'unique',
-        history: parsed.history || [],
+        entries,
+        mode: parsed.mode === 'unique' || parsed.mode === 'repeat' ? parsed.mode : 'unique',
+        history: Array.isArray(parsed.history) ? parsed.history : [],
+        poolExhausted: typeof parsed.poolExhausted === 'boolean' ? parsed.poolExhausted : false,
       }
     }
   } catch {
     /* corrupted data, reset */
   }
-  return { entries: [], mode: 'unique', history: [] }
+  return { entries: [], mode: 'unique', history: [], poolExhausted: false }
 }
 
 function saveState(state: GachaState) {
@@ -43,6 +53,10 @@ function saveState(state: GachaState) {
   } catch {
     /* quota exceeded, silently ignore */
   }
+}
+
+const accentText: React.CSSProperties = {
+  color: '#fff',
 }
 
 const dangerBtnStyle: React.CSSProperties = {
@@ -73,7 +87,7 @@ const cardBg: React.CSSProperties = {
 
 const activePill: React.CSSProperties = {
   background: 'var(--accent-pink)',
-  color: '#fff',
+  ...accentText,
 }
 
 const buttonBase: React.CSSProperties = {
@@ -85,7 +99,7 @@ const buttonBase: React.CSSProperties = {
 const buttonActive: React.CSSProperties = {
   background: 'var(--accent-pink)',
   border: '1px solid var(--accent-pink)',
-  color: '#fff',
+  ...accentText,
 }
 
 const inputStyle: React.CSSProperties = {
@@ -113,7 +127,17 @@ const GachaSimulator = () => {
   const [poolExhausted, setPoolExhausted] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
 
-  const enabledEntries = entries.filter((e) => e.enabled)
+  // Ref that always mirrors latest entries (used for name lookup in callbacks)
+  const entriesRef = useRef(entries)
+  entriesRef.current = entries
+
+  // Snapshot of the "full pool" before unique-mode draws remove entries
+  const fullPoolRef = useRef<Entry[]>([])
+  const updateFullPoolRef = useCallback((e: Entry[]) => {
+    fullPoolRef.current = e
+  }, [])
+
+  const enabledEntries = useMemo(() => entries.filter((e) => e.enabled), [entries])
   const enabledCount = enabledEntries.length
   const disabledCount = entries.length - enabledCount
 
@@ -123,15 +147,14 @@ const GachaSimulator = () => {
     setEntries(saved.entries)
     setMode(saved.mode)
     setHistory(saved.history)
-    if (saved.mode === 'unique' && saved.entries.length > 0 && saved.entries.every((e) => !e.enabled)) {
-      setPoolExhausted(true)
-    }
+    setPoolExhausted(saved.poolExhausted)
+    fullPoolRef.current = saved.entries
   }, [])
 
   // Persist state to sessionStorage on change
   useEffect(() => {
-    saveState({ entries, mode, history })
-  }, [entries, mode, history])
+    saveState({ entries, mode, history, poolExhausted })
+  }, [entries, mode, history, poolExhausted])
 
   // Clamp drawCount when enabled count changes
   useEffect(() => {
@@ -164,6 +187,7 @@ const GachaSimulator = () => {
         return true
       })
       setEntries(deduped)
+      updateFullPoolRef(deduped)
       setHistory([])
       setPoolExhausted(false)
     } else {
@@ -175,7 +199,11 @@ const GachaSimulator = () => {
         return true
       })
       if (deduped.length > 0) {
-        setEntries((prev) => [...prev, ...deduped])
+        setEntries((prev) => {
+          const merged = [...prev, ...deduped]
+          updateFullPoolRef(merged)
+          return merged
+        })
         setPoolExhausted(false)
       }
     }
@@ -184,14 +212,24 @@ const GachaSimulator = () => {
   }, [entryText, entryMode, entries])
 
   const handleToggleEntry = useCallback((index: number) => {
+    const name = entriesRef.current[index]?.name
     setEntries((prev) =>
       prev.map((e, i) => (i === index ? { ...e, enabled: !e.enabled } : e))
     )
+    if (name) {
+      fullPoolRef.current = fullPoolRef.current.map((e) =>
+        e.name === name ? { ...e, enabled: !e.enabled } : e
+      )
+    }
     // Toggling doesn't clear history per spec
   }, [])
 
   const handleRemoveEntry = useCallback((index: number) => {
+    const name = entriesRef.current[index]?.name
     setEntries((prev) => prev.filter((_, i) => i !== index))
+    if (name) {
+      fullPoolRef.current = fullPoolRef.current.filter((e) => e.name !== name)
+    }
     setHistory([]) // Remove entry clears all draw history
     setPoolExhausted(false)
   }, [])
@@ -201,6 +239,7 @@ const GachaSimulator = () => {
       setMode(newMode)
       setHistory([])
       setPoolExhausted(false)
+      setEntries(fullPoolRef.current)
     }
   }, [mode])
 
@@ -208,9 +247,19 @@ const GachaSimulator = () => {
     if (enabledCount === 0) return
     const count = Math.min(drawCount, enabledCount)
 
+    // Fisher-Yates (Knuth) shuffle for uniform distribution
+    const fisherYatesShuffle = <T,>(arr: T[]): T[] => {
+      const a = [...arr]
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[a[i], a[j]] = [a[j], a[i]]
+      }
+      return a
+    }
+
     let drawn: string[]
     if (mode === 'unique') {
-      const shuffled = [...enabledEntries].sort(() => Math.random() - 0.5)
+      const shuffled = fisherYatesShuffle(enabledEntries)
       drawn = shuffled.slice(0, count).map((e) => e.name)
       // Remove drawn entries from pool
       const drawnSet = new Set(drawn)
@@ -225,9 +274,8 @@ const GachaSimulator = () => {
       })
     }
 
-    const round = history.length + 1
-    setHistory((prev) => [...prev, { round, results: drawn }])
-  }, [enabledCount, drawCount, mode, enabledEntries, history.length])
+    setHistory((prev) => [...prev, { round: prev.length + 1, results: drawn }])
+  }, [enabledCount, drawCount, mode, enabledEntries])
 
   const handleClearHistory = useCallback(() => {
     setHistory([])
@@ -388,7 +436,7 @@ const GachaSimulator = () => {
                 )}
               </span>
               <span className="text-xs" style={textMuted}>
-                当前概率: 1/{enabledCount > 0 ? enabledCount : '—'} × {(enabledCount > 0 ? (1 / enabledCount * 100).toFixed(2) : 0)}%
+                当前概率: 1/{enabledCount > 0 ? enabledCount : '—'} × {enabledCount > 0 ? (1 / enabledCount * 100).toFixed(2) + '%' : '—'}
               </span>
             </div>
 
@@ -397,7 +445,7 @@ const GachaSimulator = () => {
               <AnimatePresence>
                 {entries.map((entry, i) => (
                   <motion.li
-                    key={`${entry.name}-${i}`}
+                    key={entry.name}
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
@@ -472,13 +520,15 @@ const GachaSimulator = () => {
             抽取控制
           </h2>
 
-          {poolExhausted && mode === 'unique' ? (
+          {poolExhausted ? (
             <div
               className="rounded-md p-4 text-center mb-3"
               style={{ background: 'var(--accent-glow)' }}
             >
               <p className="text-sm" style={pinkSpan}>
-                奖池已耗尽！请添加新条目继续抽取
+                {mode === 'unique'
+                  ? '奖池已耗尽！请添加新条目继续抽取'
+                  : '所有条目已禁用，请启用或添加新条目'}
               </p>
             </div>
           ) : (
@@ -494,6 +544,10 @@ const GachaSimulator = () => {
                   max={maxDraw}
                   value={drawCount}
                   onChange={(e) => {
+                    if (e.target.value === '') {
+                      setDrawCount(1)
+                      return
+                    }
                     const v = parseInt(e.target.value, 10)
                     if (!isNaN(v) && v >= 1) {
                       setDrawCount(Math.min(v, maxDraw))
