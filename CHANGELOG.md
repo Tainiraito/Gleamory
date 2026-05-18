@@ -7,13 +7,16 @@
 ### Added
 
 - ✨ **翻牌抽卡页面** — `GachaSimulator.tsx`（`/gacha` 路由）
-  - 三栏布局：管理面板 | 5列翻牌区 | 已抽结果+统计
+  - 三栏布局：管理面板 | 翻牌区（auto-fill minmax 88px~1fr）| 已抽结果+统计
   - 卡牌翻面动画（Framer Motion 3D rotateY）
   - 同名条目概率计算、去重/追加/覆盖添加模式
   - 剩余概率基于未翻卡牌动态计算
   - 重新洗牌动画：先盖回→延迟500ms打乱
   - sessionStorage 持久化（300ms 防抖）
   - 60+ 预设角色条目
+- 🧭 **SiteHeader 组件** — 统一全宽吸顶导航栏
+  - 所有页面共用，取代旧 FloatingLogo 小片徽标
+  - 暖纸背景 + 底部分割线，保持视觉统一
 
 ### Changed
 
@@ -22,9 +25,12 @@
   - 卡背由黑渐变改为暖纸色 `#e2d8c8`
   - 黑色仅作 ink-stamp 按钮悬停和文字点缀
   - 首页变量 `--accent-pink` 保留为琥珀别名保证兼容
+- 📐 **内容容器加宽** — 两侧 `px-[15%]`，内容占视宽 70%
 - 📱 移动端已抽结果不再重复显示（`hidden lg:block`）
-- ⚡ 概率预计算 `useMemo`、卡牌 grid 提取为 memo、header 加暖纸背景防重叠
+- ⚡ 概率预计算 `useMemo`、卡牌 grid 提取为 memo
 - 🔤 全局字阶规范化：移除 `text-[0.55rem]`，统一 Tailwind 系统
+- 👆 所有交互按钮统一 `cursor: pointer`（10 个按钮）
+- 🗑️ 移除 Claude Code 规划产物（`docs/superpowers/` 加入 .gitignore）
 
 ---
 
