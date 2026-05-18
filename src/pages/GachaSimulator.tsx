@@ -253,7 +253,11 @@ const GachaSimulator = () => {
             </div>
             {/* Front — warm paper */}
             <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: 'var(--bg-card)', border: '0.5px solid var(--border-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
-              <span className="block font-display text-sm font-semibold text-center leading-snug mb-1" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{entry.name}</span>
+              {(entry.name.startsWith('♥') || entry.name.startsWith('♦')) ? (
+                <span className="block font-display text-lg font-semibold text-center leading-snug mb-1" style={{ color: 'var(--accent-amber)', wordBreak: 'break-word' }}>{entry.name}</span>
+              ) : (
+                <span className="block font-display text-sm font-semibold text-center leading-snug mb-1" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{entry.name}</span>
+              )}
               {isFlipped && (
                 <span className="text-xs text-center" style={{ color: 'var(--accent-amber)' }}>
                   {single}%{showBoth ? ` (${grouped}%)` : ''}
