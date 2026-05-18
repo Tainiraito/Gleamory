@@ -64,11 +64,12 @@ function saveState(s: GachaState) {
   try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch { /* quota */ }
 }
 
-// singlePct = 1/total (per-card), uniquePct = 1/uniqueCount (per-unique-name)
-function cardProb(totalCards: number, uniqueCount: number) {
+// singlePct = 1/total (per-card), groupedPct = sameNameCount/total (per-name-group)
+function cardProb(name: string, entries: Entry[], totalCards: number) {
+  const sameNameCount = entries.filter((e) => e.name === name).length
   const single = ((1 / totalCards) * 100).toFixed(1)
-  const unique = ((1 / uniqueCount) * 100).toFixed(1)
-  return { single, unique }
+  const grouped = ((sameNameCount / totalCards) * 100).toFixed(1)
+  return { single, grouped, showBoth: single !== grouped }
 }
 
 const GachaSimulator = () => {
@@ -91,8 +92,6 @@ const GachaSimulator = () => {
   useEffect(() => {
     if (entries.length > 0) saveState({ entries, history, cardOrder, flipped })
   }, [entries, history, cardOrder, flipped])
-
-  const uniqueCount = useMemo(() => new Set(entries.map((e) => e.name)).size, [entries])
 
   const rebuild = useCallback((newEntries: Entry[]) => {
     setCardOrder(shuffle(newEntries.map((_, i) => i)))
@@ -161,13 +160,6 @@ const GachaSimulator = () => {
     return s
   }, [history])
 
-  // Per-card count of a name (for flipped card display)
-  const nameTotalCount = useMemo(() => {
-    const m = new Map<string, number>()
-    entries.forEach((e) => m.set(e.name, (m.get(e.name) || 0) + 1))
-    return m
-  }, [entries])
-
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
       <div className="fixed top-6 sm:top-8 left-6 sm:left-8 z-50">
@@ -227,11 +219,11 @@ const GachaSimulator = () => {
                   .filter(({ cardIdx }) => !flipped[cardIdx])
                   .sort((a, b) => a.entry.name.localeCompare(b.entry.name, 'zh-CN'))
                   .map(({ entryIdx, cardIdx, entry }) => {
-                  const { single, unique } = cardProb(totalCards, uniqueCount)
+                  const { single, grouped, showBoth } = cardProb(entry.name, entries, totalCards)
                   return (
                     <div key={cardIdx} className="flex items-center gap-1 py-0.5 group hover:bg-black/5 rounded px-1 -mx-1 transition-colors">
-                      <span className="text-[0.6rem] flex-1 truncate" style={{ color: 'var(--text-muted)' }}>{entry.name}</span>
-                      <span className="text-[0.5rem] shrink-0" style={{ color: 'var(--text-muted)' }}>{single}%({unique}%)</span>
+                      <span className="text-xs flex-1 truncate" style={{ color: 'var(--text-muted)' }}>{entry.name}</span>
+                      <span className="text-[0.6rem] shrink-0" style={{ color: 'var(--text-muted)' }}>{single}%{showBoth ? `(${grouped}%)` : ''}</span>
                       <button onClick={() => handleRemoveEntry(entryIdx)}
                         className="text-[0.5rem] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 px-1"
                         style={{ color: 'var(--accent-pink)' }}>×</button>
@@ -280,14 +272,12 @@ const GachaSimulator = () => {
                   </div>
                 )}
 
-                {/* Card grid */}
-                <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))' }}>
+                {/* Card grid — 5 columns max */}
+                <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
                   {cardOrder.map((entryIdx, cardIdx) => {
                     const isFlipped = flipped[cardIdx]
                     const entry = entries[entryIdx]
-                    const { single } = cardProb(totalCards, uniqueCount)
-                    const totalForName = nameTotalCount.get(entry.name) || 1
-                    const groupedPct = ((totalForName / totalCards) * 100).toFixed(1)
+                    const { single, grouped, showBoth } = cardProb(entry.name, entries, totalCards)
 
                     return (
                       <motion.button key={cardIdx} onClick={() => handleCardClick(cardIdx)}
@@ -300,14 +290,14 @@ const GachaSimulator = () => {
                           style={{ width: '100%', height: '100%', transformStyle: 'preserve-3d', position: 'relative' }}>
                           {/* Back */}
                           <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', background: '#0c0a12', border: '0.5px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span className="font-display text-lg font-bold select-none" style={{ color: 'rgba(247, 131, 172, 0.25)' }}>?</span>
+                            <span className="font-display text-xl font-bold select-none" style={{ color: 'rgba(247, 131, 172, 0.25)' }}>?</span>
                           </div>
                           {/* Front */}
-                          <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: 'var(--bg-elevated)', border: '0.5px solid var(--border-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px' }}>
-                            <span className="block font-display text-[0.65rem] sm:text-xs font-semibold text-center leading-tight mb-0.5" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{entry.name}</span>
+                          <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: 'var(--bg-elevated)', border: '0.5px solid var(--border-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
+                            <span className="block font-display text-sm font-semibold text-center leading-snug mb-1" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{entry.name}</span>
                             {isFlipped && (
-                              <span className="text-[0.5rem] text-center" style={{ color: 'var(--accent-pink)' }}>
-                                {single}% ({groupedPct}%)
+                              <span className="text-[0.6rem] text-center" style={{ color: 'var(--accent-pink)' }}>
+                                {single}%{showBoth ? ` (${grouped}%)` : ''}
                               </span>
                             )}
                           </div>
