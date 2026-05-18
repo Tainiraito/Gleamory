@@ -20,20 +20,20 @@ const ProjectGrid = ({ projects }: ProjectGridProps) => {
   const rest = projects.slice(1)
 
   return (
-    <div className="space-y-12 sm:space-y-16">
-      {/* Featured project — full width, prominent */}
+    <div className="space-y-8 sm:space-y-10">
+      {/* Featured project — full width, cover-as-background */}
       <div className="w-full">
         <ProjectCard project={featured} index={0} variant="featured" />
       </div>
 
-      {/* Rest projects — simple list, one per row */}
-      {rest.length > 0 ? (
-        <div className="space-y-4">
+      {/* Rest projects — simple list */}
+      {rest.length > 0 && (
+        <div className="space-y-3 sm:space-y-4">
           {rest.map((project, i) => (
             <ProjectCard key={project.id} project={project} index={i + 1} variant="list" />
           ))}
         </div>
-      ) : null}
+      )}
     </div>
   )
 }
