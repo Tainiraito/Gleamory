@@ -13,11 +13,12 @@ interface GachaState {
   history: string[]
   cardOrder: number[]
   flipped: boolean[]
+  presetName: string
 }
 
 const STORAGE_KEY = 'gacha-simulator-state'
 
-const DEFAULT_ENTRIES = [
+const ANIME_PRESET = [
   'gbc所有人', '尼尔机械纪元-2B', '魔禁-神裂火织', '刀剑神域-亚丝娜',
   '旋风管家-天王州雅典娜', '约会大作战-所有精灵', '中二病也要谈恋爱-MoriSummer',
   '恶魔高校-所有女角色', '甘城光辉游乐园-千斗五十铃', '转生史莱姆-井泽静江',
@@ -36,6 +37,28 @@ const DEFAULT_ENTRIES = [
   '终末地-庄方宜', '终末地-洁哥', '终末地-42', '鸣潮-长离',
   '鸣潮-坎特蕾拉', '鸣潮-爱弥斯',
 ]
+
+const SUITS = ['♠', '♥', '♦', '♣']
+const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+const POKER_PRESET = SUITS.flatMap((s) => RANKS.map((r) => `${s}${r}`)).concat(['🃏Joker', '🃏Joker'])
+
+const MAJOR_ARCANA = [
+  '0愚者', 'I魔术师', 'II女祭司', 'III女皇', 'IV皇帝', 'V教皇',
+  'VI恋人', 'VII战车', 'VIII力量', 'IX隐士', 'X命运之轮',
+  'XI正义', 'XII倒吊人', 'XIII死神', 'XIV节制', 'XV恶魔',
+  'XVI高塔', 'XVII星星', 'XVIII月亮', 'XIX太阳', 'XX审判', 'XXI世界',
+]
+const TAROT_SUITS = ['权杖', '圣杯', '宝剑', '星币']
+const TAROT_RANKS = ['Ace', '2', '3', '4', '5', '6', '7', '8', '9', '10', '侍从', '骑士', '皇后', '国王']
+const MINOR_ARCANA = TAROT_SUITS.flatMap((s) => TAROT_RANKS.map((r) => `${s}${r}`))
+const TAROT_PRESET = [...MAJOR_ARCANA, ...MINOR_ARCANA]
+
+const PRESETS: Record<string, string[]> = {
+  '二次元角色': ANIME_PRESET,
+  '扑克牌': POKER_PRESET,
+  '塔罗牌': TAROT_PRESET,
+}
+const PRESET_NAMES = Object.keys(PRESETS)
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -62,11 +85,14 @@ function loadState(): GachaState {
       const history = Array.isArray(p.history) ? p.history : []
       const cardOrder = Array.isArray(p.cardOrder) ? p.cardOrder : []
       const flipped = Array.isArray(p.flipped) ? p.flipped : []
-      if (entries.length > 0) return { entries, history, cardOrder, flipped }
+      const presetName = typeof p.presetName === 'string' && PRESET_NAMES.includes(p.presetName) ? p.presetName : '二次元角色'
+      if (entries.length > 0) return { entries, history, cardOrder, flipped, presetName }
     }
   } catch { /* ignore */ }
-  const preset = DEFAULT_ENTRIES.map((n) => ({ name: n, enabled: true }))
-  return { entries: preset, history: [], cardOrder: shuffle(preset.map((_, i) => i)), flipped: new Array(preset.length).fill(false) }
+  const defaultName = '二次元角色'
+  const names = PRESETS[defaultName]
+  const preset = names.map((n) => ({ name: n, enabled: true }))
+  return { entries: preset, history: [], cardOrder: shuffle(preset.map((_, i) => i)), flipped: new Array(preset.length).fill(false), presetName: defaultName }
 }
 
 function saveState(s: GachaState) {
@@ -78,6 +104,7 @@ const GachaSimulator = () => {
   const [history, setHistory] = useState<string[]>([])
   const [cardOrder, setCardOrder] = useState<number[]>([])
   const [flipped, setFlipped] = useState<boolean[]>([])
+  const [activePreset, setActivePreset] = useState('二次元角色')
   const [entryText, setEntryText] = useState('')
   const [entryMode, setEntryMode] = useState<'append' | 'overwrite'>('append')
   const [dedupEnabled, setDedupEnabled] = useState(true)
@@ -88,14 +115,27 @@ const GachaSimulator = () => {
     setHistory(saved.history)
     setCardOrder(saved.cardOrder)
     setFlipped(saved.flipped)
+    setActivePreset(saved.presetName)
   }, [])
 
   useEffect(() => {
     if (entries.length > 0) {
-      const timer = setTimeout(() => saveState({ entries, history, cardOrder, flipped }), 300)
+      const timer = setTimeout(() => saveState({ entries, history, cardOrder, flipped, presetName: activePreset }), 300)
       return () => clearTimeout(timer)
     }
-  }, [entries, history, cardOrder, flipped])
+  }, [entries, history, cardOrder, flipped, activePreset])
+
+  const switchPreset = useCallback((name: string) => {
+    if (name === activePreset) return
+    const entryNames = PRESETS[name]
+    const newEntries = entryNames.map((n) => ({ name: n, enabled: true }))
+    setActivePreset(name)
+    setEntries(newEntries)
+    setCardOrder(shuffle(newEntries.map((_, i) => i)))
+    setFlipped(new Array(newEntries.length).fill(false))
+    setHistory([])
+    setEntryText('')
+  }, [activePreset])
 
   const rebuild = useCallback((newEntries: Entry[]) => {
     setCardOrder(shuffle(newEntries.map((_, i) => i)))
@@ -149,12 +189,13 @@ const GachaSimulator = () => {
     return () => clearTimeout(timer)
   }, [entries])
   const handleResetDefault = useCallback(() => {
-    const preset = DEFAULT_ENTRIES.map((n) => ({ name: n, enabled: true }))
+    const names = PRESETS[activePreset]
+    const preset = names.map((n) => ({ name: n, enabled: true }))
     setEntries(preset)
     setCardOrder(shuffle(preset.map((_, i) => i)))
     setFlipped(new Array(preset.length).fill(false))
     setHistory([])
-  }, [])
+  }, [activePreset])
 
   const handleRemoveEntry = useCallback((entryIdx: number) => {
     const ne = entries.filter((_, i) => i !== entryIdx)
@@ -240,6 +281,22 @@ const GachaSimulator = () => {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* === Left: Add cards + Remaining === */}
           <div className="w-full lg:w-64 shrink-0 space-y-5">
+            {/* Preset switching */}
+            <div className="p-5" style={{ background: 'var(--bg-card-warm)', border: '0.5px solid var(--border-line)' }}>
+              <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>切换牌组</h2>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESET_NAMES.map((name) => (
+                  <button key={name} onClick={() => switchPreset(name)}
+                    className="px-2.5 py-1 text-xs transition-all cursor-pointer rounded-sm"
+                    style={{
+                      background: activePreset === name ? 'var(--accent-subtle)' : 'transparent',
+                      color: activePreset === name ? 'var(--accent-amber)' : 'var(--text-muted)',
+                      border: '0.5px solid var(--border-line)',
+                    }}>{name}</button>
+                ))}
+              </div>
+            </div>
+
             <div className="p-5" style={{ background: 'var(--bg-card-warm)', border: '0.5px solid var(--border-line)' }}>
               <h2 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-secondary)' }}>添加卡牌</h2>
               <textarea value={entryText} onChange={(e) => setEntryText(e.target.value)}
@@ -296,7 +353,7 @@ const GachaSimulator = () => {
               </div>
               <div className="flex justify-between mt-3 pt-3" style={{ borderTop: '0.5px solid var(--border-line)' }}>
                 <button onClick={handleReset} className="text-xs transition-colors hover:opacity-70 cursor-pointer" style={{ color: 'var(--text-muted)' }}>重新洗牌</button>
-                <button onClick={handleResetDefault} className="text-xs transition-colors hover:opacity-70 cursor-pointer" style={{ color: 'var(--text-muted)' }}>恢复预设</button>
+                <button onClick={handleResetDefault} className="text-xs transition-colors hover:opacity-70 cursor-pointer" style={{ color: 'var(--text-muted)' }}>重置当前</button>
               </div>
             </div>
           </div>
