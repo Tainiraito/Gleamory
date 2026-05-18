@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import FloatingLogo from '@/components/FloatingLogo'
 
 interface Entry {
   name: string
@@ -226,9 +227,7 @@ const GachaSimulator = () => {
 
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
-      <div className="fixed top-6 sm:top-8 left-6 sm:left-8 z-50 px-3 py-1.5 rounded-sm" style={{ background: 'var(--bg-card-warm)', border: '0.5px solid var(--border-line)' }}>
-        <Link to="/" className="font-display text-[0.6rem] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }}>Gleamory</Link>
-      </div>
+      <FloatingLogo />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-20 sm:py-24">
         <motion.h1 initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
