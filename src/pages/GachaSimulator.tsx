@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { getUniqueNames, fisherYatesShuffle } from '@/lib/gacha'
 
 interface Entry {
@@ -22,6 +22,9 @@ interface GachaState {
 }
 
 const STORAGE_KEY = 'gacha-simulator-state'
+const GRID_COLS = 4
+const GRID_ROWS = 3
+const TOTAL_CARDS = GRID_COLS * GRID_ROWS
 
 function loadState(): GachaState {
   try {
@@ -65,9 +68,13 @@ const GachaSimulator = () => {
   const [entryText, setEntryText] = useState('')
   const [entryMode, setEntryMode] = useState<'append' | 'overwrite'>('append')
   const [dedupEnabled, setDedupEnabled] = useState(true)
-  const [drawCount, setDrawCount] = useState(1)
   const [poolExhausted, setPoolExhausted] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
+  // Card flip state
+  const [flippedIdx, setFlippedIdx] = useState<number | null>(null)
+  const [currentRound, setCurrentRound] = useState<number>(0)
+  const [lastDrawnName, setLastDrawnName] = useState<string | null>(null)
+  const [lastDrawnProb, setLastDrawnProb] = useState<string>('')
 
   // Ref that always mirrors latest entries (used for name lookup in callbacks)
   const entriesRef = useRef(entries)
@@ -81,7 +88,6 @@ const GachaSimulator = () => {
 
   const enabledEntries = useMemo(() => entries.filter((e) => e.enabled), [entries])
   const enabledCount = enabledEntries.length
-
 
   // Restore state from sessionStorage on mount
   useEffect(() => {
@@ -98,18 +104,6 @@ const GachaSimulator = () => {
     saveState({ entries, mode, history, poolExhausted, dedupEnabled })
   }, [entries, mode, history, poolExhausted, dedupEnabled])
 
-  // Clamp drawCount when enabled count changes
-  useEffect(() => {
-    if (drawCount > enabledCount && enabledCount > 0) {
-      setDrawCount(enabledCount)
-    }
-    if (enabledCount === 0 && entries.length > 0) {
-      setPoolExhausted(true)
-    } else if (enabledCount > 0) {
-      setPoolExhausted(false)
-    }
-  }, [enabledCount, entries.length, drawCount])
-
   const handleAddEntries = useCallback(() => {
     const lines = entryText
       .split('\n')
@@ -117,11 +111,11 @@ const GachaSimulator = () => {
       .filter((l) => l.length > 0)
 
     if (lines.length === 0) return
+    setFlippedIdx(null)
 
     const newEntries: Entry[] = lines.map((name) => ({ name, enabled: true }))
 
     if (entryMode === 'overwrite') {
-      // Deduplicate by name within new entries
       const seen = new Set<string>()
       const deduped = newEntries.filter((e) => {
         if (seen.has(e.name)) return false
@@ -133,9 +127,7 @@ const GachaSimulator = () => {
       setHistory([])
       setPoolExhausted(false)
     } else {
-      // Append
       if (dedupEnabled) {
-        // Append: merge, skip names that already exist
         const existingNames = new Set(entries.map((e) => e.name))
         const deduped = newEntries.filter((e) => {
           if (existingNames.has(e.name)) return false
@@ -151,7 +143,6 @@ const GachaSimulator = () => {
           setPoolExhausted(false)
         }
       } else {
-        // Append without dedup
         setEntries((prev) => {
           const merged = [...prev, ...newEntries]
           updateFullPoolRef(merged)
@@ -164,97 +155,104 @@ const GachaSimulator = () => {
     setEntryText('')
   }, [entryText, entryMode, entries, dedupEnabled])
 
-  const handleRemoveOne = useCallback((name: string) => {
-    setEntries((prev) => {
-      const idx = prev.findIndex((e) => e.name === name)
-      if (idx === -1) return prev
-      const next = [...prev]
-      next.splice(idx, 1)
-      return next
-    })
-    const fpIdx = fullPoolRef.current.findIndex((e) => e.name === name)
-    if (fpIdx !== -1) {
-      fullPoolRef.current = fullPoolRef.current.filter((_, i) => i !== fpIdx)
-    }
-    setHistory([])
-    setPoolExhausted(false)
-  }, [])
-
-  const handleRemoveAll = useCallback((name: string) => {
-    setEntries((prev) => prev.filter((e) => e.name !== name))
-    fullPoolRef.current = fullPoolRef.current.filter((e) => e.name !== name)
-    setHistory([])
-    setPoolExhausted(false)
-  }, [])
-
   const handleModeSwitch = useCallback((newMode: 'unique' | 'repeat') => {
     if (newMode !== mode) {
       setMode(newMode)
       setHistory([])
       setPoolExhausted(false)
       setEntries(fullPoolRef.current)
+      setFlippedIdx(null)
+      // nop
     }
   }, [mode])
 
+  // Single draw: draw one entry randomly
   const handleDraw = useCallback(() => {
     if (enabledCount === 0) return
-    const count = Math.min(drawCount, enabledCount)
 
-    let drawn: string[]
+    let drawn: string
     if (mode === 'unique') {
       const uniqueNames = getUniqueNames(enabledEntries)
       const shuffled = fisherYatesShuffle(uniqueNames)
-      drawn = shuffled.slice(0, count)
-      // Remove only ONE instance per drawn name
+      drawn = shuffled[0]
+      // Remove only ONE instance
       setEntries((prev) => {
         const removed = new Set<string>()
         return prev.filter((e) => {
-          if (drawn.includes(e.name) && !removed.has(e.name)) {
+          if (e.name === drawn && !removed.has(e.name)) {
             removed.add(e.name)
             return false
           }
           return true
         })
       })
-      // Check if pool will be exhausted after this draw
-      if (enabledCount - count <= 0) {
+      if (enabledCount - 1 <= 0) {
         setPoolExhausted(true)
       }
     } else {
-      drawn = Array.from({ length: count }, () => {
-        return enabledEntries[Math.floor(Math.random() * enabledEntries.length)].name
-      })
+      drawn = enabledEntries[Math.floor(Math.random() * enabledEntries.length)].name
     }
 
-    setHistory((prev) => [...prev, { round: prev.length + 1, results: drawn }])
-  }, [enabledCount, drawCount, mode, enabledEntries])
+    // Calculate probability based on count/total
+    const countOfDrawn = enabledEntries.filter((e) => e.name === drawn).length
+    const prob = ((countOfDrawn / enabledCount) * 100).toFixed(1)
+
+    setLastDrawnName(drawn)
+    setLastDrawnProb(prob)
+  }, [enabledCount, mode, enabledEntries])
+
+  // Handle card click
+  const onCardClick = useCallback((idx: number) => {
+    if (flippedIdx !== null) return // already flipped this round
+    if (enabledCount === 0) return
+    setFlippedIdx(idx)
+    handleDraw()
+  }, [flippedIdx, enabledCount, handleDraw])
+
+  // Handle "draw again"
+  const handleNextDraw = useCallback(() => {
+    if (flippedIdx !== null && lastDrawnName) {
+      // Record this draw before resetting
+      const newRound = currentRound + 1
+      setCurrentRound(newRound)
+      setHistory((prev) => [...prev, { round: newRound, results: [lastDrawnName] }])
+    }
+    setFlippedIdx(null)
+    setLastDrawnName(null)
+  }, [flippedIdx, lastDrawnName, currentRound])
 
   const handleClearHistory = useCallback(() => {
     setHistory([])
     setPoolExhausted(false)
+    setCurrentRound(0)
   }, [])
 
   // Compute per-entry draw statistics
-  const entryStats = new Map<string, { count: number; percentage: string }>()
-  let totalDraws = 0
-  history.forEach((round) => {
-    round.results.forEach((name) => {
-      totalDraws++
-      const existing = entryStats.get(name)
-      if (existing) {
-        existing.count++
-      } else {
-        entryStats.set(name, { count: 1, percentage: '' })
-      }
+  const entryStats = useMemo(() => {
+    const stats = new Map<string, { count: number; percentage: string }>()
+    let total = 0
+    history.forEach((round) => {
+      round.results.forEach((name) => {
+        total++
+        const existing = stats.get(name)
+        if (existing) {
+          existing.count++
+        } else {
+          stats.set(name, { count: 1, percentage: '' })
+        }
+      })
     })
-  })
-  entryStats.forEach((stat) => {
-    stat.percentage = totalDraws > 0 ? ((stat.count / totalDraws) * 100).toFixed(1) + '%' : '0%'
-  })
+    stats.forEach((stat) => {
+      stat.percentage = total > 0 ? ((stat.count / total) * 100).toFixed(1) + '%' : '0%'
+    })
+    return { stats, total }
+  }, [history])
 
-  const maxDraw = Math.max(1, enabledCount)
   const uniqueNames = useMemo(() => getUniqueNames(entries), [entries])
   const uniqueCount = uniqueNames.length
+
+  // Card grid indices
+  const cardIndices = Array.from({ length: TOTAL_CARDS }, (_, i) => i)
 
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
@@ -269,7 +267,7 @@ const GachaSimulator = () => {
         </Link>
       </div>
 
-      <main className="max-w-3xl mx-auto px-6 py-20 sm:py-24">
+      <main className="max-w-4xl mx-auto px-6 py-20 sm:py-24">
         {/* Page Title */}
         <motion.h1
           initial={{ opacity: 0, y: -12 }}
@@ -315,28 +313,27 @@ const GachaSimulator = () => {
             </span>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* ===== Entry Management ===== */}
+          <div className="space-y-8">
+            {/* ===== Block 1: Entry Management ===== */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.1 }}
+              className="p-6"
               style={{
                 background: 'var(--bg-card)',
                 border: '0.5px solid var(--border-line)',
               }}
-              className="p-6"
             >
               <h2 className="text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--text-secondary)' }}>
                 条目管理
               </h2>
 
-              {/* Textarea */}
               <textarea
                 value={entryText}
                 onChange={(e) => setEntryText(e.target.value)}
                 placeholder={'每行一个条目...\n例如：\n角色A\n角色B\n道具C'}
-                rows={5}
+                rows={4}
                 className="w-full p-3 text-sm resize-y mb-3 placeholder:opacity-40"
                 style={{
                   color: 'var(--text-primary)',
@@ -345,9 +342,34 @@ const GachaSimulator = () => {
                 }}
               />
 
-              {/* Append/Overwrite toggle + Add button */}
+              {/* Buttons row: [去重 group] [追加/覆盖 group] [添加条目] */}
               <div className="flex items-center gap-3 flex-wrap">
-                {/* Toggle group — uniform button style */}
+                {/* Dedup toggle group */}
+                <div className="flex" style={{ border: '0.5px solid var(--border-line)' }}>
+                  <button
+                    onClick={() => setDedupEnabled(true)}
+                    className="px-3 py-1.5 text-xs transition-all duration-200"
+                    style={{
+                      background: dedupEnabled ? 'rgba(44,42,48,0.04)' : 'transparent',
+                      color: dedupEnabled ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    去重
+                  </button>
+                  <button
+                    onClick={() => setDedupEnabled(false)}
+                    className="px-3 py-1.5 text-xs transition-all duration-200"
+                    style={{
+                      borderLeft: '0.5px solid var(--border-line)',
+                      background: !dedupEnabled ? 'rgba(44,42,48,0.04)' : 'transparent',
+                      color: !dedupEnabled ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    不去重
+                  </button>
+                </div>
+
+                {/* Append/Overwrite toggle group */}
                 <div className="flex" style={{ border: '0.5px solid var(--border-line)' }}>
                   <button
                     onClick={() => setEntryMode('append')}
@@ -372,7 +394,7 @@ const GachaSimulator = () => {
                   </button>
                 </div>
 
-                {/* Ink Stamp Button */}
+                {/* Add entries button */}
                 <button
                   onClick={handleAddEntries}
                   className="px-4 py-1.5 text-xs transition-all duration-200"
@@ -392,165 +414,47 @@ const GachaSimulator = () => {
                 >
                   添加条目
                 </button>
-
-                {/* Checkbox */}
-                <label className="flex items-center gap-1.5 ml-auto text-xs" style={{ color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={dedupEnabled}
-                    onChange={(e) => setDedupEnabled(e.target.checked)}
-                    className="w-3 h-3 rounded"
-                    style={{ accentColor: 'var(--ink-stamp)' }}
-                  />
-                  去重
-                </label>
               </div>
-            </motion.div>
 
-            {/* ===== Entry List ===== */}
-            {entries.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.15 }}
-                style={{
-                  background: 'var(--bg-card)',
-                  border: '0.5px solid var(--border-line)',
-                }}
-                className="p-6"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              {/* Entry count + mode indicator */}
+              {entries.length > 0 && (
+                <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: '0.5px solid var(--border-line)' }}>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     共 {entries.length} 条 · {uniqueCount} 个不同条目
                   </span>
-                </div>
-
-                {/* Table header */}
-                <div className="grid grid-cols-[1fr_64px_100px_auto] gap-2 items-center py-2 px-2 mb-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-                  <span>条目</span>
-                  <span className="text-center">数量</span>
-                  <span className="text-center">概率</span>
-                  <span>操作</span>
-                </div>
-
-                {/* Table rows */}
-                <div className="max-h-64 overflow-y-auto">
-                  {uniqueNames.map((name) => {
-                    const groupEntries = entries.filter((e) => e.name === name)
-                    const count = groupEntries.length
-                    const someEnabled = groupEntries.some((e) => e.enabled)
-                    const entryProb = uniqueCount > 0 ? ((1 / uniqueCount) * 100).toFixed(1) : '0'
-                    return (
-                      <div
-                        key={name}
-                        className="grid grid-cols-[1fr_64px_100px_auto] gap-2 items-center py-2 px-2 rounded text-sm"
-                        style={{ borderBottom: '0.5px solid var(--border-line)' }}
+                  <div className="flex items-center gap-2">
+                    <div className="flex" style={{ border: '0.5px solid var(--border-line)' }}>
+                      <button
+                        onClick={() => handleModeSwitch('unique')}
+                        className="px-2.5 py-1 text-[0.6rem] transition-all duration-200"
+                        style={{
+                          background: mode === 'unique' ? 'rgba(44,42,48,0.04)' : 'transparent',
+                          color: mode === 'unique' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        }}
                       >
-                        <span
-                          className="truncate"
-                          style={{
-                            color: someEnabled ? 'var(--text-primary)' : 'var(--text-muted)',
-                            textDecoration: someEnabled ? 'none' : 'line-through',
-                          }}
-                        >
-                          {name}
-                        </span>
-                        <span className="text-center" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
-                          × {count}
-                        </span>
-                        <span className="text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-                          1/{uniqueCount} · {entryProb}%
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {count > 1 ? (
-                            <>
-                              {/* Ink Stamp Button: 移除一条 */}
-                              <button
-                                onClick={() => handleRemoveOne(name)}
-                                className="text-xs px-1.5 py-0.5 transition-all duration-200"
-                                style={{
-                                  border: '0.5px solid var(--border-line)',
-                                  background: 'transparent',
-                                  color: 'var(--text-muted)',
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = 'var(--text-primary)'
-                                  e.currentTarget.style.color = 'var(--bg-page)'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = 'transparent'
-                                  e.currentTarget.style.color = 'var(--text-muted)'
-                                }}
-                              >
-                                移除一条
-                              </button>
-                              {/* Ink Stamp Button: 移除全部 */}
-                              <button
-                                onClick={() => handleRemoveAll(name)}
-                                className="text-xs px-1.5 py-0.5 transition-all duration-200"
-                                style={{
-                                  border: '0.5px solid transparent',
-                                  background: 'transparent',
-                                  color: 'var(--accent-pink)',
-                                  opacity: 0.5,
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.opacity = '1'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.opacity = '0.5'
-                                }}
-                              >
-                                移除全部
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() => handleRemoveOne(name)}
-                              className="text-xs px-2 py-0.5 transition-all duration-200"
-                              style={{
-                                border: '0.5px solid transparent',
-                                background: 'transparent',
-                                color: 'var(--accent-pink)',
-                                opacity: 0.5,
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.opacity = '1'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.opacity = '0.5'
-                              }}
-                            >
-                              移除
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
+                        不重复
+                      </button>
+                      <button
+                        onClick={() => handleModeSwitch('repeat')}
+                        className="px-2.5 py-1 text-[0.6rem] transition-all duration-200"
+                        style={{
+                          borderLeft: '0.5px solid var(--border-line)',
+                          background: mode === 'repeat' ? 'rgba(44,42,48,0.04)' : 'transparent',
+                          color: mode === 'repeat' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        }}
+                      >
+                        可重复
+                      </button>
+                    </div>
+                    <span className="text-[0.6rem]" style={{ color: 'var(--text-muted)' }}>
+                      {mode === 'unique' ? '抽中即移出' : '独立抽取'}
+                    </span>
+                  </div>
                 </div>
-              </motion.div>
-            )}
+              )}
+            </motion.div>
 
-            {/* Empty state: no entries */}
-            {entries.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.15 }}
-                className="p-10 text-center"
-                style={{
-                  background: 'var(--bg-card)',
-                  border: '0.5px solid var(--border-line)',
-                }}
-              >
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  暂无条目，请在上方添加
-                </p>
-              </motion.div>
-            )}
-
-            {/* ===== Draw Controls ===== */}
+            {/* ===== Block 2: Card Flip Area ===== */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -562,225 +466,161 @@ const GachaSimulator = () => {
               }}
             >
               <h2 className="text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--text-secondary)' }}>
-                抽取控制
+                翻牌抽卡
               </h2>
 
-              {poolExhausted ? (
-                <div className="p-4 text-center mb-3" style={{ background: 'var(--accent-glow)' }}>
+              {entries.length === 0 ? (
+                <div className="py-16 text-center">
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    ✦ 请先添加条目
+                  </p>
+                </div>
+              ) : poolExhausted ? (
+                <div className="py-16 text-center">
                   <p className="text-sm" style={{ color: 'var(--accent-pink)' }}>
-                    {mode === 'unique'
-                      ? '奖池已耗尽！请添加新条目继续抽取'
-                      : '所有条目已禁用，请启用或添加新条目'}
+                    奖池已耗尽！添加新条目继续
                   </p>
                 </div>
               ) : (
                 <>
-                  {/* N input */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <label className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      抽取数量
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={maxDraw}
-                      value={drawCount}
-                      onChange={(e) => {
-                        if (e.target.value === '') {
-                          setDrawCount(1)
-                          return
-                        }
-                        const v = parseInt(e.target.value, 10)
-                        if (!isNaN(v) && v >= 1) {
-                          setDrawCount(Math.min(v, maxDraw))
-                        }
-                      }}
-                      className="w-20 px-3 py-1.5 text-sm text-center"
-                      style={{
-                        color: 'var(--text-primary)',
-                        border: '0.5px solid var(--border-line)',
-                        background: 'transparent',
-                      }}
-                    />
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      / {maxDraw}
-                    </span>
+                  {/* Card grid */}
+                  <div
+                    className="grid gap-4 mb-6"
+                    style={{
+                      gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+                    }}
+                  >
+                    {cardIndices.map((idx) => {
+                      const isFlipped = flippedIdx === idx
+                      return (
+                        <motion.button
+                          key={idx}
+                          onClick={() => onCardClick(idx)}
+                          disabled={flippedIdx !== null && flippedIdx !== idx}
+                          style={{
+                            perspective: 800,
+                            aspectRatio: '3/4',
+                            cursor: flippedIdx === null && enabledCount > 0 ? 'pointer' : 'default',
+                            padding: 0,
+                            border: 'none',
+                            background: 'transparent',
+                          }}
+                          whileHover={flippedIdx === null ? { scale: 1.05 } : {}}
+                          whileTap={flippedIdx === null ? { scale: 0.95 } : {}}
+                        >
+                          <motion.div
+                            animate={{ rotateY: isFlipped ? 180 : 0 }}
+                            transition={{ duration: 0.6, ease: 'easeOut' }}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              transformStyle: 'preserve-3d',
+                              position: 'relative',
+                            }}
+                          >
+                            {/* Card Back (face-down) */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                backfaceVisibility: 'hidden',
+                                background: '#0c0a12',
+                                border: '0.5px solid rgba(255,255,255,0.1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <div className="flex flex-col items-center gap-2 select-none">
+                                <span
+                                  className="font-display text-lg font-bold"
+                                  style={{ color: 'rgba(247, 131, 172, 0.3)' }}
+                                >
+                                  ?
+                                </span>
+                                <span
+                                  className="text-[6px] uppercase tracking-[0.2em]"
+                                  style={{ color: 'rgba(255,255,255,0.15)' }}
+                                >
+                                  gleamory
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Card Front (revealed) */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                backfaceVisibility: 'hidden',
+                                transform: 'rotateY(180deg)',
+                                background: 'var(--bg-elevated)',
+                                border: '0.5px solid var(--border-line)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '8px',
+                              }}
+                            >
+                              {isFlipped && lastDrawnName && (
+                                <>
+                                  <span
+                                    className="block font-display text-sm font-semibold text-center leading-tight mb-1"
+                                    style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}
+                                  >
+                                    {lastDrawnName}
+                                  </span>
+                                  <span
+                                    className="text-[0.55rem]"
+                                    style={{ color: 'var(--accent-pink)' }}
+                                  >
+                                    {lastDrawnProb}%
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </motion.div>
+                        </motion.button>
+                      )
+                    })}
                   </div>
 
-                  {/* Mode toggle */}
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="flex" style={{ border: '0.5px solid var(--border-line)' }}>
+                  {/* Action buttons below cards */}
+                  <div className="flex justify-center gap-4">
+                    {flippedIdx === null ? (
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        点击任意卡牌翻开
+                      </span>
+                    ) : (
                       <button
-                        onClick={() => handleModeSwitch('unique')}
-                        className="px-3 py-1.5 text-xs transition-all duration-200"
+                        onClick={handleNextDraw}
+                        className="px-6 py-2 text-xs transition-all duration-200"
                         style={{
-                          background: mode === 'unique' ? 'rgba(44,42,48,0.04)' : 'transparent',
-                          color: mode === 'unique' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          border: '0.5px solid var(--border-line)',
+                          background: 'transparent',
+                          color: 'var(--text-secondary)',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'var(--text-primary)'
+                          e.currentTarget.style.color = 'var(--bg-page)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent'
+                          e.currentTarget.style.color = 'var(--text-secondary)'
                         }}
                       >
-                        不重复
+                        翻下一张
                       </button>
-                      <button
-                        onClick={() => handleModeSwitch('repeat')}
-                        className="px-3 py-1.5 text-xs transition-all duration-200"
-                        style={{
-                          borderLeft: '0.5px solid var(--border-line)',
-                          background: mode === 'repeat' ? 'rgba(44,42,48,0.04)' : 'transparent',
-                          color: mode === 'repeat' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        }}
-                      >
-                        可重复
-                      </button>
-                    </div>
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {mode === 'unique'
-                        ? '抽中即移出奖池'
-                        : '每次独立抽取'}
-                    </span>
+                    )}
                   </div>
-
-                  {/* Rubber Stamp Button — uniform primary action */}
-                  <div className="flex flex-col items-center mb-4">
-                    <motion.button
-                      onClick={handleDraw}
-                      disabled={enabledCount === 0}
-                      whileHover={{
-                        scale: 1.05,
-                        boxShadow: '0 0 20px var(--accent-glow)',
-                      }}
-                      whileTap={{ scale: 0.95 }}
-                      style={{
-                        background: 'var(--ink-stamp)',
-                        color: 'var(--bg-page)',
-                        border: '0.5px solid var(--ink-stamp)',
-                        cursor: enabledCount > 0 ? 'pointer' : 'not-allowed',
-                        opacity: enabledCount > 0 ? 1 : 0.3,
-                        transition: 'all 0.3s ease-out',
-                      }}
-                      className="flex flex-col items-center justify-center"
-                    >
-                      <span className="block text-3xl font-display font-bold leading-none mb-0.5">
-                        抽
-                      </span>
-                      <span className="block text-[9px] uppercase tracking-widest" style={{ opacity: 0.6 }}>
-                        pull
-                      </span>
-                    </motion.button>
-                  </div>
-
-                  {/* Clear history — text button */}
-                  {history.length > 0 && (
-                    <div className="text-center">
-                      <button
-                        onClick={handleClearHistory}
-                        className="text-xs transition-colors duration-200 hover:opacity-70"
-                        style={{ color: 'rgba(44,42,48,0.3)' }}
-                      >
-                        清除抽取记录
-                      </button>
-                    </div>
-                  )}
                 </>
               )}
             </motion.div>
 
-            {/* ===== Results ===== */}
-            {history.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.25 }}
-                className="p-6"
-                style={{
-                  background: 'var(--bg-card)',
-                  border: '0.5px solid var(--border-line)',
-                }}
-              >
-                <h2 className="text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--text-secondary)' }}>
-                  抽取结果
-                </h2>
-
-                <div className="space-y-4">
-                  <AnimatePresence>
-                    {history.map((round) => (
-                      <motion.div
-                        key={round.round}
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                        className="p-3"
-                        style={{
-                          background: 'var(--bg-elevated)',
-                          border: '0.5px solid var(--border-line)',
-                        }}
-                      >
-                        <div className="text-[0.65rem] uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
-                          第 {round.round} 轮
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {round.results.map((name, i) => (
-                            <motion.span
-                              key={`${round.round}-${i}`}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: i * 0.06, duration: 0.3 }}
-                              className="inline-block px-2.5 py-1 text-sm"
-                              style={{
-                                background: 'var(--accent-glow)',
-                                color: 'var(--accent-pink)',
-                                border: '0.5px solid transparent',
-                              }}
-                            >
-                              {name}
-                            </motion.span>
-                          ))}
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Empty state: no draws yet */}
-            {history.length === 0 && entries.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.25 }}
-                className="p-10 text-center"
-                style={{
-                  background: 'var(--bg-card)',
-                  border: '0.5px solid var(--border-line)',
-                }}
-              >
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  尚未抽取，点击按钮开始
-                </p>
-              </motion.div>
-            )}
-
-            {/* Pool exhausted message when no entries but had draws */}
-            {history.length > 0 && entries.length === 0 && mode === 'unique' && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.25 }}
-                className="p-6 text-center"
-                style={{
-                  background: 'var(--bg-card)',
-                  border: '0.5px solid var(--accent-glow)',
-                }}
-              >
-                <p className="text-sm" style={{ color: 'var(--accent-pink)' }}>
-                  奖池已完全耗尽，所有条目均已被抽取
-                </p>
-              </motion.div>
-            )}
-
-            {/* ===== Stats ===== */}
-            {totalDraws > 0 && (
+            {/* ===== Block 3: Statistics ===== */}
+            {entryStats.total > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -791,14 +631,23 @@ const GachaSimulator = () => {
                   border: '0.5px solid var(--border-line)',
                 }}
               >
-                <h2 className="text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--text-secondary)' }}>
-                  统计摘要
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
+                    统计摘要
+                  </h2>
+                  <button
+                    onClick={handleClearHistory}
+                    className="text-[0.6rem] transition-colors duration-200 hover:opacity-70"
+                    style={{ color: 'rgba(44,42,48,0.3)' }}
+                  >
+                    清除记录
+                  </button>
+                </div>
                 <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-                  共抽取 {totalDraws} 次，{history.length} 轮
+                  共抽取 {entryStats.total} 次
                 </p>
                 <div className="space-y-2.5">
-                  {Array.from(entryStats.entries())
+                  {Array.from(entryStats.stats.entries())
                     .sort((a, b) => b[1].count - a[1].count)
                     .map(([name, stat]) => (
                       <div key={name} className="flex items-center gap-3 text-sm">
@@ -820,6 +669,24 @@ const GachaSimulator = () => {
                       </div>
                     ))}
                 </div>
+              </motion.div>
+            )}
+
+            {/* Empty state: no draws yet */}
+            {entryStats.total === 0 && entries.length > 0 && flippedIdx === null && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.3 }}
+                className="p-10 text-center"
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '0.5px solid var(--border-line)',
+                }}
+              >
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  ✦ 翻开卡牌开始抽取
+                </p>
               </motion.div>
             )}
           </div>

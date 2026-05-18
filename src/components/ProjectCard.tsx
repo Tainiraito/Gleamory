@@ -19,10 +19,10 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
       : 'font-display text-2xl sm:text-3xl font-semibold'
 
   const textPadding = isFeatured
-    ? 'px-8 sm:px-10 py-10 sm:py-12'
+    ? 'px-10 sm:px-12 py-10 sm:py-12'
     : isList
-      ? 'py-6 sm:py-8'
-      : 'px-6 sm:px-8 py-8 sm:py-10'
+      ? 'px-6 sm:px-8 py-6 sm:py-8'
+      : 'px-8 sm:px-10 py-8 sm:py-10'
 
   const delay = isFeatured ? index * 0.12 : index * 0.08
 
@@ -42,16 +42,9 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
             loading={index < 2 ? 'eager' : 'lazy'}
           />
         </div>
-      ) : (
-        !isList && (
-          <div
-            style={{
-              height: isFeatured ? '110px' : '70px',
-              background: 'linear-gradient(to bottom, var(--accent-glow), var(--bg-elevated))',
-            }}
-          />
-        )
-      )}
+      ) : !isList ? (
+        <div className={isFeatured ? 'pt-12' : 'pt-8'} />
+      ) : null}
 
       {/* Text area */}
       <div className={`flex flex-col justify-center flex-1 ${textPadding}`}>
