@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getUniqueNames } from '@/lib/gacha'
+import { getUniqueNames, fisherYatesShuffle } from '@/lib/gacha'
 
 interface Entry {
   name: string
@@ -246,23 +246,22 @@ const GachaSimulator = () => {
     if (enabledCount === 0) return
     const count = Math.min(drawCount, enabledCount)
 
-    // Fisher-Yates (Knuth) shuffle for uniform distribution
-    const fisherYatesShuffle = <T,>(arr: T[]): T[] => {
-      const a = [...arr]
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[a[i], a[j]] = [a[j], a[i]]
-      }
-      return a
-    }
-
     let drawn: string[]
     if (mode === 'unique') {
-      const shuffled = fisherYatesShuffle(enabledEntries)
-      drawn = shuffled.slice(0, count).map((e) => e.name)
-      // Remove drawn entries from pool
-      const drawnSet = new Set(drawn)
-      setEntries((prev) => prev.filter((e) => !drawnSet.has(e.name)))
+      const uniqueNames = getUniqueNames(enabledEntries)
+      const shuffled = fisherYatesShuffle(uniqueNames)
+      drawn = shuffled.slice(0, count)
+      // Remove only ONE instance per drawn name
+      setEntries((prev) => {
+        const removed = new Set<string>()
+        return prev.filter((e) => {
+          if (drawn.includes(e.name) && !removed.has(e.name)) {
+            removed.add(e.name)
+            return false
+          }
+          return true
+        })
+      })
       // Check if pool will be exhausted after this draw
       if (enabledCount - count <= 0) {
         setPoolExhausted(true)
