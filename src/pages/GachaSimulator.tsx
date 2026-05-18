@@ -209,18 +209,18 @@ const GachaSimulator = () => {
               <div className="flex mb-2" style={{ border: '0.5px solid var(--border-line)' }}>
                 <button onClick={() => setDedupEnabled(true)}
                   className="px-3 py-1.5 text-xs transition-all flex-1"
-                  style={{ background: dedupEnabled ? 'var(--accent-glow)' : 'transparent', color: dedupEnabled ? 'var(--accent-pink)' : 'var(--text-muted)' }}>去重</button>
+                  style={{ background: dedupEnabled ? 'var(--accent-subtle)' : 'transparent', color: dedupEnabled ? 'var(--accent-amber)' : 'var(--text-muted)' }}>去重</button>
                 <button onClick={() => setDedupEnabled(false)}
                   className="px-3 py-1.5 text-xs transition-all flex-1"
-                  style={{ borderLeft: '0.5px solid var(--border-line)', background: !dedupEnabled ? 'var(--accent-glow)' : 'transparent', color: !dedupEnabled ? 'var(--accent-pink)' : 'var(--text-muted)' }}>不去重</button>
+                  style={{ borderLeft: '0.5px solid var(--border-line)', background: !dedupEnabled ? 'var(--accent-subtle)' : 'transparent', color: !dedupEnabled ? 'var(--accent-amber)' : 'var(--text-muted)' }}>不去重</button>
               </div>
               <div className="flex mb-2" style={{ border: '0.5px solid var(--border-line)' }}>
                 <button onClick={() => setEntryMode('append')}
                   className="px-3 py-1.5 text-xs transition-all flex-1"
-                  style={{ background: entryMode === 'append' ? 'var(--accent-glow)' : 'transparent', color: entryMode === 'append' ? 'var(--accent-pink)' : 'var(--text-muted)' }}>追加</button>
+                  style={{ background: entryMode === 'append' ? 'var(--accent-subtle)' : 'transparent', color: entryMode === 'append' ? 'var(--accent-amber)' : 'var(--text-muted)' }}>追加</button>
                 <button onClick={() => setEntryMode('overwrite')}
                   className="px-3 py-1.5 text-xs transition-all flex-1"
-                  style={{ borderLeft: '0.5px solid var(--border-line)', background: entryMode === 'overwrite' ? 'var(--accent-glow)' : 'transparent', color: entryMode === 'overwrite' ? 'var(--accent-pink)' : 'var(--text-muted)' }}>覆盖</button>
+                  style={{ borderLeft: '0.5px solid var(--border-line)', background: entryMode === 'overwrite' ? 'var(--accent-subtle)' : 'transparent', color: entryMode === 'overwrite' ? 'var(--accent-amber)' : 'var(--text-muted)' }}>覆盖</button>
               </div>
               <button onClick={handleAddEntries}
                 className="w-full py-2 text-xs transition-all"
@@ -249,7 +249,7 @@ const GachaSimulator = () => {
                       <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{single}%{showBoth ? `(${grouped}%)` : ''}</span>
                       <button onClick={() => handleRemoveEntry(entryIdx)}
                         className="text-[0.6rem] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 px-1"
-                        style={{ color: 'var(--accent-pink)' }}>×</button>
+                        style={{ color: 'var(--accent-amber)' }}>×</button>
                     </div>
                   )
                 })}
@@ -287,7 +287,7 @@ const GachaSimulator = () => {
                 {!allFlipped && (
                   <div className="flex items-center gap-3 mb-4">
                     <div className="flex-1 h-1.5 rounded-full" style={{ background: 'var(--border-line)' }}>
-                      <motion.div className="h-full rounded-full" style={{ background: 'var(--accent-pink)' }}
+                      <motion.div className="h-full rounded-full" style={{ background: 'var(--accent-amber)' }}
                         animate={{ width: totalCards > 0 ? `${(flippedCount / totalCards) * 100}%` : '0%' }}
                         transition={{ duration: 0.3 }} />
                     </div>
@@ -295,7 +295,7 @@ const GachaSimulator = () => {
                     <button onClick={handleReset}
                       className="text-xs transition-all hover:opacity-70 shrink-0 px-2 py-0.5"
                       style={{ border: '0.5px solid var(--border-line)', color: 'var(--text-muted)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--accent-pink)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--accent-amber)' }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}>
                       洗牌
                     </button>
@@ -318,15 +318,15 @@ const GachaSimulator = () => {
                           animate={{ rotateY: isFlipped ? 180 : 0 }}
                           transition={{ duration: 0.5, ease: 'easeOut' }}
                           style={{ width: '100%', height: '100%', transformStyle: 'preserve-3d', position: 'relative' }}>
-                          {/* Back */}
-                          <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', background: 'linear-gradient(135deg, #0c0a12 0%, #1a141c 100%)', border: '0.5px solid rgba(247, 131, 172, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span className="font-display text-xl font-bold select-none" style={{ color: 'rgba(247, 131, 172, 0.2)' }}>?</span>
+                          {/* Back — warm paper */}
+                          <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', background: '#e2d8c8', border: '0.5px solid rgba(196, 149, 106, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span className="font-display text-xl font-bold select-none" style={{ color: 'rgba(196, 149, 106, 0.3)' }}>?</span>
                           </div>
                           {/* Front — warm paper */}
                           <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: 'var(--bg-card)', border: '0.5px solid var(--border-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
                             <span className="block font-display text-sm font-semibold text-center leading-snug mb-1" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{entry.name}</span>
                             {isFlipped && (
-                              <span className="text-xs text-center" style={{ color: 'var(--accent-pink)' }}>
+                              <span className="text-xs text-center" style={{ color: 'var(--accent-amber)' }}>
                                 {single}%{showBoth ? ` (${grouped}%)` : ''}
                               </span>
                             )}
@@ -363,7 +363,7 @@ const GachaSimulator = () => {
                       <div key={`s-${name}`} className="flex items-center gap-2">
                         <span className="text-xs w-14 truncate shrink-0" style={{ color: 'var(--text-primary)' }}>{name}</span>
                         <div className="flex-1 h-1 rounded-full" style={{ background: 'var(--border-line)' }}>
-                          <div className="h-full rounded-full" style={{ width: pct + '%', background: 'var(--accent-pink)' }} />
+                          <div className="h-full rounded-full" style={{ width: pct + '%', background: 'var(--accent-amber)' }} />
                         </div>
                         <span className="text-[0.6rem] w-14 text-right shrink-0" style={{ color: 'var(--text-muted)' }}>{count}({pct}%)</span>
                       </div>
@@ -403,7 +403,7 @@ const GachaSimulator = () => {
                   <div key={`ms-${name}`} className="flex items-center gap-2">
                     <span className="text-xs w-14 truncate shrink-0" style={{ color: 'var(--text-primary)' }}>{name}</span>
                     <div className="flex-1 h-1 rounded-full" style={{ background: 'var(--border-line)' }}>
-                      <div className="h-full rounded-full" style={{ width: pct + '%', background: 'var(--accent-pink)' }} />
+                      <div className="h-full rounded-full" style={{ width: pct + '%', background: 'var(--accent-amber)' }} />
                     </div>
                     <span className="text-[0.6rem] w-14 text-right shrink-0" style={{ color: 'var(--text-muted)' }}>{count}({pct}%)</span>
                   </div>

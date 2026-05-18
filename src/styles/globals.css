@@ -46,8 +46,10 @@
   --text-primary: #0c0a12;
   --text-secondary: #4a4550;
   --text-muted: #8a8590;
-  --accent-pink: #f783ac;
-  --accent-glow: rgba(247, 131, 172, 0.08);
+  --accent-amber: #c4956a;
+  --accent-pink: #c4956a;
+  --accent-glow: rgba(196, 149, 106, 0.08);
+  --accent-subtle: rgba(196, 149, 106, 0.15);
   --border-line: rgba(44, 42, 48, 0.07);
   --ink-stamp: #0c0a12;
 }
