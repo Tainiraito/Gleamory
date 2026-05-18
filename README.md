@@ -1,59 +1,55 @@
 # Gleamory 微光集
 
-✨ 个人项目展示首页 - 一切的起点
+✨ 个人项目展示首页 — 杂志风格，素笺呈现
 
 ## 📖 项目简介
 
-Gleamory 是一个个人网站首页，作为所有项目的起点和展示平台。后续所有项目都会以卡片形式挂载在这个首页上。
+**Gleamory**（微光集）是一个个人品牌首页，采用杂志风格编辑式布局，以素笺（暖白纸色）风格展示所有项目。每个项目以卡片形式呈现，搭配日历、每日诗句和时间线动态，作为个人创作的统一入口。
+
+在线地址：[gleamory.lovelysia.top](https://gleamory.lovelysia.top)
 
 ## 🎨 特性
 
-- 🎴 **项目卡片展示** - 前 3 个项目以特色大卡片展示，其余以网格排列
-- ⏰ **时间线动态** - 展示项目更新动态，默认显示 10 条，可展开全部
-- 📱 **响应式设计** - 适配桌面、平板、手机
-- 🎨 **品牌配色** - 粉紫渐变品牌色贯穿全站
-- ✨ **微光特效** - 渐变文字、发光标题、卡片 hover 光效、滚动渐入动画
-- 🔤 **思源宋体** - 本地加载 Source Han Serif CN，优雅文化感
+- 📰 **杂志式布局** — 7/5 列网格分割 + 清单式排列，告别网格大盘
+- 🖼️ **特色卡片** — 封面大图 + 白色衬边，杂志感满满
+- 📅 **实时日历** — 展示当前月份日历，今日高亮
+- 📝 **每日诗句** — API 获取今日诗词，失败时用本地诗词库兜底
+- ⏰ **时间线动态** — 默认 5 条，可展开查看全部
+- 🌸 **素笺风格** — 暖米色背景 + 粉色点缀，干净优雅
+- 🔤 **思源宋体 + 霞鹜文楷** — 文化感与手写感并存
+- ✨ **滚动动画** — Framer Motion 驱动，柔和交错进入
 
 ## 🛠️ 技术栈
 
-- **框架**: Vue 3（Composition API + `<script setup lang="ts">`）
-- **语言**: TypeScript
-- **UI 库**: Element Plus
-- **构建工具**: Vite
-- **类型检查**: vue-tsc
-- **代码规范**: ESLint（扁平配置）+ Prettier
-- **CSS 框架**: Tailwind CSS
-- **字体**: Source Han Serif CN（本地 OTF，3 个字重）
-- **数据存储**: JSON 文件
+| 类别       | 技术                              |
+| ---------- | --------------------------------- |
+| **框架**   | React 19                          |
+| **语言**   | TypeScript (strict)               |
+| **构建**   | Vite + `@vitejs/plugin-react`     |
+| **样式**   | Tailwind CSS v4 (`@tailwindcss/vite`) |
+| **动画**   | Framer Motion v12                 |
+| **代码规范** | ESLint + Prettier               |
+| **字体**   | Source Han Serif CN（本地 OTF）    |
+|           | LXGW WenKai（Google Fonts）       |
+| **部署**   | GitHub Pages（Actions 自动构建）   |
+| **域名**   | `gleamory.lovelysia.top`（Cloudflare） |
 
 ## 🚀 快速开始
 
-### 安装依赖
-
 ```bash
+# 安装依赖
 npm install
-```
 
-### 启动开发服务器
-
-```bash
+# 启动开发服务器
 npm run dev
-```
 
-### 构建生产版本
+# 构建生产版本
+npm run build       # 类型检查 + 生产构建
+npm run preview     # 预览生产构建
 
-```bash
-npm run build        # 类型检查 + 生产构建
-npm run preview      # 预览生产构建
-```
-
-### 代码质量
-
-```bash
-npm run typecheck    # TypeScript 类型检查
-npm run lint         # ESLint 代码检查
-npm run format       # Prettier 自动格式化
+# 代码质量
+npm run lint        # ESLint 代码检查
+npm run format      # Prettier 自动格式化
 ```
 
 ## 📁 项目结构
@@ -64,39 +60,38 @@ Gleamory/
 │   ├── assets/
 │   │   └── fonts/          # Source Han Serif CN 字体文件
 │   ├── components/
-│   │   ├── EmptyState.vue  # 空状态/加载/错误占位组件
-│   │   ├── ProjectCard.vue # 项目卡片（特色 + 普通两种布局）
-│   │   ├── ProjectGrid.vue # 项目网格布局（前 3 特色，其余网格）
-│   │   └── Timeline.vue    # 时间线组件（Element Plus）
+│   │   ├── FloatingLogo.tsx # 固定左上角品牌名
+│   │   ├── ProjectGrid.tsx  # 杂志式项目网格
+│   │   ├── ProjectCard.tsx  # 项目卡片（特色/次要两种）
+│   │   ├── CalendarCard.tsx # 实时日历组件
+│   │   ├── PoemCard.tsx     # 每日诗句组件
+│   │   ├── Timeline.tsx     # 时间线组件
+│   │   └── Footer.tsx       # 页脚
 │   ├── data/
-│   │   ├── projects.json   # 项目数据
-│   │   └── timeline.json   # 时间线数据
+│   │   ├── projects.json    # 项目数据
+│   │   ├── timeline.json    # 时间线数据
+│   │   └── poems.json       # 诗词后备数据
 │   ├── styles/
-│   │   └── main.css        # 字体声明 + CSS 变量 + 工具类
+│   │   └── globals.css      # Tailwind v4 主题 + CSS 变量
 │   ├── types/
-│   │   └── index.ts        # TypeScript 类型定义
-│   ├── App.vue             # 主组件（粘性导航栏 + 分区布局）
-│   └── main.ts             # 入口文件（TypeScript）
+│   │   └── index.ts         # TypeScript 类型定义
+│   ├── App.tsx              # 根布局组件
+│   └── main.tsx             # 入口文件
 ├── public/
-│   └── covers/             # 项目封面图（静态资源）
-├── index.html              # HTML 入口
-├── package.json            # 项目配置
-├── vite.config.ts          # Vite 配置
-├── tsconfig.json           # TypeScript 配置
-├── eslint.config.js        # ESLint 扁平配置
-├── .prettierrc             # Prettier 配置
-├── env.d.ts                # TypeScript 环境声明
-├── tailwind.config.js      # Tailwind 配置
-├── postcss.config.js       # PostCSS 配置
-├── README.md               # 项目说明
-├── CHANGELOG.md            # 变更日志
+│   └── covers/              # 项目封面图（静态资源）
+├── index.html               # HTML 入口
+├── package.json             # 项目配置
+├── vite.config.ts           # Vite 配置
+├── tsconfig.json            # TypeScript 配置
+├── AGENTS.md                # AI agent 规范文档
+├── CHANGELOG.md             # 变更日志
 └── docs/
-    └── requirements.md     # 需求文档
+    └── requirements.md      # 需求文档
 ```
 
 ## 📝 数据说明
 
-### 项目数据 (projects.json)
+### 项目数据 (`src/data/projects.json`)
 
 ```json
 {
@@ -112,7 +107,7 @@ Gleamory/
 }
 ```
 
-### 时间线数据 (timeline.json)
+### 时间线数据 (`src/data/timeline.json`)
 
 ```json
 {
@@ -123,21 +118,24 @@ Gleamory/
 }
 ```
 
-## 🎨 品牌色
+## 🎨 设计系统
 
-| 色值      | 用途                             |
-| :-------- | :------------------------------- |
-| `#F783AC` | 主粉色（标题渐变、圆点、边框）   |
-| `#B490E4` | 主紫色（渐变、标签、hover 交互） |
-| `#E05A8A` | 深粉色（hover 加深）             |
-| `#2D2D2D` | 主要文字                         |
-| `#5A5A5A` | 正文文字                         |
-| `#9A9A9A` | 辅助文字                         |
+| 色值 | 用途 |
+| :-- | :-- |
+| `#f7f4ef` | 页面背景（暖米色） |
+| `#ffffff` | 卡片背景 |
+| `#2c2a30` | 主要文字 |
+| `#6b6570` | 次要文字 |
+| `#f783ac` | 粉色点缀 / 今日高亮 |
+| `rgba(247,131,172,0.1)` | 粉色微光 |
+
+所有设计标记（色值、字体、阴影）均通过 `globals.css` 中的 CSS 自定义属性定义。
 
 ## 📄 文档
 
-- [需求文档](docs/requirements.md)
-- [变更日志](CHANGELOG.md)
+- [AGENTS.md](AGENTS.md) — AI Agent 开发规范
+- [CHANGELOG.md](CHANGELOG.md) — 变更日志
+- [docs/requirements.md](docs/requirements.md) — 需求文档
 
 ## 📜 许可证
 
@@ -145,4 +143,4 @@ MIT License
 
 ---
 
-**Gleamory 微光集** ✨ - 用微光点亮每一个项目
+**Gleamory 微光集** ✨ — 用微光点亮每一个项目
