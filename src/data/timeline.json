@@ -29,6 +29,12 @@
       "projectId": "gleamory",
       "content": "全宽 SiteHeader 导航栏重构，配色更新为琥珀+暖纸+墨黑",
       "date": "2026-05-19"
+    },
+    {
+      "id": "6",
+      "projectId": "web-piano",
+      "content": "极简钢琴 v1.0 上线 — C2 到 B5 四个八度，四种合成音色可切换",
+      "date": "2026-05-23"
     }
   ]
 }

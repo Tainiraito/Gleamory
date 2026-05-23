@@ -7,6 +7,7 @@ import PoemCard from '@/components/PoemCard'
 import Timeline from '@/components/Timeline'
 import Footer from '@/components/Footer'
 import GachaSimulator from '@/pages/GachaSimulator'
+import PianoPage from '@/pages/PianoPage'
 import projectsData from '@/data/projects.json'
 import updatesData from '@/data/timeline.json'
 
@@ -49,6 +50,7 @@ const App = () => (
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/gacha-simulator" element={<GachaSimulator />} />
+      <Route path="/piano" element={<PianoPage />} />
     </Routes>
   </HashRouter>
 )

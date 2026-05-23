@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import type { Update } from '@/types'
 
@@ -10,7 +10,9 @@ const INITIAL_COUNT = 5
 
 const Timeline = ({ updates }: TimelineProps) => {
   const [expanded, setExpanded] = useState(false)
-  const visibleUpdates = expanded ? updates : updates.slice(0, INITIAL_COUNT)
+  // Most recent first
+  const sortedUpdates = useMemo(() => [...updates].reverse(), [updates])
+  const visibleUpdates = expanded ? sortedUpdates : sortedUpdates.slice(0, INITIAL_COUNT)
   const hasMore = updates.length > INITIAL_COUNT
 
   return (

@@ -175,7 +175,9 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
     whileInView: { opacity: 1, y: 0 },
     viewport: { once: true },
     transition: { duration: 0.6, delay: isFeatured ? 0 : index * 0.08 },
-    whileHover: isFeatured ? { y: -2 } : { y: -2, boxShadow: '0 0 20px rgba(247, 131, 172, 0.1)' },
+    whileHover: isFeatured
+      ? { y: -3, transition: { duration: 0.12 } }
+      : { y: -3, boxShadow: '0 0 20px rgba(247, 131, 172, 0.1)', transition: { duration: 0.12 } },
   }
 
   const inner = isFeatured ? featuredContent : listContent

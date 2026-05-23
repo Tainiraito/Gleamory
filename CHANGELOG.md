@@ -6,6 +6,19 @@
 
 ### Added
 
+- 🎹 **极简钢琴** — `PianoPage.tsx`（`/piano` 路由）
+  - C2~B5 共 48 键，白键 flex + 黑键 absolute 定位
+  - Web Audio API 合成音色，4 种音色可切换（钢琴/风琴/暖音/电颤）
+  - 每个音色独立 ADSR 包络 + 振荡器组合
+  - 键盘映射双预设（数字行 / 经典行），键位提示随预设动态更新
+  - 延音模式（toggle + 空格键踏板），三种方式切换
+  - Z/X 八度升降，触屏点按适配
+
+### Changed
+
+- ⚡ **卡片 hover 动效提速** — `0.6s` → `0.12s`，上浮幅度 `-2px` → `-3px`
+- 🔄 **Timeline 降序排列** — 最新更新排在最前面
+
 - ✨ **翻牌抽卡页面** — `GachaSimulator.tsx`（`/gacha` 路由）
   - 三栏布局：管理面板 | 翻牌区（auto-fill minmax 88px~1fr）| 已抽结果+统计
   - 卡牌翻面动画（Framer Motion 3D rotateY）
