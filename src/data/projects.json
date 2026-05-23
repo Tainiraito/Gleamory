@@ -31,6 +31,17 @@
       "cover": "/covers/荧月.png",
       "version": "v0.0.1",
       "updatedAt": "-"
+    },
+    {
+      "id": "web-piano",
+      "name": "极简钢琴",
+      "description": "轻轻敲醒沉睡的心灵",
+      "url": "#/piano",
+      "status": "在线",
+      "tags": ["小工具", "音乐"],
+      "cover": "",
+      "version": "v1.0.0",
+      "updatedAt": "2026-05-23"
     }
   ]
 }
