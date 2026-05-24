@@ -15,6 +15,7 @@ const TONES: { id: SynthTone; label: string }[] = [
 const noteFromMidi = (midi: number) => ALL_NOTES.find((n) => n.midiNumber === midi)
 
 const PianoPage = () => {
+  useEffect(() => { document.title = '极简钢琴 | Gleamory 微光集' }, [])
   const { playNote, stopNote, setTone, toggleSustain, sustain, setSustainPedal } = usePianoAudio()
   const [pressedKeys, setPressedKeys] = useState<Set<number>>(new Set())
   const [activeTone, setActiveTone] = useState<SynthTone>('piano')
