@@ -106,6 +106,7 @@ function saveState(s: GachaState) {
 }
 
 const GachaSimulator = () => {
+  useEffect(() => { document.title = '抽卡模拟 | Gleamory 微光集' }, [])
   const [entries, setEntries] = useState<Entry[]>([])
   const [history, setHistory] = useState<string[]>([])
   const [cardOrder, setCardOrder] = useState<number[]>([])
