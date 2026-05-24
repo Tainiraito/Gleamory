@@ -81,3 +81,18 @@ export const BEAT_SOUND_MAP: Record<BeatSoundId, BeatSound> = Object.fromEntries
 
 // Default sound for new beats
 export const DEFAULT_SOUND: BeatSoundId = 'click'
+
+// Measure sound presets — for the metronome preset buttons
+export interface MeasureSoundPreset {
+  name: string
+  sounds: BeatSoundId[]
+}
+
+export const MEASURE_SOUND_PRESETS: MeasureSoundPreset[] = [
+  { name: '节拍器', sounds: ['click', 'click', 'click', 'click'] },
+  { name: '木鱼', sounds: ['wood', 'wood', 'wood', 'wood'] },
+  { name: '电子鼓', sounds: ['kick', 'snare', 'kick', 'snare'] },
+  { name: '动次打次', sounds: ['kick', 'hihat', 'snare', 'hihat'] },
+  { name: '808', sounds: ['kick', 'kick', 'snare', 'kick'] },
+  { name: '空灵', sounds: ['wood', 'metal', 'wood', 'metal'] },
+]

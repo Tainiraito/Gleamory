@@ -3,7 +3,6 @@ import { motion, useReducedMotion, AnimatePresence } from 'framer-motion'
 import { useMetronome } from '@/hooks/useMetronome'
 import {
   createDefaultConfig,
-  createMeasure,
   generateMeasureId,
   type MetronomeConfig,
   MIN_BPM,
@@ -12,8 +11,9 @@ import {
   MAX_BEATS,
 } from '@/types/metronome'
 import type { BeatSoundId } from '@/data/beatSounds'
-import { BEAT_SOUND_MAP, BEAT_SOUNDS } from '@/data/beatSounds'
+import { BEAT_SOUND_MAP, BEAT_SOUNDS, MEASURE_SOUND_PRESETS, type MeasureSoundPreset } from '@/data/beatSounds'
 
+// ---------- Metronome component ----------
 export function Metronome() {
   const [config, setConfig] = useState<MetronomeConfig>(createDefaultConfig())
 
@@ -29,7 +29,7 @@ export function Metronome() {
   const isPausedRef = useRef(false)
   const prefersReducedMotion = useReducedMotion()
 
-  // Space bar: play / pause — inline handler to avoid circular dep with handlePlayPause
+  // Space bar: play / pause
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName
@@ -64,7 +64,7 @@ export function Metronome() {
         const beats = [...m.beats]
         if (newBeatCount > beats.length) {
           while (beats.length < newBeatCount) {
-            beats.push({ sound: 'click' })
+            beats.push({ sound: 'wood' })
           }
         } else {
           beats.length = newBeatCount
@@ -75,8 +75,13 @@ export function Metronome() {
     })
   }
 
-  // Beat sound change
-  const handleBeatChange = (measureIndex: number, beatIndex: number, sound: BeatSoundId) => {
+  // Beat sound change — cycle through sounds on click, long-press opens panel
+  const handleBeatClick = (measureIndex: number, beatIndex: number) => {
+    const currentSound = config.measures[measureIndex]?.beats[beatIndex]?.sound
+    const currentIdx = BEAT_SOUNDS.findIndex((s) => s.id === currentSound)
+    const nextIdx = (currentIdx + 1) % BEAT_SOUNDS.length
+    const nextSound = BEAT_SOUNDS[nextIdx].id
+    playBeatSound(nextSound)
     setConfig((prev) => {
       const measures = prev.measures.map((m, mi) => {
         if (mi !== measureIndex) return m
@@ -84,7 +89,7 @@ export function Metronome() {
           ...m,
           beats: m.beats.map((b, bi) => {
             if (bi !== beatIndex) return b
-            return { ...b, sound }
+            return { ...b, sound: nextSound }
           }),
         }
       })
@@ -92,11 +97,56 @@ export function Metronome() {
     })
   }
 
+  // Long-press timer for beat button
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleBeatMouseDown = (measureIndex: number, beatIndex: number) => {
+    longPressTimerRef.current = setTimeout(() => {
+      // Long press — open selector instead
+      const btn = document.querySelector(`[data-beat="${measureIndex}-${beatIndex}"]`) as HTMLButtonElement | null
+      if (btn) {
+        btn.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }))
+      }
+    }, 400)
+  }
+  const handleBeatMouseUp = (measureIndex: number, beatIndex: number) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+      // Short press — cycle sound
+      handleBeatClick(measureIndex, beatIndex)
+    }
+  }
+  const handleBeatMouseLeave = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
+
+  // Apply measure sound preset to all measures
+  const applyMeasurePreset = (preset: MeasureSoundPreset) => {
+    setConfig((prev) => {
+      const sounds = Array.from({ length: prev.beatsPerMeasure }, (_, i) => ({
+        sound: preset.sounds[i % preset.sounds.length],
+      }))
+      return {
+        ...prev,
+        measures: prev.measures.map((m) => ({ ...m, beats: sounds.map((s) => ({ ...s })) })),
+      }
+    })
+  }
+
   const addMeasure = () => {
-    setConfig((prev) => ({
-      ...prev,
-      measures: [...prev.measures, createMeasure(generateMeasureId(), prev.beatsPerMeasure)],
-    }))
+    setConfig((prev) => {
+      const lastMeasure = prev.measures[prev.measures.length - 1]
+      const newBeats = lastMeasure
+        ? lastMeasure.beats.map((b) => ({ ...b }))
+        : Array.from({ length: prev.beatsPerMeasure }, () => ({ sound: 'wood' as BeatSoundId }))
+      return {
+        ...prev,
+        measures: [...prev.measures, { id: generateMeasureId(), beats: newBeats }],
+      }
+    })
   }
 
   const duplicateMeasure = (measureIndex: number) => {
@@ -104,10 +154,7 @@ export function Metronome() {
       const measures = [...prev.measures]
       const source = measures[measureIndex]
       if (!source) return prev
-      const copy: typeof source = {
-        id: generateMeasureId(),
-        beats: source.beats.map((b) => ({ ...b })),
-      }
+      const copy: typeof source = { id: generateMeasureId(), beats: source.beats.map((b) => ({ ...b })) }
       measures.splice(measureIndex + 1, 0, copy)
       return { ...prev, measures }
     })
@@ -141,8 +188,198 @@ export function Metronome() {
   const BPM_PRESETS = [30, 60, 90, 120, 180]
 
   return (
-    <div className="space-y-5">
-      {/* ======= Playback Controls ======= */}
+    <div className="space-y-4">
+      {/* ======= Top row: Loop + Beats ======= */}
+      <div
+        className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-3"
+        style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
+      >
+        {/* Loop toggle */}
+        <button
+          type="button"
+          onClick={() => setConfig((prev) => ({ ...prev, loop: !prev.loop }))}
+          className="h-10 px-4 text-sm rounded transition-all cursor-pointer flex-shrink-0"
+          style={{
+            touchAction: 'manipulation',
+            color: config.loop ? 'var(--text-primary)' : 'var(--text-muted)',
+            border: `0.5px solid ${config.loop ? 'var(--accent-amber)' : 'var(--border-line)'}`,
+            background: config.loop ? 'var(--accent-glow)' : 'transparent',
+          }}
+        >
+          {config.loop ? '循环' : '单次'}
+        </button>
+
+        {/* Divider */}
+        <div className="hidden sm:block w-px h-8 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
+
+        {/* Beat count ± */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>节拍</span>
+          <button
+            type="button"
+            onClick={() => handleBeatsChange(Math.max(MIN_BEATS, config.beatsPerMeasure - 1))}
+            disabled={config.beatsPerMeasure <= MIN_BEATS}
+            className="w-10 h-10 rounded flex items-center justify-center text-base font-medium transition-all cursor-pointer disabled:opacity-30"
+            style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
+            onMouseEnter={(e) => { if (config.beatsPerMeasure > MIN_BEATS) { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+          >
+            −
+          </button>
+          <span className="w-6 text-center font-mono text-base font-medium select-none" style={{ color: 'var(--text-primary)' }}>
+            {config.beatsPerMeasure}
+          </span>
+          <button
+            type="button"
+            onClick={() => handleBeatsChange(Math.min(MAX_BEATS, config.beatsPerMeasure + 1))}
+            disabled={config.beatsPerMeasure >= MAX_BEATS}
+            className="w-10 h-10 rounded flex items-center justify-center text-base font-medium transition-all cursor-pointer disabled:opacity-30"
+            style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
+            onMouseEnter={(e) => { if (config.beatsPerMeasure < MAX_BEATS) { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+          >
+            +
+          </button>
+        </div>
+
+        {/* Divider */}
+        <div className="hidden sm:block w-px h-8 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
+
+        {/* Measure sound presets */}
+        <div className="flex items-center gap-1 flex-shrink-0 flex-wrap">
+          <span className="text-xs uppercase tracking-widest mr-1" style={{ color: 'var(--text-muted)' }}>音色</span>
+          {MEASURE_SOUND_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              onClick={() => applyMeasurePreset(preset)}
+              className="h-10 px-3 text-sm rounded transition-all cursor-pointer"
+              style={{
+                touchAction: 'manipulation',
+                color: 'var(--text-muted)',
+                border: '0.5px solid var(--border-line)',
+                background: 'transparent',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              {preset.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ======= Beat Grid — centered, no column header ======= */}
+      <div
+        className="rounded-xl px-4 py-4"
+        style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
+      >
+        {/* Measure rows — centered grid */}
+        <div className="flex flex-col items-center gap-3">
+          {config.measures.map((measure, mi) => {
+            const isCurrentMeasure = currentBeat?.measure === mi
+            return (
+              <motion.div
+                key={measure.id}
+                className="flex items-center gap-2"
+                initial={prefersReducedMotion ? undefined : { opacity: 0 }}
+                animate={prefersReducedMotion ? undefined : { opacity: 1 }}
+                transition={prefersReducedMotion ? undefined : { duration: 0.15 }}
+              >
+                {/* Row playing indicator */}
+                <div className="w-4 flex-shrink-0 flex items-center justify-center">
+                  {isCurrentMeasure && (
+                    prefersReducedMotion ? (
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent-amber)' }} />
+                    ) : (
+                      <motion.span
+                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                        style={{ background: 'var(--accent-amber)' }}
+                        animate={{ scale: [1, 1.3, 1], opacity: [1, 0.6, 1] }}
+                        transition={{ repeat: Infinity, duration: 0.8 }}
+                      />
+                    )
+                  )}
+                </div>
+
+                {/* Beat dots — responsive size on small screens */}
+                <div className="flex items-center gap-2">
+                  {measure.beats.slice(0, config.beatsPerMeasure).map((beat, beatIdx) => {
+                    const isActive = isCurrentMeasure && currentBeat?.beat === beatIdx
+                    const beatConfig = BEAT_SOUND_MAP[beat.sound]
+                    return (
+                      <BeatButton
+                        key={beatIdx}
+                        dataBeat={`${mi}-${beatIdx}`}
+                        sound={beat.sound}
+                        isActive={isActive}
+                        color={beatConfig.color}
+                        measureIndex={mi}
+                        beatIndex={beatIdx}
+                        onMouseDown={handleBeatMouseDown}
+                        onMouseUp={handleBeatMouseUp}
+                        onMouseLeave={handleBeatMouseLeave}
+                        playBeat={playBeatSound}
+                      />
+                    )
+                  })}
+                </div>
+
+                {/* Copy / Delete — icon buttons, right side */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => duplicateMeasure(mi)}
+                    className="w-8 h-8 rounded flex items-center justify-center transition-all cursor-pointer"
+                    title="复制"
+                    style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="5" y="5" width="9" height="9" rx="1.5" />
+                      <path d="M3 11V3a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 13 3v1.5" />
+                    </svg>
+                  </button>
+                  {config.measures.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => deleteMeasure(mi)}
+                      className="w-8 h-8 rounded flex items-center justify-center transition-all cursor-pointer"
+                      title="删除"
+                      style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger-red)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M3 3l10 10M13 3L3 13" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+
+        {/* Add measure */}
+        <button
+          type="button"
+          onClick={addMeasure}
+          className="mt-4 w-full py-2 text-sm rounded transition-all cursor-pointer"
+          style={{
+            color: 'var(--text-muted)',
+            border: '0.5px solid var(--border-line)',
+            background: 'transparent',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+        >
+          + 添加小节
+        </button>
+      </div>
+
+      {/* ======= Bottom: Playback + BPM Controls ======= */}
       <div
         className="rounded-xl px-4 py-3.5 flex flex-wrap items-center gap-x-4 gap-y-2"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
@@ -210,12 +447,12 @@ export function Metronome() {
           <button
             type="button"
             onClick={() => handleBpmChange(config.bpm - 5)}
-            className="w-10 h-10 rounded flex items-center justify-center text-sm font-medium transition-all cursor-pointer"
+            className="w-10 h-10 rounded flex items-center justify-center text-base font-medium transition-all cursor-pointer"
             style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
           >
-            −
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M3 8h10M3 8l4-4M3 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" /></svg>
           </button>
           <input
             type="number"
@@ -223,18 +460,18 @@ export function Metronome() {
             max={MAX_BPM}
             value={config.bpm}
             onChange={(e) => handleBpmChange(Number(e.target.value))}
-            className="w-14 h-10 text-center font-mono text-base font-medium rounded appearance-none cursor-pointer"
-            style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)' }}
+            className="w-16 h-10 text-center font-mono text-base font-medium rounded appearance-none cursor-pointer"
+            style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none', WebkitAppearance: 'none' }}
           />
           <button
             type="button"
             onClick={() => handleBpmChange(config.bpm + 5)}
-            className="w-10 h-10 rounded flex items-center justify-center text-sm font-medium transition-all cursor-pointer"
+            className="w-10 h-10 rounded flex items-center justify-center text-base font-medium transition-all cursor-pointer"
             style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
           >
-            +
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13 8H3M13 8l-4-4M13 8l-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" /></svg>
           </button>
         </div>
 
@@ -257,171 +494,35 @@ export function Metronome() {
             </button>
           ))}
         </div>
-
-        {/* Divider */}
-        <div className="hidden sm:block w-px h-9 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
-
-        {/* Loop toggle — h-10 (40px) */}
-        <button
-          type="button"
-          onClick={() => setConfig((prev) => ({ ...prev, loop: !prev.loop }))}
-          className="h-10 px-4 text-sm rounded transition-all cursor-pointer flex-shrink-0"
-          style={{
-            touchAction: 'manipulation',
-            color: config.loop ? 'var(--text-primary)' : 'var(--text-muted)',
-            border: `0.5px solid ${config.loop ? 'var(--accent-amber)' : 'var(--border-line)'}`,
-            background: config.loop ? 'var(--accent-glow)' : 'transparent',
-          }}
-        >
-          {config.loop ? '循环' : '单次'}
-        </button>
-
-        {/* Beat count ± — h-10 (40px) */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-            节拍
-          </span>
-          <button
-            type="button"
-            onClick={() => handleBeatsChange(Math.max(MIN_BEATS, config.beatsPerMeasure - 1))}
-            disabled={config.beatsPerMeasure <= MIN_BEATS}
-            className="w-10 h-10 rounded flex items-center justify-center text-base font-medium transition-all cursor-pointer disabled:opacity-30"
-            style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-            onMouseEnter={(e) => { if (config.beatsPerMeasure > MIN_BEATS) { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-          >
-            −
-          </button>
-          <span className="w-6 text-center font-mono text-base font-medium select-none" style={{ color: 'var(--text-primary)' }}>
-            {config.beatsPerMeasure}
-          </span>
-          <button
-            type="button"
-            onClick={() => handleBeatsChange(Math.min(MAX_BEATS, config.beatsPerMeasure + 1))}
-            disabled={config.beatsPerMeasure >= MAX_BEATS}
-            className="w-10 h-10 rounded flex items-center justify-center text-base font-medium transition-all cursor-pointer disabled:opacity-30"
-            style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-            onMouseEnter={(e) => { if (config.beatsPerMeasure < MAX_BEATS) { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      {/* ======= Beat Grid — centered, no column header ======= */}
-      <div
-        className="rounded-xl px-4 py-4"
-        style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
-      >
-        {/* Measure rows — centered grid */}
-        <div className="flex flex-col items-center gap-2">
-          {config.measures.map((measure, mi) => {
-            const isCurrentMeasure = currentBeat?.measure === mi
-            return (
-              <motion.div
-                key={measure.id}
-                className="flex items-center gap-3"
-                initial={prefersReducedMotion ? undefined : { opacity: 0 }}
-                animate={prefersReducedMotion ? undefined : { opacity: 1 }}
-                transition={prefersReducedMotion ? undefined : { duration: 0.15 }}
-              >
-                {/* Row playing indicator */}
-                <div className="w-5 flex-shrink-0 flex items-center justify-center">
-                  {isCurrentMeasure && (
-                    prefersReducedMotion ? (
-                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent-amber)' }} />
-                    ) : (
-                      <motion.span
-                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                        style={{ background: 'var(--accent-amber)' }}
-                        animate={{ scale: [1, 1.3, 1], opacity: [1, 0.6, 1] }}
-                        transition={{ repeat: Infinity, duration: 0.8 }}
-                      />
-                    )
-                  )}
-                </div>
-
-                {/* Beat dots — only show active beats, centered */}
-                <div className="flex items-center gap-2">
-                  {measure.beats.slice(0, config.beatsPerMeasure).map((beat, beatIdx) => {
-                    const isActive = isCurrentMeasure && currentBeat?.beat === beatIdx
-                    const beatConfig = BEAT_SOUND_MAP[beat.sound]
-                    return (
-                      <BeatButton
-                        key={beatIdx}
-                        sound={beat.sound}
-                        isActive={isActive}
-                        color={beatConfig.color}
-                        onSoundChange={(s) => handleBeatChange(mi, beatIdx, s)}
-                        playBeat={playBeatSound}
-                      />
-                    )
-                  })}
-                </div>
-
-                {/* Copy / Delete buttons — right side */}
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => duplicateMeasure(mi)}
-                    className="px-2 py-1 text-sm rounded transition-all cursor-pointer"
-                    style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-                  >
-                    复制
-                  </button>
-                  {config.measures.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => deleteMeasure(mi)}
-                      className="px-2 py-1 text-sm rounded transition-all cursor-pointer"
-                      style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger-red)' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-                    >
-                      删除
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-            )
-          })}
-        </div>
-
-        {/* Add measure */}
-        <button
-          type="button"
-          onClick={addMeasure}
-          className="mt-4 w-full py-2 text-sm rounded transition-all cursor-pointer"
-          style={{
-            color: 'var(--text-muted)',
-            border: '0.5px solid var(--border-line)',
-            background: 'transparent',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-        >
-          + 添加小节
-        </button>
       </div>
     </div>
   )
 }
 
-// Inline beat button
+// ---------- Inline beat button ----------
 function BeatButton({
+  dataBeat,
   sound,
   isActive,
   color,
-  onSoundChange,
+  measureIndex,
+  beatIndex,
+  onMouseDown,
+  onMouseUp,
+  onMouseLeave,
+  onContextMenu,
   playBeat,
 }: {
+  dataBeat: string
   sound: BeatSoundId
   isActive: boolean
   color: string
-  onSoundChange: (s: BeatSoundId) => void
+  measureIndex: number
+  beatIndex: number
+  onMouseDown: (mi: number, bi: number) => void
+  onMouseUp: (mi: number, bi: number) => void
+  onMouseLeave: () => void
+  onContextMenu?: (e: React.MouseEvent<HTMLButtonElement>) => void
   playBeat?: (s: BeatSoundId) => void
 }) {
   const [showSelector, setShowSelector] = useState(false)
@@ -429,12 +530,19 @@ function BeatButton({
   const buttonRef = useRef<HTMLButtonElement>(null)
   const prefersReducedMotion = useReducedMotion()
 
-  const openSelector = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (buttonRef.current) {
-      setAnchorRect(buttonRef.current.getBoundingClientRect())
-    }
+  const openSelector = (rect: DOMRect) => {
+    setAnchorRect(rect)
     setShowSelector(true)
+  }
+
+  // Expose openSelector via onContextMenu trigger
+  const handleContextMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (onContextMenu) {
+      onContextMenu(e)
+    }
+    if (!e.defaultPrevented && buttonRef.current) {
+      openSelector(buttonRef.current.getBoundingClientRect())
+    }
   }
 
   return (
@@ -442,12 +550,13 @@ function BeatButton({
       <motion.button
         ref={buttonRef}
         type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          openSelector(e)
-        }}
+        data-beat={dataBeat}
+        onMouseDown={() => onMouseDown(measureIndex, beatIndex)}
+        onMouseUp={() => onMouseUp(measureIndex, beatIndex)}
+        onMouseLeave={onMouseLeave}
+        onContextMenu={handleContextMenu}
         whileTap={{ scale: 0.95 }}
-        className="w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer"
+        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all cursor-pointer"
         style={{
           background: isActive ? color : 'var(--bg-card)',
           border: `0.5px solid ${isActive ? color : 'var(--border-line)'}`,
@@ -456,10 +565,7 @@ function BeatButton({
         }}
         animate={isActive && !prefersReducedMotion ? { scale: [1, 1.12, 1], transition: { duration: 0.12 } } : { scale: 1 }}
       >
-        <span
-          className="w-3 h-3 rounded-full"
-          style={{ background: isActive ? 'rgba(255,255,255,0.8)' : color }}
-        />
+        <span className="w-3 h-3 rounded-full" style={{ background: isActive ? 'rgba(255,255,255,0.8)' : color }} />
       </motion.button>
 
       <AnimatePresence>
@@ -469,7 +575,6 @@ function BeatButton({
             anchorRect={anchorRect}
             onSelect={(s) => {
               playBeat?.(s)
-              onSoundChange(s)
               setShowSelector(false)
             }}
             onClose={() => setShowSelector(false)}
@@ -480,7 +585,7 @@ function BeatButton({
   )
 }
 
-// Sound selector popup
+// ---------- Sound selector popup ----------
 function BeatSoundPopup({
   currentSound,
   anchorRect,
