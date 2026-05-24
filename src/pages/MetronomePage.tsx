@@ -7,7 +7,7 @@ const MetronomePage = () => {
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
       <SiteHeader />
 
-      <main className="px-4 sm:px-[15%] pt-8 pb-36 sm:py-24">
+      <main className="px-4 sm:px-[15%] pt-20 sm:pt-24 pb-36 sm:pb-24">
         {/* Title section */}
         <h1
           className="font-display text-4xl sm:text-5xl tracking-tight mb-2"
