@@ -35,6 +35,12 @@
       "projectId": "web-piano",
       "content": "极简钢琴 v1.0 上线 — C2 到 B5 四个八度，四种合成音色可切换",
       "date": "2026-05-23"
+    },
+    {
+      "id": "7",
+      "projectId": "metronome",
+      "content": "节拍器 v1.0 上线 — Web Audio 合成音色、小节编辑器、变速模式、6种音色预设",
+      "date": "2026-05-24"
     }
   ]
 }
