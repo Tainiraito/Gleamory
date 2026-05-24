@@ -30,7 +30,6 @@ interface BeatButtonProps {
   beatIndex: number
   onSoundChange: (mi: number, bi: number, sound: BeatSoundId) => void
   playBeat: (sound: BeatSoundId) => void
-  // Singleton popup management
   activePopupId: string | null
   onOpenPopup: (id: string, btn: HTMLButtonElement, curSound: BeatSoundId) => void
   onClosePopup: () => void
@@ -43,11 +42,9 @@ function BeatButton({
 }: BeatButtonProps) {
   const btnRef = useRef<HTMLButtonElement>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const thisPopupId = `${measureIndex}-${beatIndex}`
   const isOpen = activePopupId === thisPopupId
 
-  // ---- Cycle sound on short click ----
   const cycleSound = () => {
     const currentIdx = BEAT_SOUNDS.findIndex((s) => s.id === sound)
     const nextIdx = (currentIdx + 1) % BEAT_SOUNDS.length
@@ -73,15 +70,17 @@ function BeatButton({
     }, 400)
   }
 
-  const handleMouseDown = () => startLongPress()
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return // only left button starts timer
+    startLongPress()
+  }
 
-  const handleMouseUp = () => {
-    // If timer is still running (< 400ms) → short click → cycle
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (e.button !== 0) return // only left button triggers cycle
     if (longPressTimer.current) {
       cancelLongPress()
       cycleSound()
     }
-    // If timer already fired, long press already handled popup
   }
 
   const handleMouseLeave = cancelLongPress
@@ -94,18 +93,10 @@ function BeatButton({
     }
   }
 
-  // ---- Popup handlers ----
   const handleSelect = (s: BeatSoundId) => {
     playBeat(s)
     onSoundChange(measureIndex, beatIndex, s)
     onClosePopup()
-  }
-
-  const handlePopupMouseEnter = () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current)
-  }
-  const handlePopupMouseLeave = () => {
-    closeTimer.current = setTimeout(onClosePopup, 120)
   }
 
   return (
@@ -134,6 +125,7 @@ function BeatButton({
         {isOpen && (
           <motion.div
             key="beat-popup"
+            data-popup
             initial={{ opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
@@ -146,8 +138,6 @@ function BeatButton({
               background: 'var(--bg-card)',
               border: '0.5px solid var(--border-line)',
             }}
-            onMouseEnter={handlePopupMouseEnter}
-            onMouseLeave={handlePopupMouseLeave}
           >
             {BEAT_SOUNDS.map((s) => (
               <button
@@ -196,6 +186,23 @@ export function Metronome() {
   const [activePopupId, setActivePopupId] = useState<string | null>(null)
   const handleOpenPopup = (_id: string) => setActivePopupId(_id)
   const handleClosePopup = () => setActivePopupId(null)
+
+  // Click outside popup to close
+  useEffect(() => {
+    if (!activePopupId) return
+    const handler = (e: MouseEvent) => {
+      const popup = document.querySelector('[data-popup]')
+      if (popup && !popup.contains(e.target as Node)) {
+        setActivePopupId(null)
+      }
+    }
+    // delay to avoid swallowing the click that opened the popup
+    const timer = setTimeout(() => document.addEventListener('mousedown', handler), 0)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('mousedown', handler)
+    }
+  }, [activePopupId])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -313,7 +320,7 @@ export function Metronome() {
 
   return (
     <div className="space-y-3">
-      {/* ======= Top: Beat Count + Sound Presets + Timer/Round ======= */}
+      {/* ======= Top: Beat Count + Sound Presets ======= */}
       <div
         className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-3"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
@@ -366,25 +373,6 @@ export function Metronome() {
               {preset.name}
             </button>
           ))}
-        </div>
-
-        {/* Timer + Round */}
-        <div className="ml-auto flex items-center gap-3 flex-shrink-0">
-          <div className="flex items-center gap-1.5">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-muted)' }}>
-              <circle cx="8" cy="8" r="7" />
-              <path d="M8 4v4l3 2" strokeLinecap="round" />
-            </svg>
-            <span className="font-mono text-base font-medium" style={{ color: 'var(--accent-amber)' }}>
-              {formatTime(elapsedTime)}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>RND</span>
-            <span className="font-mono text-base font-medium" style={{ color: 'var(--text-primary)' }}>
-              {roundCount}
-            </span>
-          </div>
         </div>
       </div>
 
@@ -477,7 +465,7 @@ export function Metronome() {
         </button>
       </div>
 
-      {/* ======= Bottom Row 1: Mode Tabs + BPM / TempoChange Config ======= */}
+      {/* ======= Row 1: Mode Tabs + BPM / TempoChange Config ======= */}
       <div
         className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
@@ -504,7 +492,6 @@ export function Metronome() {
 
         <div className="w-px h-9 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
 
-        {/* Normal mode: BPM */}
         {!isTempoChange && (
           <>
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -564,7 +551,6 @@ export function Metronome() {
           </>
         )}
 
-        {/* Tempo change mode: config inline */}
         {isTempoChange && (
           <>
             <div className="flex items-center gap-1">
@@ -629,9 +615,9 @@ export function Metronome() {
         )}
       </div>
 
-      {/* ======= Bottom Row 2: Playback (centered) ======= */}
+      {/* ======= Row 2: Playback + Timer + RND (centered) ======= */}
       <div
-        className="rounded-xl px-4 py-4 flex items-center justify-center gap-6"
+        className="rounded-xl px-4 py-4 flex items-center justify-center gap-5"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
       >
         {/* Stop */}
@@ -673,6 +659,25 @@ export function Metronome() {
             </svg>
           )}
         </button>
+
+        {/* Timer + RND */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-muted)' }}>
+              <circle cx="8" cy="8" r="7" />
+              <path d="M8 4v4l3 2" strokeLinecap="round" />
+            </svg>
+            <span className="font-mono text-base font-medium" style={{ color: 'var(--accent-amber)' }}>
+              {formatTime(elapsedTime)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>RND</span>
+            <span className="font-mono text-base font-medium" style={{ color: 'var(--text-primary)' }}>
+              {roundCount}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   )
