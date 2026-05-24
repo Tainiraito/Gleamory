@@ -26,7 +26,7 @@ export const DEFAULT_BEATS = 4
 export function createMeasure(id: string, beatCount: number): Measure {
   return {
     id,
-    beats: Array.from({ length: beatCount }, () => ({ sound: 'click' as BeatSoundId })),
+    beats: Array.from({ length: beatCount }, () => ({ sound: 'wood' as BeatSoundId })),
   }
 }
 
