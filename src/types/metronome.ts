@@ -19,7 +19,7 @@ export interface MetronomeConfig {
 export const MIN_BPM = 30
 export const MAX_BPM = 300
 export const MIN_BEATS = 1
-export const MAX_BEATS = 16
+export const MAX_BEATS = 8
 export const DEFAULT_BPM = 120
 export const DEFAULT_BEATS = 4
 
