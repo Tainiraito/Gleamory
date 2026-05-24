@@ -6,6 +6,17 @@
 
 ### Added
 
+- 🎵 **节拍器** — `Metronome.tsx` + `useMetronome.ts`（`/metronome` 路由）
+  - Web Audio API 合成 6 种音色（click/kick/snare/hihat/wood/metal）
+  - 每拍独立音色选择：左键单击循环切换 / 长按或右键弹出面板
+  - 小节管理：添加/复制/删除，新增小节自动复制末尾配置
+  - 每小节 1~8 拍可调，全局同步
+  - BPM 范围 30~300，预设 30/60/90/120/180
+  - **变速模式**：起始BPM→终止BPM，每N轮增加X BPM，支持 ↗加速 / ↕反复
+  - 播放计时器 + 轮数计数（RND）
+  - 单例弹出面板 + 点击外部关闭
+  - 6 种小节音色预设一键切换
+  - 紧凑响应式布局，移动端适配
 - 🎹 **极简钢琴** — `PianoPage.tsx`（`/piano` 路由）
   - C2~B5 共 48 键，白键 flex + 黑键 absolute 定位
   - Web Audio API 合成音色，4 种音色可切换（钢琴/风琴/暖音/电颤）
