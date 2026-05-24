@@ -281,16 +281,6 @@ export function Metronome() {
     })
   }
 
-  const addMeasure = () => {
-    setConfig((prev) => {
-      const lastMeasure = prev.measures[prev.measures.length - 1]
-      const newBeats = lastMeasure
-        ? lastMeasure.beats.map((b) => ({ ...b }))
-        : Array.from({ length: prev.beatsPerMeasure }, () => ({ sound: 'wood' as BeatSoundId }))
-      return { ...prev, measures: [...prev.measures, { id: generateMeasureId(), beats: newBeats }] }
-    })
-  }
-
   const duplicateMeasure = (measureIndex: number) => {
     setConfig((prev) => {
       const measures = [...prev.measures]
