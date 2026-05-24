@@ -65,15 +65,25 @@ Gleamory/
 │   │   ├── CalendarCard.tsx # Live calendar display (current month + today highlight)
 │   │   ├── PoemCard.tsx     # Daily poem (API with local JSON fallback)
 │   │   ├── Timeline.tsx     # Update timeline (Framer Motion staggered animation)
-│   │   └── Footer.tsx       # Footer with copyright + GitHub link
+│   │   ├── Footer.tsx       # Footer with copyright + GitHub link
+│   │   └── metronome/       # 节拍器组件
+│   │       └── Metronome.tsx# 核心组件：拍点/音色选择/小节管理/BPM控制
+│   ├── hooks/
+│   │   └── useMetronome.ts  # 节拍器 Web Audio API + 播放控制 + 变速模式 hook
 │   ├── types/
-│   │   └── index.ts         # TypeScript type definitions (Project, Update, etc.)
+│   │   ├── index.ts         # TypeScript type definitions (Project, Update, etc.)
+│   │   └── metronome.ts     # 节拍器类型定义（Beat, Measure, MetronomeConfig, TempoChangeConfig）
 │   ├── data/
 │   │   ├── projects.json    # Project data records
 │   │   ├── timeline.json    # Timeline update records
-│   │   └── poems.json       # Fallback poem collection (31 poems)
+│   │   ├── poems.json       # Fallback poem collection (31 poems)
+│   │   └── beatSounds.ts    # 6种节拍音色配置（Web Audio合成参数）+ 音色预设
 │   ├── assets/
 │   │   └── fonts/           # Source Han Serif CN font files (3 weights)
+│   ├── pages/
+│   │   ├── GachaSimulator.tsx # 翻牌抽卡模拟器 (#/gacha-simulator)
+│   │   ├── PianoPage.tsx      # 极简钢琴 (#/piano)
+│   │   └── MetronomePage.tsx  # 节拍器 (#/metronome)
 │   └── styles/
 │       └── globals.css      # Tailwind v4 @import + @theme + CSS vars + font-face + scrollbar
 ```
@@ -233,12 +243,12 @@ All CSS custom properties are defined in `src/styles/globals.css` under `:root`.
 ## Components
 
 ### App.tsx
-- `FloatingLogo` — fixed top-left brand mark
-- `ProjectGrid` — magazine-style project showcase
-- Decorative pink divider line
-- `CalendarCard` (5/12 grid) + `PoemCard` (7/12 grid)
-- `Timeline` with updates data
-- `Footer` — copyright + GitHub link
+- HashRouter with Routes:
+  - `/` — Homepage (`FloatingLogo` + `ProjectGrid` + `CalendarCard` + `PoemCard` + `Timeline` + `Footer`)
+  - `/gacha-simulator` — `GachaSimulator.tsx` (翻牌抽卡)
+  - `/piano` — `PianoPage.tsx` (极简钢琴)
+  - `/metronome` — `MetronomePage.tsx` (节拍器)
+- Homepage layout:
 
 ### ProjectCard.tsx
 Wraps each project in a Framer Motion `<motion.a>` targeting `_blank`.
@@ -318,6 +328,26 @@ Triggered by push to `main` branch via `.github/workflows/deploy.yml`:
 3. Deploy via `actions/deploy-pages@v4`
 
 Custom domain: `gleamory.lovelysia.top` (Cloudflare DNS proxy).
+
+## New Project / New Page Workflow
+
+When adding a new project feature (e.g., a new page like metronome/piano/gacha):
+
+1. **Hermes agent**: Load the local `gleamory-manager` Hermes skill first (`~/.hermes/skills/workflow/gleamory-manager/`) for full workflow details, project paths, and conventions.
+
+2. **Development**: Work on a feature branch (`feature/<name>`), use `superpowers` workflow (brainstorming → plan → subagent-driven-development).
+
+3. **Data updates** (required after feature is done):
+   - `src/data/projects.json` — add project entry (id, name, description, url=`#/page`, tags, version, updatedAt)
+   - `src/data/timeline.json` — add launch update entry
+   - `CHANGELOG.md` — record feature under `[Unreleased] > Added`
+
+4. **Build & lint**: `npm run build` → `npm run lint` (must pass before commit)
+
+5. **Publish**:
+   - Feature branch → merge to `main`
+   - `git push origin main`
+   - GitHub Actions auto-deploys to `gleamory.lovelysia.top` (~1-2 min)
 
 ## Environment
 
