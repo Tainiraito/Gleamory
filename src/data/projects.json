@@ -42,6 +42,17 @@
       "cover": "",
       "version": "v1.0.0",
       "updatedAt": "2026-05-23"
+    },
+    {
+      "id": "metronome",
+      "name": "节拍器",
+      "description": "Tiktok♪Tiktok♪~动次打次♪动次打次♪~",
+      "url": "#/metronome",
+      "status": "在线",
+      "tags": ["小工具", "音乐"],
+      "cover": "",
+      "version": "v1.0.0",
+      "updatedAt": "2026-05-24"
     }
   ]
 }
