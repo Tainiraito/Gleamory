@@ -148,6 +148,15 @@ export function useMetronome({
     }
   }, [config.tempoChange])
 
+  // Live update BPM when switching modes during playback
+  useEffect(() => {
+    if (!isPlayingRef.current) return
+    currentBpmRef.current = config.tempoMode === 'tempoChange'
+      ? config.tempoChange.startBpm
+      : config.bpm
+    setCurrentBpmDisplay(currentBpmRef.current)
+  }, [config.tempoMode, config.bpm, config.tempoChange.startBpm])
+
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentBeat, setCurrentBeat] = useState<{ measure: number; beat: number } | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)

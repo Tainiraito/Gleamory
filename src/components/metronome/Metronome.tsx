@@ -66,6 +66,7 @@ function BeatButton({
   const startLongPress = () => {
     cancelLongPress()
     longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = null
       if (btnRef.current) {
         onOpenPopup(thisPopupId, btnRef.current, sound)
       }
@@ -630,19 +631,19 @@ export function Metronome() {
 
       {/* ======= Bottom Row 2: Playback (centered) ======= */}
       <div
-        className="rounded-xl px-4 py-4 flex items-center justify-center gap-4"
+        className="rounded-xl px-4 py-4 flex items-center justify-center gap-6"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
       >
         {/* Stop */}
         <button
           type="button"
           onClick={handleStop}
-          className="w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+          className="w-14 h-14 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
           style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
             <rect x="2" y="2" width="12" height="12" rx="1.5" />
           </svg>
         </button>
@@ -671,20 +672,6 @@ export function Metronome() {
               <path d="M4 2.5v11l9-5.5-9-5.5z" />
             </svg>
           )}
-        </button>
-
-        {/* Reset (forward state: go to beat 0, round 1) */}
-        <button
-          type="button"
-          onClick={handleStop}
-          className="w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
-          style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M2 8h12M2 8l4-4M2 8l4 4" />
-          </svg>
         </button>
       </div>
     </div>
