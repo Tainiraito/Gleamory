@@ -52,6 +52,15 @@
   --accent-subtle: rgba(196, 149, 106, 0.15);
   --border-line: rgba(44, 42, 48, 0.07);
   --ink-stamp: #0c0a12;
+
+  /* Task 6 — Shared style variables */
+  --accent-amber-rgb: 196, 149, 106;
+  --danger-red: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --shadow-accent-sm: 0 0 4px rgba(196, 149, 106, 0.4);
+  --shadow-accent-md: 0 0 16px rgba(196, 149, 106, 0.35);
+  --shadow-popup: 0 4px 20px rgba(0, 0, 0, 0.12);
+  --white-alpha-80: rgba(255, 255, 255, 0.8);
 }
 
 * {
@@ -92,4 +101,17 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--border-line);
   border-radius: 2px;
+}
+
+/* ========================================
+   5. Accessibility — Reduced Motion
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

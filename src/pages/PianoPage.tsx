@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import SiteHeader from '@/components/SiteHeader'
 import Piano from '@/components/piano/Piano'
 import { ALL_NOTES, getPlayableNotes, KEYBOARD_PRESETS, DEFAULT_PRESET } from '@/data/pianoNotes'
@@ -126,16 +125,7 @@ const PianoPage = () => {
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
       <SiteHeader />
 
-      <main className="px-6 sm:px-[15%] py-20 sm:py-24">
-        {/* Back link */}
-        <Link
-          to="/"
-          className="text-[0.6rem] uppercase tracking-widest transition-opacity hover:opacity-70 inline-block mb-8"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          &larr; 返回
-        </Link>
-
+<main className="px-6 sm:px-[15%] py-20 sm:py-24">
         {/* Title section */}
         <h1
           className="font-display text-4xl sm:text-5xl tracking-tight mb-2"
@@ -292,16 +282,18 @@ const PianoPage = () => {
         </div>
       </main>
 
-      {/* Footer back link */}
-      <footer className="flex flex-col items-center gap-3 pt-8 pb-12">
-        <div style={{ width: '6px', height: '1px', background: 'var(--border-line)' }} />
-        <Link
-          to="/"
+      {/* Fixed footer — home link only */}
+      <footer
+        className="fixed bottom-0 left-0 right-0 flex justify-center py-4 z-40"
+        style={{ background: 'var(--bg-page)', borderTop: '0.5px solid var(--border-line)' }}
+      >
+        <a
+          href="/"
           className="text-[0.6rem] uppercase tracking-widest transition-opacity hover:opacity-70"
           style={{ color: 'var(--text-muted)' }}
         >
-          &larr; 返回首页
-        </Link>
+          ← 返回首页
+        </a>
       </footer>
     </div>
   )

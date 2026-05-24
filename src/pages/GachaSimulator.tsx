@@ -282,10 +282,15 @@ const GachaSimulator = () => {
 
       <main className="px-4 sm:px-[15%] py-20 sm:py-24">
         <motion.h1 initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
-          className="font-display text-3xl sm:text-4xl tracking-tight text-center mb-2" style={{ color: 'var(--text-primary)' }}>
+          className="font-display text-4xl sm:text-5xl tracking-tight mb-2" style={{ color: 'var(--text-primary)' }}>
           翻牌抽卡
         </motion.h1>
-        <p className="text-sm text-center mb-8" style={{ color: 'var(--text-muted)' }}>翻开一张卡，看看是谁来找你</p>
+        <p className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+          Gacha Simulator
+        </p>
+        <p className="text-sm mb-8 max-w-lg" style={{ color: 'var(--text-muted)' }}>
+          翻开一张卡，看看是谁来找你
+        </p>
 
         {/* 3-column layout */}
         <div className="flex flex-col lg:flex-row gap-6">
@@ -491,9 +496,18 @@ const GachaSimulator = () => {
         </div>
       )}
 
-      <footer className="flex flex-col items-center gap-3 pt-8 pb-12">
-        <div style={{ width: '6px', height: '1px', background: 'var(--border-line)' }} />
-        <Link to="/" className="text-[0.6rem] uppercase tracking-widest transition-opacity hover:opacity-70" style={{ color: 'var(--text-muted)' }}>&larr; 返回首页</Link>
+      {/* Fixed footer — home link only */}
+      <footer
+        className="fixed bottom-0 left-0 right-0 flex justify-center py-4 z-40"
+        style={{ background: 'var(--bg-page)', borderTop: '0.5px solid var(--border-line)' }}
+      >
+        <Link
+          to="/"
+          className="text-[0.6rem] uppercase tracking-widest transition-opacity hover:opacity-70"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          ← 返回首页
+        </Link>
       </footer>
     </div>
   )
