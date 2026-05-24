@@ -1,13 +1,10 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
 import type { BeatSoundId } from '@/data/beatSounds'
 import { BEAT_SOUND_MAP } from '@/data/beatSounds'
-import type { Measure } from '@/types/metronome'
+import type { Measure, MetronomeConfig, TempoChangeConfig } from '@/types/metronome'
 
 interface UseMetronomeOptions {
-  bpm: number
-  beatsPerMeasure: number
-  measures: Measure[]
-  loop: boolean
+  config: MetronomeConfig
   onBeat?: (measureIndex: number, beatIndex: number) => void
   onComplete?: () => void
 }
@@ -15,6 +12,9 @@ interface UseMetronomeOptions {
 interface UseMetronomeReturn {
   isPlaying: boolean
   currentBeat: { measure: number; beat: number } | null
+  elapsedTime: number      // 秒，播放中实时更新
+  roundCount: number       // 当前轮数，从 1 开始
+  currentBpm: number      // 当前实际 BPM（变速模式下可能不等于 config.bpm）
   playBeatSound: (sound: BeatSoundId) => void
   start: () => void
   stop: () => void
@@ -29,12 +29,10 @@ function synthesizeBeat(audioCtx: AudioContext, sound: BeatSoundId, time: number
 
   const { frequency = 440, noiseMix = 0, decay = 0.1, type = 'sine' } = config
 
-  // Master gain for this beat
   const masterGain = audioCtx.createGain()
   masterGain.gain.setValueAtTime(0.8, time)
   masterGain.connect(audioCtx.destination)
 
-  // Tonal component (oscillator)
   if (noiseMix < 1) {
     const osc = audioCtx.createOscillator()
     const oscGain = audioCtx.createGain()
@@ -48,7 +46,6 @@ function synthesizeBeat(audioCtx: AudioContext, sound: BeatSoundId, time: number
     osc.stop(time + decay)
   }
 
-  // Noise component
   if (noiseMix > 0) {
     const bufferSize = audioCtx.sampleRate * decay
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate)
@@ -76,10 +73,7 @@ function synthesizeBeat(audioCtx: AudioContext, sound: BeatSoundId, time: number
 }
 
 export function useMetronome({
-  bpm,
-  beatsPerMeasure,
-  measures,
-  loop,
+  config,
   onBeat,
   onComplete,
 }: UseMetronomeOptions): UseMetronomeReturn {
@@ -89,70 +83,46 @@ export function useMetronome({
   const measureIndexRef = useRef<number>(0)
   const beatIndexRef = useRef<number>(0)
   const isPlayingRef = useRef<boolean>(false)
-  const bpmRef = useRef<number>(bpm)
-  const beatsPerMeasureRef = useRef<number>(beatsPerMeasure)
+
+  // Tempo change state — refs so they are live in the scheduling loop
+  const tempoChangeRef = useRef<TempoChangeConfig>(config.tempoChange)
+  const currentBpmRef = useRef<number>(config.bpm)
+  const roundCountRef = useRef<number>(1)
+  const tempoChangeDirectionRef = useRef<1 | -1>(1) // 1=加速, -1=减速
+
   const onBeatRef = useRef(onBeat)
   const onCompleteRef = useRef(onComplete)
-  const measuresRef = useRef(measures)
+  const configRef = useRef(config)
 
-  // Config ref for live access in scheduling loop — updated every render via useEffect
-  const configRef = useRef({ measures, loop, bpm, beatsPerMeasure })
+  // Elapsed time ticker
+  const tickRef = useRef<number | null>(null)
+  const startTimeRef = useRef<number>(0)
+  const pausedElapsedRef = useRef<number>(0)
 
   // ---- Sync refs with latest props ----
-  useEffect(() => { bpmRef.current = bpm }, [bpm])
-  useEffect(() => {
-    beatsPerMeasureRef.current = beatsPerMeasure
-    // Clamp current beat index when beatsPerMeasure decreases while playing
-    if (isPlayingRef.current && beatIndexRef.current >= beatsPerMeasure) {
-      beatIndexRef.current = Math.max(0, beatsPerMeasure - 1)
-    }
-  }, [beatsPerMeasure])
   useEffect(() => { onBeatRef.current = onBeat }, [onBeat])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   useEffect(() => {
-    configRef.current = { measures, loop, bpm, beatsPerMeasure }
-  }, [measures, loop, bpm, beatsPerMeasure])
-
-  // ---- Track measures changes (add/delete) to adjust playback position ----
-  useEffect(() => {
-    const oldMeasures = measuresRef.current
-    const newMeasures = measures
-
-    if (isPlayingRef.current) {
-      if (newMeasures.length < oldMeasures.length) {
-        // Measures were deleted — find which one
-        const newIds = new Set(newMeasures.map((m) => m.id))
-        for (let i = 0; i < oldMeasures.length; i++) {
-          if (!newIds.has(oldMeasures[i].id)) {
-            // Measure at index `i` was deleted
-            if (i < measureIndexRef.current) {
-              // Deleted before current position — shift back
-              measureIndexRef.current--
-            } else if (i === measureIndexRef.current) {
-              // Deleted current measure — jump to clamped position
-              measureIndexRef.current = Math.min(
-                measureIndexRef.current,
-                newMeasures.length - 1
-              )
-            }
-            // If deleted after current position, no change needed
-            break
-          }
-        }
-      }
-      // For additions: no explicit handling needed since configRef
-      // makes the scheduling loop see the new measures array.
-      // When advancing past the end of old measures, the increased
-      // measures.length naturally prevents unnecessary loop/stop.
+    configRef.current = config
+    if (!isPlayingRef.current) {
+      currentBpmRef.current = config.bpm
     }
+  }, [config])
 
-    measuresRef.current = newMeasures
-  }, [measures])
+  // Sync tempo change config
+  useEffect(() => {
+    tempoChangeRef.current = config.tempoChange
+    if (!isPlayingRef.current) {
+      currentBpmRef.current = config.tempoChange.startBpm
+    }
+  }, [config.tempoChange])
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentBeat, setCurrentBeat] = useState<{ measure: number; beat: number } | null>(null)
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const [roundCount, setRoundCount] = useState(1)
+  const [currentBpmDisplay, setCurrentBpmDisplay] = useState(config.bpm)
 
-  // Ensure audio context exists (handle iOS autoplay policy)
   const ensureAudioContext = useCallback(() => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (
@@ -166,34 +136,84 @@ export function useMetronome({
     return audioCtxRef.current
   }, [])
 
-  // Play a single beat sound immediately
+  // ---- Elapsed time ticker ----
+  const startElapsedTicker = useCallback(() => {
+    startTimeRef.current = Date.now() - pausedElapsedRef.current
+    if (tickRef.current !== null) clearInterval(tickRef.current)
+    tickRef.current = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
+      setElapsedTime(elapsed)
+    }, 500)
+  }, [])
+
+  const stopElapsedTicker = useCallback(() => {
+    if (tickRef.current !== null) {
+      clearInterval(tickRef.current)
+      tickRef.current = null
+    }
+    pausedElapsedRef.current = Date.now() - startTimeRef.current
+  }, [])
+
+  // ---- Tempo change BPM calculation ----
+  const getTempoChangeBpm = useCallback((round: number, current: number): number => {
+    const tc = tempoChangeRef.current
+    if (tc.beatsPerStep <= 0) return current
+
+    const beatsIntoCycle = (round - 1) % tc.beatsPerStep
+
+    if (beatsIntoCycle === 0 && round > 1) {
+      // Time to step BPM
+      const step = 5
+      if (tempoChangeDirectionRef.current === 1) {
+        // Currently speeding up
+        if (current + step >= tc.endBpm) {
+          if (tc.direction === 'down-up') {
+            // Reverse to slowing down
+            tempoChangeDirectionRef.current = -1
+            return Math.max(tc.startBpm, current - step)
+          } else {
+            // Hold at end
+            return tc.endBpm
+          }
+        }
+        return current + step
+      } else {
+        // Currently slowing down
+        if (current - step <= tc.startBpm) {
+          // Reverse to speeding up
+          tempoChangeDirectionRef.current = 1
+          return Math.min(tc.endBpm, current + step)
+        }
+        return current - step
+      }
+    }
+    return current
+  }, [])
+
   const playBeat = useCallback((sound: BeatSoundId) => {
     const ctx = ensureAudioContext()
     synthesizeBeat(ctx, sound, ctx.currentTime)
   }, [ensureAudioContext])
 
-  // Schedule the next beat using AudioContext time for precision
-  // Reads all config from refs so changes take effect instantly
   const scheduleNextBeat = useCallback(() => {
     if (!isPlayingRef.current) return
 
     const ctx = audioCtxRef.current
     if (!ctx) return
 
-    const { measures: currentMeasures, loop: shouldLoop } = configRef.current
-    const beatDuration = 60 / bpmRef.current // seconds per beat
+    const currentMeasures = configRef.current.measures
+    const currentBpm = currentBpmRef.current
+    const beatDuration = 60 / currentBpm
 
-    // Schedule all beats that fall within the next 100ms window
-    const lookAhead = 0.1 // seconds
+    const lookAhead = 0.1
     while (nextBeatTimeRef.current < ctx.currentTime + lookAhead) {
       const globalIndex =
-        measureIndexRef.current * beatsPerMeasureRef.current + beatIndexRef.current
-      const beatInfo = getBeatAtGlobalIndex(globalIndex, currentMeasures)
+        measureIndexRef.current * configRef.current.beatsPerMeasure + beatIndexRef.current
+      const beatInfo = getBeatAtGlobalIndex(globalIndex, currentMeasures, configRef.current.beatsPerMeasure)
 
       if (beatInfo) {
         synthesizeBeat(ctx, beatInfo.sound, nextBeatTimeRef.current)
 
-        // Update UI at the right time
         const delay = (nextBeatTimeRef.current - ctx.currentTime) * 1000
         const mi = measureIndexRef.current
         const bi = beatIndexRef.current
@@ -205,18 +225,22 @@ export function useMetronome({
 
       // Advance beat index
       beatIndexRef.current++
-      if (beatIndexRef.current >= beatsPerMeasureRef.current) {
+      if (beatIndexRef.current >= configRef.current.beatsPerMeasure) {
         beatIndexRef.current = 0
         measureIndexRef.current++
+
+        // ---- Round completed ----
         if (measureIndexRef.current >= currentMeasures.length) {
-          if (shouldLoop) {
-            measureIndexRef.current = 0
-          } else {
-            isPlayingRef.current = false
-            setIsPlaying(false)
-            setCurrentBeat(null)
-            onCompleteRef.current?.()
-            return
+          measureIndexRef.current = 0
+          const prevRound = roundCountRef.current
+          roundCountRef.current = prevRound + 1
+          setRoundCount(roundCountRef.current)
+
+          // Tempo change
+          if (configRef.current.tempoMode === 'tempoChange') {
+            const newBpm = getTempoChangeBpm(roundCountRef.current, currentBpmRef.current)
+            currentBpmRef.current = newBpm
+            setCurrentBpmDisplay(newBpm)
           }
         }
       }
@@ -224,96 +248,115 @@ export function useMetronome({
       nextBeatTimeRef.current += beatDuration
     }
 
-    // Schedule next scheduler run
     timerRef.current = window.setTimeout(scheduleNextBeat, 25)
-  }, []) // No deps — all values read from refs at runtime
+  }, [getTempoChangeBpm])
 
-  // Start playback
   const start = useCallback(() => {
     const ctx = ensureAudioContext()
 
     // Reset position
     measureIndexRef.current = 0
     beatIndexRef.current = 0
-    nextBeatTimeRef.current = ctx.currentTime + 0.05 // Small delay to start
+    roundCountRef.current = 1
+    tempoChangeDirectionRef.current = 1
+    currentBpmRef.current = configRef.current.tempoMode === 'tempoChange'
+      ? configRef.current.tempoChange.startBpm
+      : configRef.current.bpm
+    setCurrentBpmDisplay(currentBpmRef.current)
+    setRoundCount(1)
+    setCurrentBeat(null)
+
+    nextBeatTimeRef.current = ctx.currentTime + 0.05
 
     isPlayingRef.current = true
     setIsPlaying(true)
-    setCurrentBeat(null)
+    startElapsedTicker()
 
-    // Play first beat immediately
-    const firstBeat = getBeatAtGlobalIndex(0, configRef.current.measures)
+    // Play first beat
+    const firstBeat = getBeatAtGlobalIndex(0, configRef.current.measures, configRef.current.beatsPerMeasure)
     if (firstBeat) {
       synthesizeBeat(ctx, firstBeat.sound, ctx.currentTime)
       setCurrentBeat({ measure: 0, beat: 0 })
       onBeatRef.current?.(0, 0)
-      nextBeatTimeRef.current = ctx.currentTime + 60 / bpmRef.current
+      nextBeatTimeRef.current = ctx.currentTime + 60 / currentBpmRef.current
       beatIndexRef.current = 1
     }
 
     scheduleNextBeat()
-  }, [ensureAudioContext, scheduleNextBeat])
+  }, [ensureAudioContext, scheduleNextBeat, startElapsedTicker])
 
-  // Stop and reset
   const stop = useCallback(() => {
     isPlayingRef.current = false
     setIsPlaying(false)
     setCurrentBeat(null)
+    stopElapsedTicker()
+    pausedElapsedRef.current = 0
+    setElapsedTime(0)
     if (timerRef.current !== null) {
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
     measureIndexRef.current = 0
     beatIndexRef.current = 0
-  }, [])
+    roundCountRef.current = 1
+    setRoundCount(1)
+  }, [stopElapsedTicker])
 
-  // Pause
   const pause = useCallback(() => {
     isPlayingRef.current = false
     setIsPlaying(false)
+    stopElapsedTicker()
     if (timerRef.current !== null) {
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
-  }, [])
+  }, [stopElapsedTicker])
 
-  // Resume from paused position
   const resume = useCallback(() => {
     const ctx = ensureAudioContext()
     isPlayingRef.current = true
     setIsPlaying(true)
     nextBeatTimeRef.current = ctx.currentTime + 0.05
+    startElapsedTicker()
     scheduleNextBeat()
-  }, [ensureAudioContext, scheduleNextBeat])
+  }, [ensureAudioContext, scheduleNextBeat, startElapsedTicker])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current)
-      }
-      if (audioCtxRef.current) {
-        audioCtxRef.current.close()
-      }
+      if (timerRef.current !== null) clearTimeout(timerRef.current)
+      if (tickRef.current !== null) clearInterval(tickRef.current)
+      if (audioCtxRef.current) audioCtxRef.current.close()
     }
   }, [])
 
-  return { isPlaying, currentBeat, playBeatSound: playBeat, start, stop, pause, resume }
+  return {
+    isPlaying,
+    currentBeat,
+    elapsedTime,
+    roundCount,
+    currentBpm: currentBpmDisplay,
+    playBeatSound: playBeat,
+    start,
+    stop,
+    pause,
+    resume,
+  }
 }
 
-// Helper to look up beat sound by global index (into all measures flattened)
-function getBeatAtGlobalIndex(globalIndex: number, measures: Measure[]): { sound: BeatSoundId } | null {
+function getBeatAtGlobalIndex(
+  globalIndex: number,
+  measures: Measure[],
+  beatsPerMeasure: number
+): { sound: BeatSoundId } | null {
   let cursor = 0
   for (let mi = 0; mi < measures.length; mi++) {
     const m = measures[mi]
-    for (let bi = 0; bi < m.beats.length; bi++) {
+    for (let bi = 0; bi < beatsPerMeasure; bi++) {
       if (cursor === globalIndex) {
-        return { sound: m.beats[bi].sound }
+        return { sound: m.beats[bi]?.sound ?? 'wood' }
       }
       cursor++
     }
-    // If measure has fewer beats than beatsPerMeasure, skip the rest
-    // (This handles the case where measures were synced to a new beatsPerMeasure)
   }
   return null
 }
