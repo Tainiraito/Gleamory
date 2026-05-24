@@ -15,7 +15,6 @@ import {
 import type { BeatSoundId } from '@/data/beatSounds'
 import { BEAT_SOUND_MAP, BEAT_SOUNDS, MEASURE_SOUND_PRESETS, type MeasureSoundPreset } from '@/data/beatSounds'
 
-// ---- helpers ----
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
@@ -60,20 +59,13 @@ function BeatButton({ sound, isActive, color, measureIndex, beatIndex, onSoundCh
     setOpen(false)
   }
 
-  // Left click / right click → open popup
-  const handleClick = () => openPopup()
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault()
-    openPopup()
-  }
-
   return (
     <div className="relative">
       <button
         ref={btnRef}
         type="button"
-        onClick={handleClick}
-        onContextMenu={handleContextMenu}
+        onClick={openPopup}
+        onContextMenu={(e) => { e.preventDefault(); openPopup() }}
         className="relative w-10 h-10 rounded-full flex items-center justify-center transition-all focus:outline-none flex-shrink-0"
         style={{
           background: isActive ? color : 'var(--bg-card-warm)',
@@ -128,102 +120,13 @@ function BeatButton({ sound, isActive, color, measureIndex, beatIndex, onSoundCh
                   }
                 }}
               >
-                <span
-                  className="w-3 h-3 rounded-full flex-shrink-0"
-                  style={{ background: BEAT_SOUND_MAP[s.id].color }}
-                />
+                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: BEAT_SOUND_MAP[s.id].color }} />
                 {s.label}
               </button>
             ))}
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-  )
-}
-
-// ---- Tempo Change Panel ----
-interface TempoChangePanelProps {
-  config: MetronomeConfig
-  onChange: (c: Partial<MetronomeConfig>) => void
-  currentBpm: number
-}
-
-function TempoChangePanel({ config, onChange, currentBpm }: TempoChangePanelProps) {
-  const tc = config.tempoChange
-
-  const update = (patch: Partial<TempoChangeConfig>) => {
-    onChange({ tempoChange: { ...tc, ...patch } })
-  }
-
-  return (
-    <div
-      className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2"
-      style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
-    >
-      <div className="flex items-center gap-1">
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>当前</span>
-        <span className="font-mono text-xl font-bold" style={{ color: 'var(--accent-amber)' }}>
-          {currentBpm}
-        </span>
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>BPM</span>
-      </div>
-
-      <div className="w-px h-8 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
-
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>起始</span>
-        <input
-          type="number"
-          value={tc.startBpm}
-          min={MIN_BPM}
-          max={MAX_BPM}
-          onChange={(e) => update({ startBpm: Math.max(MIN_BPM, Math.min(MAX_BPM, Number(e.target.value))) })}
-          className="w-14 h-9 text-center font-mono text-sm rounded"
-          style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
-        />
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>终止</span>
-        <input
-          type="number"
-          value={tc.endBpm}
-          min={MIN_BPM}
-          max={MAX_BPM}
-          onChange={(e) => update({ endBpm: Math.max(MIN_BPM, Math.min(MAX_BPM, Number(e.target.value))) })}
-          className="w-14 h-9 text-center font-mono text-sm rounded"
-          style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
-        />
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>每</span>
-        <input
-          type="number"
-          value={tc.beatsPerStep}
-          min={1}
-          max={16}
-          onChange={(e) => update({ beatsPerStep: Math.max(1, Math.min(16, Number(e.target.value))) })}
-          className="w-12 h-9 text-center font-mono text-sm rounded"
-          style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
-        />
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>轮</span>
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>模式</span>
-        <button
-          type="button"
-          onClick={() => update({ direction: tc.direction === 'up' ? 'down-up' : 'up' })}
-          className="h-9 px-3 text-sm rounded transition-all cursor-pointer"
-          style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-        >
-          {tc.direction === 'up' ? '↗ 加速' : '↕ 反复'}
-        </button>
-      </div>
     </div>
   )
 }
@@ -237,7 +140,6 @@ export function Metronome() {
 
   const isPausedRef = useRef(false)
 
-  // Space bar: play / pause
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName
@@ -263,7 +165,6 @@ export function Metronome() {
     setConfig((prev) => ({ ...prev, ...patch }))
   }
 
-  // Global beat count
   const handleBeatsChange = (newBeatCount: number) => {
     setConfig((prev) => {
       const measures = prev.measures.map((m) => {
@@ -349,35 +250,18 @@ export function Metronome() {
   const BPM_PRESETS = [30, 60, 90, 120, 180]
   const isTempoChange = config.tempoMode === 'tempoChange'
 
+  // Tempo change config updater
+  const updateTempoChange = (patch: Partial<TempoChangeConfig>) => {
+    setConfig((prev) => ({ ...prev, tempoChange: { ...prev.tempoChange, ...patch } }))
+  }
+
   return (
     <div className="space-y-3">
-      {/* ======= Mode Tabs + Controls + Timer/Round ======= */}
+      {/* ======= Top: Beat Count + Sound Presets + Timer/Round ======= */}
       <div
         className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-3"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
       >
-        {/* Mode tabs */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {(['normal', 'tempoChange'] as TempoMode[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => handleConfigChange({ tempoMode: mode })}
-              className="h-9 px-4 text-sm rounded transition-all cursor-pointer"
-              style={{
-                touchAction: 'manipulation',
-                color: config.tempoMode === mode ? 'var(--text-primary)' : 'var(--text-muted)',
-                border: `0.5px solid ${config.tempoMode === mode ? 'var(--accent-amber)' : 'var(--border-line)'}`,
-                background: config.tempoMode === mode ? 'var(--accent-glow)' : 'transparent',
-              }}
-            >
-              {mode === 'normal' ? '普通' : '变速'}
-            </button>
-          ))}
-        </div>
-
-        <div className="w-px h-8 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
-
         {/* Beat count */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>节拍</span>
@@ -447,20 +331,6 @@ export function Metronome() {
           </div>
         </div>
       </div>
-
-      {/* ======= Tempo Change Panel ======= */}
-      <AnimatePresence>
-        {isTempoChange && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            <TempoChangePanel config={config} onChange={handleConfigChange} currentBpm={currentBpm} />
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ======= Beat Grid ======= */}
       <div
@@ -552,7 +422,7 @@ export function Metronome() {
         </button>
       </div>
 
-      {/* ======= Playback + BPM ======= */}
+      {/* ======= Bottom: Mode Tabs + Playback + BPM / TempoChange Config ======= */}
       <div
         className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
@@ -599,7 +469,29 @@ export function Metronome() {
 
         <div className="w-px h-9 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
 
-        {/* BPM — only in normal mode */}
+        {/* Mode tabs — now at the bottom next to playback */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {(['normal', 'tempoChange'] as TempoMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => handleConfigChange({ tempoMode: mode })}
+              className="h-9 px-4 text-sm rounded transition-all cursor-pointer"
+              style={{
+                touchAction: 'manipulation',
+                color: config.tempoMode === mode ? 'var(--text-primary)' : 'var(--text-muted)',
+                border: `0.5px solid ${config.tempoMode === mode ? 'var(--accent-amber)' : 'var(--border-line)'}`,
+                background: config.tempoMode === mode ? 'var(--accent-glow)' : 'transparent',
+              }}
+            >
+              {mode === 'normal' ? '普通' : '变速'}
+            </button>
+          ))}
+        </div>
+
+        <div className="w-px h-9 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
+
+        {/* Normal mode: BPM controls */}
         {!isTempoChange && (
           <>
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -660,14 +552,72 @@ export function Metronome() {
           </>
         )}
 
-        {/* Tempo change mode: current BPM display */}
+        {/* Tempo change mode: config inline */}
         {isTempoChange && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>当前 BPM</span>
-            <span className="font-mono text-2xl font-bold" style={{ color: 'var(--accent-amber)' }}>
-              {currentBpm}
-            </span>
-          </div>
+          <>
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-lg font-bold" style={{ color: 'var(--accent-amber)' }}>
+                {currentBpm}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>BPM</span>
+            </div>
+
+            <div className="w-px h-8 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
+
+            {/* Start BPM */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>起始</span>
+              <input
+                type="number" value={config.tempoChange.startBpm} min={MIN_BPM} max={MAX_BPM}
+                onChange={(e) => updateTempoChange({ startBpm: Math.max(MIN_BPM, Math.min(MAX_BPM, Number(e.target.value))) })}
+                className="w-14 h-9 text-center font-mono text-sm rounded"
+                style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
+              />
+            </div>
+
+            {/* End BPM */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>→</span>
+              <input
+                type="number" value={config.tempoChange.endBpm} min={MIN_BPM} max={MAX_BPM}
+                onChange={(e) => updateTempoChange({ endBpm: Math.max(MIN_BPM, Math.min(MAX_BPM, Number(e.target.value))) })}
+                className="w-14 h-9 text-center font-mono text-sm rounded"
+                style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
+              />
+            </div>
+
+            {/* Step per round */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>每</span>
+              <input
+                type="number" value={config.tempoChange.beatsPerStep} min={1} max={100}
+                onChange={(e) => updateTempoChange({ beatsPerStep: Math.max(1, Math.min(100, Number(e.target.value))) })}
+                className="w-12 h-9 text-center font-mono text-sm rounded"
+                style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
+              />
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>轮</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>+</span>
+              <input
+                type="number" value={config.tempoChange.step} min={1} max={100}
+                onChange={(e) => updateTempoChange({ step: Math.max(1, Math.min(100, Number(e.target.value))) })}
+                className="w-12 h-9 text-center font-mono text-sm rounded"
+                style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
+              />
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>BPM</span>
+            </div>
+
+            {/* Direction */}
+            <button
+              type="button"
+              onClick={() => updateTempoChange({ direction: config.tempoChange.direction === 'up' ? 'down-up' : 'up' })}
+              className="h-9 px-3 text-sm rounded transition-all cursor-pointer"
+              style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              {config.tempoChange.direction === 'up' ? '↗ 加速' : '↕ 反复'}
+            </button>
+          </>
         )}
       </div>
     </div>

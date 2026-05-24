@@ -12,9 +12,9 @@ interface UseMetronomeOptions {
 interface UseMetronomeReturn {
   isPlaying: boolean
   currentBeat: { measure: number; beat: number } | null
-  elapsedTime: number      // 秒，播放中实时更新
-  roundCount: number       // 当前轮数，从 1 开始
-  currentBpm: number      // 当前实际 BPM（变速模式下可能不等于 config.bpm）
+  elapsedTime: number
+  roundCount: number
+  currentBpm: number
   playBeatSound: (sound: BeatSoundId) => void
   start: () => void
   stop: () => void
@@ -22,7 +22,6 @@ interface UseMetronomeReturn {
   resume: () => void
 }
 
-// Synthesize a beat sound using Web Audio API
 function synthesizeBeat(audioCtx: AudioContext, sound: BeatSoundId, time: number): void {
   const config = BEAT_SOUND_MAP[sound]
   if (!config) return
@@ -72,6 +71,42 @@ function synthesizeBeat(audioCtx: AudioContext, sound: BeatSoundId, time: number
   }
 }
 
+// ---- Helper: compute the tempo change BPM for a given round ----
+function computeTempoBpm(
+  round: number,
+  currentBpm: number,
+  tc: TempoChangeConfig,
+  directionRef: React.MutableRefObject<1 | -1>
+): number {
+  if (tc.beatsPerStep <= 0 || tc.step <= 0) return currentBpm
+
+  const isStepRound = (round - 1) % tc.beatsPerStep === 0 && round > 1
+  if (!isStepRound) return currentBpm
+
+  const dir = directionRef.current
+  if (dir === 1) {
+    // Accelerating
+    const next = currentBpm + tc.step
+    if (next >= tc.endBpm) {
+      if (tc.direction === 'down-up') {
+        directionRef.current = -1
+      }
+      return tc.endBpm // 先到达终点，下次再减速
+    }
+    return next
+  } else {
+    // Decelerating
+    const next = currentBpm - tc.step
+    if (next <= tc.startBpm) {
+      if (tc.direction === 'down-up') {
+        directionRef.current = 1
+      }
+      return tc.startBpm // 先到达起点，下次再加速
+    }
+    return next
+  }
+}
+
 export function useMetronome({
   config,
   onBeat,
@@ -84,22 +119,19 @@ export function useMetronome({
   const beatIndexRef = useRef<number>(0)
   const isPlayingRef = useRef<boolean>(false)
 
-  // Tempo change state — refs so they are live in the scheduling loop
   const tempoChangeRef = useRef<TempoChangeConfig>(config.tempoChange)
   const currentBpmRef = useRef<number>(config.bpm)
   const roundCountRef = useRef<number>(1)
-  const tempoChangeDirectionRef = useRef<1 | -1>(1) // 1=加速, -1=减速
+  const tempoChangeDirectionRef = useRef<1 | -1>(1)
 
   const onBeatRef = useRef(onBeat)
   const onCompleteRef = useRef(onComplete)
   const configRef = useRef(config)
 
-  // Elapsed time ticker
   const tickRef = useRef<number | null>(null)
   const startTimeRef = useRef<number>(0)
   const pausedElapsedRef = useRef<number>(0)
 
-  // ---- Sync refs with latest props ----
   useEffect(() => { onBeatRef.current = onBeat }, [onBeat])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   useEffect(() => {
@@ -109,7 +141,6 @@ export function useMetronome({
     }
   }, [config])
 
-  // Sync tempo change config
   useEffect(() => {
     tempoChangeRef.current = config.tempoChange
     if (!isPlayingRef.current) {
@@ -136,13 +167,11 @@ export function useMetronome({
     return audioCtxRef.current
   }, [])
 
-  // ---- Elapsed time ticker ----
   const startElapsedTicker = useCallback(() => {
     startTimeRef.current = Date.now() - pausedElapsedRef.current
     if (tickRef.current !== null) clearInterval(tickRef.current)
     tickRef.current = window.setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
-      setElapsedTime(elapsed)
+      setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000))
     }, 500)
   }, [])
 
@@ -152,42 +181,6 @@ export function useMetronome({
       tickRef.current = null
     }
     pausedElapsedRef.current = Date.now() - startTimeRef.current
-  }, [])
-
-  // ---- Tempo change BPM calculation ----
-  const getTempoChangeBpm = useCallback((round: number, current: number): number => {
-    const tc = tempoChangeRef.current
-    if (tc.beatsPerStep <= 0) return current
-
-    const beatsIntoCycle = (round - 1) % tc.beatsPerStep
-
-    if (beatsIntoCycle === 0 && round > 1) {
-      // Time to step BPM
-      const step = 5
-      if (tempoChangeDirectionRef.current === 1) {
-        // Currently speeding up
-        if (current + step >= tc.endBpm) {
-          if (tc.direction === 'down-up') {
-            // Reverse to slowing down
-            tempoChangeDirectionRef.current = -1
-            return Math.max(tc.startBpm, current - step)
-          } else {
-            // Hold at end
-            return tc.endBpm
-          }
-        }
-        return current + step
-      } else {
-        // Currently slowing down
-        if (current - step <= tc.startBpm) {
-          // Reverse to speeding up
-          tempoChangeDirectionRef.current = 1
-          return Math.min(tc.endBpm, current + step)
-        }
-        return current - step
-      }
-    }
-    return current
   }, [])
 
   const playBeat = useCallback((sound: BeatSoundId) => {
@@ -223,22 +216,23 @@ export function useMetronome({
         }, Math.max(0, delay))
       }
 
-      // Advance beat index
       beatIndexRef.current++
       if (beatIndexRef.current >= configRef.current.beatsPerMeasure) {
         beatIndexRef.current = 0
         measureIndexRef.current++
 
-        // ---- Round completed ----
         if (measureIndexRef.current >= currentMeasures.length) {
           measureIndexRef.current = 0
-          const prevRound = roundCountRef.current
-          roundCountRef.current = prevRound + 1
+          roundCountRef.current++
           setRoundCount(roundCountRef.current)
 
-          // Tempo change
           if (configRef.current.tempoMode === 'tempoChange') {
-            const newBpm = getTempoChangeBpm(roundCountRef.current, currentBpmRef.current)
+            const newBpm = computeTempoBpm(
+              roundCountRef.current,
+              currentBpmRef.current,
+              tempoChangeRef.current,
+              tempoChangeDirectionRef
+            )
             currentBpmRef.current = newBpm
             setCurrentBpmDisplay(newBpm)
           }
@@ -249,12 +243,11 @@ export function useMetronome({
     }
 
     timerRef.current = window.setTimeout(scheduleNextBeat, 25)
-  }, [getTempoChangeBpm])
+  }, [])
 
   const start = useCallback(() => {
     const ctx = ensureAudioContext()
 
-    // Reset position
     measureIndexRef.current = 0
     beatIndexRef.current = 0
     roundCountRef.current = 1
@@ -272,7 +265,6 @@ export function useMetronome({
     setIsPlaying(true)
     startElapsedTicker()
 
-    // Play first beat
     const firstBeat = getBeatAtGlobalIndex(0, configRef.current.measures, configRef.current.beatsPerMeasure)
     if (firstBeat) {
       synthesizeBeat(ctx, firstBeat.sound, ctx.currentTime)

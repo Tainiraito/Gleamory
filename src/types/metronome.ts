@@ -16,15 +16,14 @@ export interface TempoChangeConfig {
   startBpm: number
   endBpm: number
   beatsPerStep: number // 每多少轮改变一次速度
+  step: number         // 每次改变多少 BPM
   direction: TempoDirection
-  reverseAtEnd: boolean // 达到终止速度后是否反向（已由 direction 覆盖，此字段废弃但保留兼容）
 }
 
 export interface MetronomeConfig {
   bpm: number
   beatsPerMeasure: number
   measures: Measure[]
-  // loop 已移除，默认永远循环
   tempoMode: TempoMode
   tempoChange: TempoChangeConfig
 }
@@ -32,7 +31,7 @@ export interface MetronomeConfig {
 export const MIN_BPM = 30
 export const MAX_BPM = 300
 export const MIN_BEATS = 1
-export const MAX_BEATS = 16
+export const MAX_BEATS = 8
 export const DEFAULT_BPM = 120
 export const DEFAULT_BEATS = 4
 
@@ -52,9 +51,9 @@ export function createDefaultConfig(): MetronomeConfig {
     tempoChange: {
       startBpm: DEFAULT_BPM,
       endBpm: 180,
-      beatsPerStep: 1,
+      beatsPerStep: 10,
+      step: 10,
       direction: 'up',
-      reverseAtEnd: false,
     },
   }
 }
