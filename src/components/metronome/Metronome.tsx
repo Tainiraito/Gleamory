@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMetronome } from '@/hooks/useMetronome'
 import {
@@ -30,33 +30,81 @@ interface BeatButtonProps {
   beatIndex: number
   onSoundChange: (mi: number, bi: number, sound: BeatSoundId) => void
   playBeat: (sound: BeatSoundId) => void
+  // Singleton popup management
+  activePopupId: string | null
+  onOpenPopup: (id: string, btn: HTMLButtonElement, curSound: BeatSoundId) => void
+  onClosePopup: () => void
 }
 
-function BeatButton({ sound, isActive, color, measureIndex, beatIndex, onSoundChange, playBeat }: BeatButtonProps) {
-  const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+function BeatButton({
+  sound, isActive, color, measureIndex, beatIndex,
+  onSoundChange, playBeat,
+  activePopupId, onOpenPopup, onClosePopup,
+}: BeatButtonProps) {
   const btnRef = useRef<HTMLButtonElement>(null)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const thisPopupId = `${measureIndex}-${beatIndex}`
+  const isOpen = activePopupId === thisPopupId
 
-  const openPopup = useCallback(() => {
-    if (!btnRef.current) return
-    const r = btnRef.current.getBoundingClientRect()
-    setPos({ top: r.bottom + window.scrollY + 4, left: r.left + window.scrollX + r.width / 2 })
-    setOpen(true)
-  }, [])
+  // ---- Cycle sound on short click ----
+  const cycleSound = () => {
+    const currentIdx = BEAT_SOUNDS.findIndex((s) => s.id === sound)
+    const nextIdx = (currentIdx + 1) % BEAT_SOUNDS.length
+    const nextSound = BEAT_SOUNDS[nextIdx].id
+    playBeat(nextSound)
+    onSoundChange(measureIndex, beatIndex, nextSound)
+  }
 
-  const closePopup = useCallback(() => {
-    closeTimer.current = setTimeout(() => setOpen(false), 120)
-  }, [])
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
 
-  const cancelClose = useCallback(() => {
-    if (closeTimer.current) clearTimeout(closeTimer.current)
-  }, [])
+  const startLongPress = () => {
+    cancelLongPress()
+    longPressTimer.current = setTimeout(() => {
+      if (btnRef.current) {
+        onOpenPopup(thisPopupId, btnRef.current, sound)
+      }
+    }, 400)
+  }
 
+  const handleMouseDown = () => startLongPress()
+
+  const handleMouseUp = () => {
+    // If timer is still running (< 400ms) → short click → cycle
+    if (longPressTimer.current) {
+      cancelLongPress()
+      cycleSound()
+    }
+    // If timer already fired, long press already handled popup
+  }
+
+  const handleMouseLeave = cancelLongPress
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    cancelLongPress()
+    if (btnRef.current) {
+      onOpenPopup(thisPopupId, btnRef.current, sound)
+    }
+  }
+
+  // ---- Popup handlers ----
   const handleSelect = (s: BeatSoundId) => {
     playBeat(s)
     onSoundChange(measureIndex, beatIndex, s)
-    setOpen(false)
+    onClosePopup()
+  }
+
+  const handlePopupMouseEnter = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+  }
+  const handlePopupMouseLeave = () => {
+    closeTimer.current = setTimeout(onClosePopup, 120)
   }
 
   return (
@@ -64,8 +112,10 @@ function BeatButton({ sound, isActive, color, measureIndex, beatIndex, onSoundCh
       <button
         ref={btnRef}
         type="button"
-        onClick={openPopup}
-        onContextMenu={(e) => { e.preventDefault(); openPopup() }}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        onContextMenu={handleContextMenu}
         className="relative w-10 h-10 rounded-full flex items-center justify-center transition-all focus:outline-none flex-shrink-0"
         style={{
           background: isActive ? color : 'var(--bg-card-warm)',
@@ -80,22 +130,23 @@ function BeatButton({ sound, isActive, color, measureIndex, beatIndex, onSoundCh
       </button>
 
       <AnimatePresence>
-        {open && pos && (
+        {isOpen && (
           <motion.div
+            key="beat-popup"
             initial={{ opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.1 }}
-            className="fixed z-50 rounded-xl py-1.5 min-w-[140px] shadow-lg"
+            className="fixed z-[999] rounded-xl py-1.5 min-w-[140px] shadow-lg"
             style={{
-              top: pos.top,
-              left: pos.left,
+              top: (btnRef.current?.getBoundingClientRect().bottom ?? 0) + window.scrollY + 4,
+              left: ((btnRef.current?.getBoundingClientRect().left ?? 0) + window.scrollX) + ((btnRef.current?.offsetWidth ?? 0) / 2),
               transform: 'translateX(-50%)',
               background: 'var(--bg-card)',
               border: '0.5px solid var(--border-line)',
             }}
-            onMouseEnter={cancelClose}
-            onMouseLeave={closePopup}
+            onMouseEnter={handlePopupMouseEnter}
+            onMouseLeave={handlePopupMouseLeave}
           >
             {BEAT_SOUNDS.map((s) => (
               <button
@@ -139,6 +190,11 @@ export function Metronome() {
     useMetronome({ config, onBeat: undefined, onComplete: undefined })
 
   const isPausedRef = useRef(false)
+
+  // ---- Singleton popup state ----
+  const [activePopupId, setActivePopupId] = useState<string | null>(null)
+  const handleOpenPopup = (_id: string) => setActivePopupId(_id)
+  const handleClosePopup = () => setActivePopupId(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -250,7 +306,6 @@ export function Metronome() {
   const BPM_PRESETS = [30, 60, 90, 120, 180]
   const isTempoChange = config.tempoMode === 'tempoChange'
 
-  // Tempo change config updater
   const updateTempoChange = (patch: Partial<TempoChangeConfig>) => {
     setConfig((prev) => ({ ...prev, tempoChange: { ...prev.tempoChange, ...patch } }))
   }
@@ -342,7 +397,6 @@ export function Metronome() {
             const isCurrentMeasure = currentBeat?.measure === mi
             return (
               <div key={measure.id} className="flex items-center gap-2">
-                {/* Indicator */}
                 <div className="w-8 flex-shrink-0 flex items-center justify-center">
                   {isCurrentMeasure && (
                     <motion.span
@@ -354,7 +408,6 @@ export function Metronome() {
                   )}
                 </div>
 
-                {/* Beat dots */}
                 <div className="flex items-center gap-2">
                   {measure.beats.slice(0, config.beatsPerMeasure).map((beat, beatIdx) => {
                     const isActive = isCurrentMeasure && currentBeat?.beat === beatIdx
@@ -369,12 +422,14 @@ export function Metronome() {
                         beatIndex={beatIdx}
                         onSoundChange={handleSoundChange}
                         playBeat={playBeatSound}
+                        activePopupId={activePopupId}
+                        onOpenPopup={handleOpenPopup}
+                        onClosePopup={handleClosePopup}
                       />
                     )
                   })}
                 </div>
 
-                {/* Copy / Delete */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
                     type="button"
@@ -409,7 +464,6 @@ export function Metronome() {
           })}
         </div>
 
-        {/* Add measure */}
         <button
           type="button"
           onClick={addMeasure}
@@ -422,54 +476,12 @@ export function Metronome() {
         </button>
       </div>
 
-      {/* ======= Bottom: Mode Tabs + Playback + BPM / TempoChange Config ======= */}
+      {/* ======= Bottom Row 1: Mode Tabs + BPM / TempoChange Config ======= */}
       <div
         className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
       >
-        {/* Play/Pause */}
-        <button
-          type="button"
-          onClick={handlePlayPause}
-          className="w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
-          style={{
-            touchAction: 'manipulation',
-            background: isPlaying ? 'var(--accent-amber)' : 'var(--bg-card-warm)',
-            border: `0.5px solid ${isPlaying ? 'var(--accent-amber)' : 'var(--border-line)'}`,
-            boxShadow: isPlaying ? 'var(--shadow-accent-md)' : 'none',
-          }}
-          onMouseEnter={(e) => { if (!isPlaying) e.currentTarget.style.background = 'var(--accent-glow)' }}
-          onMouseLeave={(e) => { if (!isPlaying) e.currentTarget.style.background = 'var(--bg-card-warm)' }}
-        >
-          {isPlaying ? (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <rect x="3" y="2" width="4" height="12" rx="1" />
-              <rect x="9" y="2" width="4" height="12" rx="1" />
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M4 2.5v11l9-5.5-9-5.5z" />
-            </svg>
-          )}
-        </button>
-
-        {/* Stop */}
-        <button
-          type="button"
-          onClick={handleStop}
-          className="w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
-          style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-            <rect x="1" y="1" width="10" height="10" rx="1.5" />
-          </svg>
-        </button>
-
-        <div className="w-px h-9 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
-
-        {/* Mode tabs — now at the bottom next to playback */}
+        {/* Mode tabs */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {(['normal', 'tempoChange'] as TempoMode[]).map((mode) => (
             <button
@@ -491,7 +503,7 @@ export function Metronome() {
 
         <div className="w-px h-9 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
 
-        {/* Normal mode: BPM controls */}
+        {/* Normal mode: BPM */}
         {!isTempoChange && (
           <>
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -530,7 +542,6 @@ export function Metronome() {
               </button>
             </div>
 
-            {/* BPM presets */}
             <div className="flex items-center gap-1 flex-shrink-0">
               {BPM_PRESETS.map((preset) => (
                 <button
@@ -564,7 +575,6 @@ export function Metronome() {
 
             <div className="w-px h-8 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
 
-            {/* Start BPM */}
             <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>起始</span>
               <input
@@ -575,7 +585,6 @@ export function Metronome() {
               />
             </div>
 
-            {/* End BPM */}
             <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>→</span>
               <input
@@ -586,7 +595,6 @@ export function Metronome() {
               />
             </div>
 
-            {/* Step per round */}
             <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>每</span>
               <input
@@ -606,7 +614,6 @@ export function Metronome() {
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>BPM</span>
             </div>
 
-            {/* Direction */}
             <button
               type="button"
               onClick={() => updateTempoChange({ direction: config.tempoChange.direction === 'up' ? 'down-up' : 'up' })}
@@ -619,6 +626,66 @@ export function Metronome() {
             </button>
           </>
         )}
+      </div>
+
+      {/* ======= Bottom Row 2: Playback (centered) ======= */}
+      <div
+        className="rounded-xl px-4 py-4 flex items-center justify-center gap-4"
+        style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
+      >
+        {/* Stop */}
+        <button
+          type="button"
+          onClick={handleStop}
+          className="w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+          style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <rect x="2" y="2" width="12" height="12" rx="1.5" />
+          </svg>
+        </button>
+
+        {/* Play/Pause */}
+        <button
+          type="button"
+          onClick={handlePlayPause}
+          className="w-16 h-16 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+          style={{
+            touchAction: 'manipulation',
+            background: isPlaying ? 'var(--accent-amber)' : 'var(--bg-card-warm)',
+            border: `0.5px solid ${isPlaying ? 'var(--accent-amber)' : 'var(--border-line)'}`,
+            boxShadow: isPlaying ? 'var(--shadow-accent-md)' : 'none',
+          }}
+          onMouseEnter={(e) => { if (!isPlaying) e.currentTarget.style.background = 'var(--accent-glow)' }}
+          onMouseLeave={(e) => { if (!isPlaying) e.currentTarget.style.background = 'var(--bg-card-warm)' }}
+        >
+          {isPlaying ? (
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="3" y="2" width="4" height="12" rx="1" />
+              <rect x="9" y="2" width="4" height="12" rx="1" />
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4 2.5v11l9-5.5-9-5.5z" />
+            </svg>
+          )}
+        </button>
+
+        {/* Reset (forward state: go to beat 0, round 1) */}
+        <button
+          type="button"
+          onClick={handleStop}
+          className="w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+          style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M2 8h12M2 8l4-4M2 8l4 4" />
+          </svg>
+        </button>
       </div>
     </div>
   )
