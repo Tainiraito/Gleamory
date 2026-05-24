@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { motion } from 'framer-motion'
 
 interface ProjectPageHeaderProps {
   name: string
@@ -8,56 +9,92 @@ interface ProjectPageHeaderProps {
   children?: ReactNode
 }
 
+const stagger = {
+  initial: { opacity: 0, y: -6 },
+  animate: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: 'easeOut' as const, delay: i * 0.1 },
+  }),
+}
+
 export function ProjectPageHeader({ name, englishName, description, version, children }: ProjectPageHeaderProps) {
   return (
-    <div className="mb-10">
-      {/* Decorative accent line */}
-      <div className="flex items-center gap-2 mb-5">
-        <span className="w-8 h-0.5 rounded-full" style={{ background: 'var(--accent-amber)' }} />
+    <div className="mb-10 text-center">
+      {/* ① 装饰线 — 对称排列 */}
+      <motion.div
+        className="flex items-center justify-center gap-2 mb-5"
+        variants={{ initial: { opacity: 0 }, animate: { opacity: 1, transition: { duration: 0.3 } } }}
+        initial="initial"
+        animate="animate"
+      >
+        <span className="w-16 h-px" style={{ background: 'var(--border-line)' }} />
         <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent-amber)' }} />
         <span className="w-16 h-px" style={{ background: 'var(--border-line)' }} />
-      </div>
+      </motion.div>
 
-      {/* Title */}
-      <h1
+      {/* ② 中文正标题 */}
+      <motion.h1
         className="font-display text-5xl sm:text-6xl tracking-tight mb-3 leading-tight"
         style={{ color: 'var(--text-primary)' }}
+        custom={0}
+        variants={stagger}
+        initial="initial"
+        animate="animate"
       >
         {name}
-      </h1>
+      </motion.h1>
 
-      {/* English subtitle + version */}
-      <div className="flex items-center gap-3 mb-4">
+      {/* ③ 英文副标题 */}
+      <motion.div
+        className="mb-4"
+        custom={1}
+        variants={stagger}
+        initial="initial"
+        animate="animate"
+      >
         <span
           className="text-xs uppercase tracking-[0.25em] font-medium"
           style={{ color: 'var(--text-muted)' }}
         >
           {englishName}
         </span>
-        {version && (
-          <span
-            className="text-xs font-mono px-2.5 py-0.5 rounded-full"
-            style={{
-              color: 'var(--accent-amber)',
-              border: '0.5px solid var(--accent-amber)',
-              background: 'var(--accent-glow)',
-            }}
-          >
-            v{version}
-          </span>
-        )}
-      </div>
+      </motion.div>
 
-      {/* Description */}
-      <p
-        className="text-sm leading-relaxed max-w-xl"
+      {/* ④ 简介 — 斜体，更像题记 */}
+      <motion.p
+        className="text-sm leading-relaxed max-w-xl mx-auto italic"
         style={{ color: 'var(--text-muted)' }}
+        custom={2}
+        variants={stagger}
+        initial="initial"
+        animate="animate"
       >
         {description}
-      </p>
+      </motion.p>
 
-      {/* Divider */}
-      <div className="mt-8 w-full h-px" style={{ background: 'var(--border-line)' }} />
+      {/* ⑤ 版本号 — 下沉到简介下方，低调的元信息 */}
+      {version && (
+        <motion.p
+          className="mt-3 text-[0.6rem] font-mono tracking-wider"
+          style={{ color: 'var(--text-muted)' }}
+          custom={2.5}
+          variants={stagger}
+          initial="initial"
+          animate="animate"
+        >
+          ⟐ v{version}
+        </motion.p>
+      )}
+
+      {/* ⑥ 底部分割线 — 缩短到半宽，呼吸感 */}
+      <motion.div
+        className="mt-8 w-1/2 mx-auto h-px"
+        style={{ transformOrigin: 'left', background: 'var(--border-line)' }}
+        initial={{ opacity: 0, scaleX: 0 }}
+        animate={{ opacity: 1, scaleX: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' as const, delay: 0.35 }}
+      />
 
       {/* Extra controls */}
       {children}

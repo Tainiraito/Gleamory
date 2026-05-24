@@ -45,6 +45,9 @@ function BeatButton({
   const thisPopupId = `${measureIndex}-${beatIndex}`
   const isOpen = activePopupId === thisPopupId
 
+  const beatSize = 40
+  const dotSize = 16
+
   const cycleSound = () => {
     const currentIdx = BEAT_SOUNDS.findIndex((s) => s.id === sound)
     const nextIdx = (currentIdx + 1) % BEAT_SOUNDS.length
@@ -71,12 +74,12 @@ function BeatButton({
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return // only left button starts timer
+    if (e.button !== 0) return
     startLongPress()
   }
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (e.button !== 0) return // only left button triggers cycle
+    if (e.button !== 0) return
     if (longPressTimer.current) {
       cancelLongPress()
       cycleSound()
@@ -108,16 +111,24 @@ function BeatButton({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onContextMenu={handleContextMenu}
-        className="relative w-10 h-10 rounded-full flex items-center justify-center transition-all focus:outline-none flex-shrink-0"
+        aria-label={`第 ${beatIndex + 1} 拍 — ${BEAT_SOUND_MAP[sound].label}`}
+        className="relative rounded-full flex items-center justify-center transition-all focus:outline-none flex-shrink-0 cursor-pointer"
         style={{
-          background: isActive ? color : 'var(--bg-card-warm)',
+          width: beatSize,
+          height: beatSize,
+          background: isActive ? color : 'var(--bg-card)',
           border: `0.5px solid ${isActive ? color : 'var(--border-line)'}`,
           boxShadow: isActive ? `0 0 0 3px ${color}33` : 'none',
         }}
       >
         <span
-          className="w-3 h-3 rounded-full"
-          style={{ background: isActive ? '#fff' : color, flexShrink: 0 }}
+          className="rounded-full"
+          style={{
+            width: dotSize,
+            height: dotSize,
+            background: isActive ? '#fff' : color,
+            flexShrink: 0,
+          }}
         />
       </button>
 
@@ -176,18 +187,25 @@ function BeatButton({
 // ---- Main component ----
 export function Metronome() {
   const [config, setConfig] = useState<MetronomeConfig>(createDefaultConfig())
+  const [activePreset, setActivePreset] = useState<string | null>(null)
+  const measureRefs = useRef<(HTMLDivElement | null)[]>([])
 
   const { isPlaying, currentBeat, elapsedTime, roundCount, currentBpm, playBeatSound, start, stop, pause, resume } =
     useMetronome({ config, onBeat: undefined, onComplete: undefined })
 
   const isPausedRef = useRef(false)
 
+  useEffect(() => {
+    if (currentBeat && measureRefs.current[currentBeat.measure]) {
+      measureRefs.current[currentBeat.measure]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [currentBeat])
+
   // ---- Singleton popup state ----
   const [activePopupId, setActivePopupId] = useState<string | null>(null)
   const handleOpenPopup = (_id: string) => setActivePopupId(_id)
   const handleClosePopup = () => setActivePopupId(null)
 
-  // Click outside popup to close
   useEffect(() => {
     if (!activePopupId) return
     const handler = (e: MouseEvent) => {
@@ -196,7 +214,6 @@ export function Metronome() {
         setActivePopupId(null)
       }
     }
-    // delay to avoid swallowing the click that opened the popup
     const timer = setTimeout(() => document.addEventListener('mousedown', handler), 0)
     return () => {
       clearTimeout(timer)
@@ -255,6 +272,7 @@ export function Metronome() {
   }
 
   const applyMeasurePreset = (preset: MeasureSoundPreset) => {
+    setActivePreset(preset.name)
     setConfig((prev) => {
       const sounds = Array.from({ length: prev.beatsPerMeasure }, (_, i) => ({
         sound: preset.sounds[i % preset.sounds.length],
@@ -320,82 +338,69 @@ export function Metronome() {
 
   return (
     <div className="space-y-3">
-      {/* ======= Top: Beat Count + Sound Presets ======= */}
+      {/* ======= Card 2: Sound Presets ======= */}
       <div
-        className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-3"
+        className="rounded-xl px-4 py-3 flex justify-center"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
       >
-        {/* Beat count */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>节拍</span>
-          <button
-            type="button"
-            onClick={() => handleBeatsChange(Math.max(MIN_BEATS, config.beatsPerMeasure - 1))}
-            disabled={config.beatsPerMeasure <= MIN_BEATS}
-            className="w-9 h-9 rounded flex items-center justify-center text-base font-medium transition-all cursor-pointer disabled:opacity-30"
-            style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-            onMouseEnter={(e) => { if (config.beatsPerMeasure > MIN_BEATS) { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-          >
-            −
-          </button>
-          <span className="w-6 text-center font-mono text-base font-medium select-none" style={{ color: 'var(--text-primary)' }}>
-            {config.beatsPerMeasure}
-          </span>
-          <button
-            type="button"
-            onClick={() => handleBeatsChange(Math.min(MAX_BEATS, config.beatsPerMeasure + 1))}
-            disabled={config.beatsPerMeasure >= MAX_BEATS}
-            className="w-9 h-9 rounded flex items-center justify-center text-base font-medium transition-all cursor-pointer disabled:opacity-30"
-            style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-            onMouseEnter={(e) => { if (config.beatsPerMeasure < MAX_BEATS) { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-          >
-            +
-          </button>
-        </div>
-
-        <div className="w-px h-8 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
-
-        {/* Sound presets */}
-        <div className="flex items-center gap-1 flex-shrink-0 flex-wrap">
+        <div className="flex items-center gap-1 flex-wrap">
           <span className="text-xs uppercase tracking-widest mr-1" style={{ color: 'var(--text-muted)' }}>音色</span>
-          {MEASURE_SOUND_PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              type="button"
-              onClick={() => applyMeasurePreset(preset)}
-              className="h-9 px-2 text-xs rounded transition-all cursor-pointer"
-              style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-            >
-              {preset.name}
-            </button>
-          ))}
+          {MEASURE_SOUND_PRESETS.map((preset) => {
+            const isPresetActive = activePreset === preset.name
+            return (
+              <button
+                key={preset.name}
+                type="button"
+                onClick={() => applyMeasurePreset(preset)}
+                className="h-9 px-2 text-xs rounded transition-all cursor-pointer"
+                style={{
+                  touchAction: 'manipulation',
+                  color: isPresetActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                  border: `0.5px solid ${isPresetActive ? 'var(--accent-amber)' : 'var(--border-line)'}`,
+                  background: isPresetActive ? 'var(--accent-glow)' : 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isPresetActive) {
+                    e.currentTarget.style.background = 'var(--accent-glow)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isPresetActive) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-muted)'
+                  }
+                }}
+              >
+                {preset.name}
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {/* ======= Beat Grid ======= */}
-      <div
-        className="rounded-xl px-4 py-4 overflow-x-auto"
-        style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
-      >
-        <div className="flex flex-col items-center gap-3 min-w-max">
+      {/* ======= Beat Grid (无卡片背景、无边线) ======= */}
+      <div className="overflow-x-auto">
+        <div className="flex flex-col items-center gap-2 min-w-max">
           {config.measures.map((measure, mi) => {
             const isCurrentMeasure = currentBeat?.measure === mi
             return (
-              <div key={measure.id} className="flex items-center gap-2">
-                <div className="w-8 flex-shrink-0 flex items-center justify-center">
-                  {isCurrentMeasure && (
-                    <motion.span
-                      className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: 'var(--accent-amber)' }}
-                      animate={{ scale: [1, 1.3, 1], opacity: [1, 0.6, 1] }}
-                      transition={{ repeat: Infinity, duration: 0.8 }}
-                    />
-                  )}
-                </div>
+              <div
+                key={measure.id}
+                ref={(el) => { measureRefs.current[mi] = el }}
+                className="flex items-center gap-4 relative pl-4 py-1.5 rounded-lg transition-all"
+              >
+                {/* Left indicator bar */}
+                <motion.div
+                  className="absolute left-0 top-0 w-0.5 rounded-full"
+                  style={{ background: 'var(--accent-amber)' }}
+                  initial={false}
+                  animate={{
+                    height: isCurrentMeasure ? '100%' : 0,
+                    opacity: isCurrentMeasure ? 1 : 0,
+                  }}
+                  transition={{ duration: 0.2 }}
+                />
 
                 <div className="flex items-center gap-2">
                   {measure.beats.slice(0, config.beatsPerMeasure).map((beat, beatIdx) => {
@@ -423,8 +428,9 @@ export function Metronome() {
                   <button
                     type="button"
                     onClick={() => duplicateMeasure(mi)}
-                    className="w-8 h-8 rounded flex items-center justify-center transition-all cursor-pointer"
                     title="复制"
+                    aria-label="复制小节"
+                    className="w-8 h-8 rounded flex items-center justify-center transition-all cursor-pointer"
                     style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
                     onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
@@ -437,8 +443,9 @@ export function Metronome() {
                   <button
                     type="button"
                     onClick={() => deleteMeasure(mi)}
-                    className="w-8 h-8 rounded flex items-center justify-center transition-all cursor-pointer"
                     title="删除"
+                    aria-label="删除小节"
+                    className="w-8 h-8 rounded flex items-center justify-center transition-all cursor-pointer"
                     style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
                     onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger-red)' }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
@@ -452,52 +459,78 @@ export function Metronome() {
             )
           })}
         </div>
-
-        <button
-          type="button"
-          onClick={addMeasure}
-          className="mt-4 w-full py-2 text-sm rounded transition-all cursor-pointer"
-          style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-        >
-          + 添加小节
-        </button>
       </div>
 
-      {/* ======= Row 1: Mode Tabs + BPM / TempoChange Config ======= */}
+      {/* ======= Card 1: Beat Count + Mode Tabs + BPM Config ======= */}
       <div
-        className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2"
+        className="rounded-xl px-4 py-3"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
       >
-        {/* Mode tabs */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {(['normal', 'tempoChange'] as TempoMode[]).map((mode) => (
+        {/* Row 1: Beat count | Mode tabs */}
+        <div className="flex items-center justify-center gap-6 mb-3">
+          {/* Beat count */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>节拍</span>
             <button
-              key={mode}
               type="button"
-              onClick={() => handleConfigChange({ tempoMode: mode })}
-              className="h-9 px-4 text-sm rounded transition-all cursor-pointer"
-              style={{
-                touchAction: 'manipulation',
-                color: config.tempoMode === mode ? 'var(--text-primary)' : 'var(--text-muted)',
-                border: `0.5px solid ${config.tempoMode === mode ? 'var(--accent-amber)' : 'var(--border-line)'}`,
-                background: config.tempoMode === mode ? 'var(--accent-glow)' : 'transparent',
-              }}
+              onClick={() => handleBeatsChange(Math.max(MIN_BEATS, config.beatsPerMeasure - 1))}
+              disabled={config.beatsPerMeasure <= MIN_BEATS}
+              aria-label="减少节拍数"
+              className="w-9 h-9 rounded flex items-center justify-center text-base font-medium transition-all cursor-pointer disabled:opacity-30"
+              style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
+              onMouseEnter={(e) => { if (config.beatsPerMeasure > MIN_BEATS) { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
             >
-              {mode === 'normal' ? '普通' : '变速'}
+              −
             </button>
-          ))}
+            <span className="w-6 text-center font-mono text-base font-medium select-none" style={{ color: 'var(--text-primary)' }}>
+              {config.beatsPerMeasure}
+            </span>
+            <button
+              type="button"
+              onClick={() => handleBeatsChange(Math.min(MAX_BEATS, config.beatsPerMeasure + 1))}
+              disabled={config.beatsPerMeasure >= MAX_BEATS}
+              aria-label="增加节拍数"
+              className="w-9 h-9 rounded flex items-center justify-center text-base font-medium transition-all cursor-pointer disabled:opacity-30"
+              style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
+              onMouseEnter={(e) => { if (config.beatsPerMeasure < MAX_BEATS) { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              +
+            </button>
+          </div>
+
+          {/* Mode tabs */}
+          <div className="flex items-center gap-1">
+            {(['normal', 'tempoChange'] as TempoMode[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => handleConfigChange({ tempoMode: mode })}
+                className="h-9 px-4 text-sm rounded transition-all cursor-pointer"
+                style={{
+                  touchAction: 'manipulation',
+                  color: config.tempoMode === mode ? 'var(--text-primary)' : 'var(--text-muted)',
+                  border: `0.5px solid ${config.tempoMode === mode ? 'var(--accent-amber)' : 'var(--border-line)'}`,
+                  background: config.tempoMode === mode ? 'var(--accent-glow)' : 'transparent',
+                }}
+              >
+                {mode === 'normal' ? '普通' : '变速'}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="w-px h-9 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
+        <div className="h-px mb-3" style={{ background: 'var(--border-line)' }} />
 
+        {/* Row 2: BPM / TempoChange Config */}
         {!isTempoChange && (
-          <>
-            <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => handleBpmChange(config.bpm - 5)}
+                aria-label="降低 BPM"
                 className="w-9 h-9 rounded flex items-center justify-center transition-all cursor-pointer"
                 style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
@@ -513,12 +546,14 @@ export function Metronome() {
                 max={MAX_BPM}
                 value={config.bpm}
                 onChange={(e) => handleBpmChange(Number(e.target.value))}
+                aria-label="BPM 值"
                 className="w-16 h-9 text-center font-mono text-base font-medium rounded"
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
               />
               <button
                 type="button"
                 onClick={() => handleBpmChange(config.bpm + 5)}
+                aria-label="提高 BPM"
                 className="w-9 h-9 rounded flex items-center justify-center transition-all cursor-pointer"
                 style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
@@ -529,8 +564,7 @@ export function Metronome() {
                 </svg>
               </button>
             </div>
-
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1">
               {BPM_PRESETS.map((preset) => (
                 <button
                   key={preset}
@@ -548,74 +582,75 @@ export function Metronome() {
                 </button>
               ))}
             </div>
-          </>
+          </div>
         )}
 
         {isTempoChange && (
-          <>
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <div className="flex items-center gap-1">
               <span className="font-mono text-lg font-bold" style={{ color: 'var(--accent-amber)' }}>
                 {currentBpm}
               </span>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>BPM</span>
             </div>
-
-            <div className="w-px h-8 flex-shrink-0" style={{ background: 'var(--border-line)' }} />
-
+            <div className="w-px h-6" style={{ background: 'var(--border-line)' }} />
             <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>起始</span>
               <input
                 type="number" value={config.tempoChange.startBpm} min={MIN_BPM} max={MAX_BPM}
                 onChange={(e) => updateTempoChange({ startBpm: Math.max(MIN_BPM, Math.min(MAX_BPM, Number(e.target.value))) })}
+                aria-label="起始 BPM"
                 className="w-14 h-9 text-center font-mono text-sm rounded"
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
               />
             </div>
-
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>→</span>
             <div className="flex items-center gap-1">
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>→</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>终点</span>
               <input
                 type="number" value={config.tempoChange.endBpm} min={MIN_BPM} max={MAX_BPM}
                 onChange={(e) => updateTempoChange({ endBpm: Math.max(MIN_BPM, Math.min(MAX_BPM, Number(e.target.value))) })}
+                aria-label="终点 BPM"
                 className="w-14 h-9 text-center font-mono text-sm rounded"
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
               />
             </div>
-
             <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>每</span>
               <input
                 type="number" value={config.tempoChange.beatsPerStep} min={1} max={100}
                 onChange={(e) => updateTempoChange({ beatsPerStep: Math.max(1, Math.min(100, Number(e.target.value))) })}
-                className="w-12 h-9 text-center font-mono text-sm rounded"
+                aria-label="每 N 轮变化"
+                className="w-12 h-8 text-center font-mono text-sm rounded"
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
               />
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>轮</span>
+            </div>
+            <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>+</span>
               <input
                 type="number" value={config.tempoChange.step} min={1} max={100}
                 onChange={(e) => updateTempoChange({ step: Math.max(1, Math.min(100, Number(e.target.value))) })}
-                className="w-12 h-9 text-center font-mono text-sm rounded"
+                aria-label="每次变化 BPM"
+                className="w-12 h-8 text-center font-mono text-sm rounded"
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
               />
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>BPM</span>
             </div>
-
             <button
               type="button"
               onClick={() => updateTempoChange({ direction: config.tempoChange.direction === 'up' ? 'down-up' : 'up' })}
-              className="h-9 px-3 text-sm rounded transition-all cursor-pointer"
+              className="h-8 px-3 text-xs rounded transition-all cursor-pointer"
               style={{ color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
             >
               {config.tempoChange.direction === 'up' ? '↗ 加速' : '↕ 反复'}
             </button>
-          </>
+          </div>
         )}
       </div>
-
-      {/* ======= Row 2: Playback + Timer + RND (centered) ======= */}
+{/* ======= Card 4: Playback ======= */}
       <div
         className="rounded-xl px-4 py-4 flex items-center justify-center gap-5"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
@@ -624,6 +659,7 @@ export function Metronome() {
         <button
           type="button"
           onClick={handleStop}
+          aria-label="停止"
           className="w-14 h-14 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
           style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
@@ -635,33 +671,57 @@ export function Metronome() {
         </button>
 
         {/* Play/Pause */}
-        <button
+        <motion.button
           type="button"
           onClick={handlePlayPause}
+          whileTap={{ scale: 0.92 }}
+          aria-label={isPlaying ? '暂停' : '播放'}
           className="w-16 h-16 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
           style={{
             touchAction: 'manipulation',
-            background: isPlaying ? 'var(--accent-amber)' : 'var(--bg-card-warm)',
-            border: `0.5px solid ${isPlaying ? 'var(--accent-amber)' : 'var(--border-line)'}`,
-            boxShadow: isPlaying ? 'var(--shadow-accent-md)' : 'none',
+            background: isPlaying ? 'var(--accent-amber)' : 'var(--accent-glow)',
+            border: '0.5px solid var(--accent-amber)',
+            boxShadow: isPlaying
+              ? '0 4px 14px rgba(196,149,106,0.35)'
+              : '0 2px 8px rgba(196,149,106,0.12)',
           }}
-          onMouseEnter={(e) => { if (!isPlaying) e.currentTarget.style.background = 'var(--accent-glow)' }}
-          onMouseLeave={(e) => { if (!isPlaying) e.currentTarget.style.background = 'var(--bg-card-warm)' }}
+          onMouseEnter={(e) => {
+            if (!isPlaying) e.currentTarget.style.background = 'var(--accent-subtle)'
+          }}
+          onMouseLeave={(e) => {
+            if (!isPlaying) e.currentTarget.style.background = 'var(--accent-glow)'
+          }}
         >
-          {isPlaying ? (
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-              <rect x="3" y="2" width="4" height="12" rx="1" />
-              <rect x="9" y="2" width="4" height="12" rx="1" />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M4 2.5v11l9-5.5-9-5.5z" />
-            </svg>
-          )}
-        </button>
+          <AnimatePresence mode="wait">
+            {isPlaying ? (
+              <motion.svg
+                key="pause"
+                width="20" height="20" viewBox="0 0 16 16" fill="white"
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.6 }}
+                transition={{ duration: 0.15 }}
+              >
+                <rect x="3" y="2" width="4" height="12" rx="1" />
+                <rect x="9" y="2" width="4" height="12" rx="1" />
+              </motion.svg>
+            ) : (
+              <motion.svg
+                key="play"
+                width="20" height="20" viewBox="0 0 16 16" fill="var(--accent-amber)"
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.6 }}
+                transition={{ duration: 0.15 }}
+              >
+                <path d="M4 2.5v11l9-5.5-9-5.5z" />
+              </motion.svg>
+            )}
+          </AnimatePresence>
+        </motion.button>
 
         {/* Timer + RND */}
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-4 flex-shrink-0">
           <div className="flex items-center gap-1.5">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-muted)' }}>
               <circle cx="8" cy="8" r="7" />
@@ -672,7 +732,9 @@ export function Metronome() {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>RND</span>
+            <span className="text-[0.6rem] uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>
+              RND
+            </span>
             <span className="font-mono text-base font-medium" style={{ color: 'var(--text-primary)' }}>
               {roundCount}
             </span>
