@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import SiteHeader from '@/components/SiteHeader'
+import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 
 interface Entry {
   name: string
@@ -282,16 +283,12 @@ const GachaSimulator = () => {
       <SiteHeader />
 
       <main className="px-4 sm:px-[15%] py-20 sm:py-24">
-        <motion.h1 initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
-          className="font-display text-4xl sm:text-5xl tracking-tight mb-2" style={{ color: 'var(--text-primary)' }}>
-          翻牌抽卡
-        </motion.h1>
-        <p className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
-          Gacha Simulator
-        </p>
-        <p className="text-sm mb-8 max-w-lg" style={{ color: 'var(--text-muted)' }}>
-          翻开一张卡，看看是谁来找你
-        </p>
+        <ProjectPageHeader
+          name="翻牌抽卡"
+          englishName="Gacha Simulator"
+          description="翻开一张卡，看看是谁来找你"
+          version="1.0.0"
+        />
 
         {/* 3-column layout */}
         <div className="flex flex-col lg:flex-row gap-6">

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import SiteHeader from '@/components/SiteHeader'
+import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import { Metronome } from '@/components/metronome/Metronome'
 
 const MetronomePage = () => {
@@ -10,19 +11,12 @@ const MetronomePage = () => {
       <SiteHeader />
 
       <main className="px-4 sm:px-[15%] pt-20 sm:pt-24 pb-36 sm:pb-24">
-        {/* Title section */}
-        <h1
-          className="font-display text-4xl sm:text-5xl tracking-tight mb-2"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          节拍器
-        </h1>
-        <p className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
-          Metronome
-        </p>
-        <p className="text-sm mb-8 max-w-lg" style={{ color: 'var(--text-muted)' }}>
-          Tiktok♪Tiktok♪~动次打次♪动次打次♪~
-        </p>
+        <ProjectPageHeader
+          name="节拍器"
+          englishName="Metronome"
+          description="Tiktok♪Tiktok♪~动次打次♪动次打次♪~"
+          version="1.0.0"
+        />
 
         {/* Metronome component */}
         <Metronome />

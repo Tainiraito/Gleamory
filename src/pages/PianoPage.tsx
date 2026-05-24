@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import SiteHeader from '@/components/SiteHeader'
+import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import Piano from '@/components/piano/Piano'
 import { ALL_NOTES, getPlayableNotes, KEYBOARD_PRESETS, DEFAULT_PRESET } from '@/data/pianoNotes'
 import { usePianoAudio, type SynthTone } from '@/hooks/usePianoAudio'
@@ -127,19 +128,12 @@ const PianoPage = () => {
       <SiteHeader />
 
 <main className="px-6 sm:px-[15%] py-20 sm:py-24">
-        {/* Title section */}
-        <h1
-          className="font-display text-4xl sm:text-5xl tracking-tight mb-2"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          极简钢琴
-        </h1>
-        <p className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
-          Mini Piano
-        </p>
-        <p className="text-sm mb-8 max-w-lg" style={{ color: 'var(--text-muted)' }}>
-          轻轻敲醒沉睡的心灵
-        </p>
+        <ProjectPageHeader
+          name="极简钢琴"
+          englishName="Mini Piano"
+          description="轻轻敲醒沉睡的心灵"
+          version="1.0.0"
+        />
 
         {/* Tone selector + sustain toggle */}
         <div className="flex flex-wrap items-center gap-4 mb-6">
