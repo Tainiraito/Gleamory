@@ -52,6 +52,8 @@ Gleamory/
 │   └── requirements.md      # Full requirements document (Chinese)
 ├── public/
 │   ├── covers/              # Project cover images (served as static files)
+│   ├── assets/
+│   │   └── screenshots/     # Plugin/project screenshots for detail pages
 │   ├── CNAME                # Custom domain: gleamory.lovelysia.top
 │   └── favicon.svg          # Pink-purple gradient star favicon
 ├── src/
@@ -83,7 +85,9 @@ Gleamory/
 │   ├── pages/
 │   │   ├── GachaSimulator.tsx # 翻牌抽卡模拟器 (#/gacha-simulator)
 │   │   ├── PianoPage.tsx      # 极简钢琴 (#/piano)
-│   │   └── MetronomePage.tsx  # 节拍器 (#/metronome)
+│   │   ├── MetronomePage.tsx  # 节拍器 (#/metronome)
+│   │   ├── NeteaseCoverPage.tsx # 网易云封面提取 (#/netease-cover)
+│   │   └── PluginDetailPage.tsx # 插件详情页通用模板（NeteaseCoverPage 等使用）
 │   └── styles/
 │       └── globals.css      # Tailwind v4 @import + @theme + CSS vars + font-face + scrollbar
 ```
@@ -248,6 +252,7 @@ All CSS custom properties are defined in `src/styles/globals.css` under `:root`.
   - `/gacha-simulator` — `GachaSimulator.tsx` (翻牌抽卡)
   - `/piano` — `PianoPage.tsx` (极简钢琴)
   - `/metronome` — `MetronomePage.tsx` (节拍器)
+  - `/netease-cover` — `NeteaseCoverPage.tsx` (网易云封面提取)
 - Homepage layout:
 
 ### ProjectCard.tsx
