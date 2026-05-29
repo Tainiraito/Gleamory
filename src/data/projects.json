@@ -53,6 +53,17 @@
       "cover": "",
       "version": "v1.0.0",
       "updatedAt": "2026-05-24"
+    },
+    {
+      "id": "netease-cover",
+      "name": "网易云封面提取",
+      "description": "从网易云音乐网页版提取专辑封面，一键下载高清原图",
+      "url": "#/netease-cover",
+      "status": "已上线",
+      "tags": ["小工具"],
+      "cover": "",
+      "version": "v2.2",
+      "updatedAt": "2026-05-29"
     }
   ]
 }

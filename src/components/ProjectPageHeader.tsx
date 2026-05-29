@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 
 interface ProjectPageHeaderProps {
   name: string
@@ -9,16 +9,23 @@ interface ProjectPageHeaderProps {
   children?: ReactNode
 }
 
-const stagger = {
-  initial: { opacity: 0, y: -6 },
-  animate: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4, ease: 'easeOut' as const, delay: i * 0.1 },
-  }),
-}
-
 export function ProjectPageHeader({ name, englishName, description, version, children }: ProjectPageHeaderProps) {
+  const shouldAnimate = !useReducedMotion()
+
+  const stagger = shouldAnimate
+    ? {
+        initial: { opacity: 0, y: -6 },
+        animate: (i: number) => ({
+          opacity: 1,
+          y: 0,
+          transition: { duration: 0.4, ease: 'easeOut' as const, delay: i * 0.1 },
+        }),
+      }
+    : {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+      }
+
   return (
     <div className="mb-10 text-center">
       {/* ① 装饰线 — 对称排列 */}
@@ -91,9 +98,9 @@ export function ProjectPageHeader({ name, englishName, description, version, chi
       <motion.div
         className="mt-8 w-1/2 mx-auto h-px"
         style={{ transformOrigin: 'left', background: 'var(--border-line)' }}
-        initial={{ opacity: 0, scaleX: 0 }}
+        initial={shouldAnimate ? { opacity: 0, scaleX: 0 } : { opacity: 0 }}
         animate={{ opacity: 1, scaleX: 1 }}
-        transition={{ duration: 0.5, ease: 'easeOut' as const, delay: 0.35 }}
+        transition={{ duration: shouldAnimate ? 0.5 : 0, ease: 'easeOut' as const, delay: shouldAnimate ? 0.35 : 0 }}
       />
 
       {/* Extra controls */}
