@@ -41,6 +41,12 @@
       "projectId": "metronome",
       "content": "节拍器 v1.0 上线 — Web Audio 合成音色、小节编辑器、变速模式、6种音色预设",
       "date": "2026-05-24"
+    },
+    {
+      "id": "8",
+      "projectId": "netease-cover",
+      "content": "新增网易云封面提取插件详情页",
+      "date": "2026-05-29"
     }
   ]
 }
