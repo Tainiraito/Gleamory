@@ -1,4 +1,4 @@
-export type ProjectStatus = '开发中' | '已上线' | '已下线' | '在线'
+export type ProjectStatus = '开发中' | '已发布' | '已下线' | '在线'
 
 export interface Project {
   id: string
