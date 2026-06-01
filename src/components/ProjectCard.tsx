@@ -109,14 +109,7 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
 
   // List: simple card
   const listContent = (
-    <div className="flex flex-col h-full relative overflow-hidden">
-      {/* 顶部色条 — 替代 cover 图，给无 cover 卡片提供视觉锚点 */}
-      <div
-        className="h-1 w-full transition-all duration-300 group-hover:h-1.5"
-        style={{ background: getStatusStyle(project.status).color }}
-        aria-hidden="true"
-      />
-      <div className="flex flex-col flex-1 p-6 sm:p-8">
+    <div className="flex flex-col h-full p-6 sm:p-8">
       <h2
         className="font-display text-xl font-semibold mb-1"
         style={{ color: 'var(--text-primary)' }}
@@ -128,23 +121,19 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
       </p>
       {(project.tags?.length > 0 || project.status) && (
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
-          {project.tags?.map((tag, i) => {
-            const rotation = i % 3 === 0 ? '-1deg' : i % 3 === 1 ? '1deg' : '0deg'
-            return (
-              <span
-                key={tag}
-                className="text-[0.65rem] px-2 py-0.5 select-none"
-                style={{
-                  color: 'var(--text-muted)',
-                  border: '0.5px solid rgba(44,42,48,0.12)',
-                  background: 'transparent',
-                  transform: `rotate(${rotation})`,
-                }}
-              >
-                {tag}
-              </span>
-            )
-          })}
+          {project.tags?.map((tag) => (
+            <span
+              key={tag}
+              className="text-[0.65rem] px-2 py-0.5 select-none"
+              style={{
+                color: 'var(--text-muted)',
+                border: '0.5px solid rgba(44,42,48,0.12)',
+                background: 'transparent',
+              }}
+            >
+              {tag}
+            </span>
+          ))}
           {project.status && (() => {
             const s = getStatusStyle(project.status)
             return (
@@ -155,7 +144,6 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
                   color: s.color,
                   border: `0.5px solid ${s.border}`,
                   background: s.background,
-                  transform: 'rotate(-1deg)',
                 }}
               >
                 {project.status}
@@ -164,12 +152,25 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
           })()}
         </div>
       )}
-    </div>
+      {(project.version || (project.updatedAt && project.updatedAt !== '-')) && (
+        <div className="flex gap-4 mt-auto">
+          {project.version && (
+            <span className="text-[0.6rem] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+              {project.version}
+            </span>
+          )}
+          {project.updatedAt && project.updatedAt !== '-' && (
+            <span className="text-[0.6rem] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+              {project.updatedAt}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 
   const motionProps = {
-    className: 'group block h-full rounded-2xl',
+    className: 'group block h-full',
     style: {
       background: isFeatured ? 'transparent' : 'var(--bg-card)',
       border: isFeatured ? 'none' : '0.5px solid var(--border-line)',
@@ -181,12 +182,7 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
     transition: { duration: 0.6, delay: isFeatured ? 0 : index * 0.08 },
     whileHover: isFeatured
       ? { y: -3, transition: { duration: 0.12 } }
-      : {
-          y: -3,
-          boxShadow: '0 8px 24px rgba(247, 131, 172, 0.18)',
-          borderColor: 'rgba(247, 131, 172, 0.4)',
-          transition: { duration: 0.12 },
-        },
+      : { y: -3, boxShadow: '0 0 20px rgba(247, 131, 172, 0.1)', transition: { duration: 0.12 } },
   }
 
   const inner = isFeatured ? featuredContent : listContent

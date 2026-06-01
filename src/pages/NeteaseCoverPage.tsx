@@ -47,7 +47,7 @@ screenshots: [
       '选择插件文件夹，完成安装',
     ],
     usage: [
-      '打开 <a href="https://music.163.com/" target="_blank" rel="noopener noreferrer" style="color:var(--accent-amber);text-decoration:underline;text-underline-offset:3px">music.163.com</a> 并播放歌曲',
+      '打开 https://music.163.com/ 并播放歌曲',
       '点击浏览器工具栏插件图标打开弹窗',
       '弹窗自动识别当前歌曲并展示封面',
       '点击「下载」按钮保存封面到本地',
