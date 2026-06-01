@@ -199,7 +199,7 @@ return (
                   style={{
                     border: `2px solid ${i === activeIndex ? accentColor : 'var(--border-line)'}`,
                     opacity: i === activeIndex ? 1 : 0.55,
-                    // @ts-ignore CSS custom property for focus ring color
+                    // @ts-expect-error CSS custom property for focus ring color
                     '--tw-ring-color': accentColor,
                   }}
                 >
