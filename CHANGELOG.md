@@ -7,7 +7,7 @@
 ### Added
 
 - ✨ **UI/UX 锐评改进** — 12 项全量修复（来源：ui-ux-pro-max 锐评）
-  - 状态颜色差异化：`statusStyle.ts` 为 4 种状态（在线/开发中/已上线/已下线）提供语义化颜色
+  - 状态颜色差异化：`statusStyle.ts` 为 4 种状态（在线/开发中/已发布/已下线）提供语义化颜色
   - 安装流程提示：下载按钮下方新增 3 步 chip（下载 ZIP → 安装扩展 → 访问 pixiv.net）
   - 步骤列表可扫描性：`StepList` 支持 hover 高亮、含链接步骤的徽章颜色更深
   - Lightbox 可访问性：主图加 `role="button"` + `tabIndex` + Enter/Space 快捷键，关闭后焦点回到主图
