@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import BackFooter from '@/components/BackFooter'
+import { shuffle } from '@/utils/shuffle'
 
 interface Entry {
   name: string
@@ -67,13 +69,7 @@ const PRESETS: Record<string, string[]> = {
 }
 const PRESET_NAMES = Object.keys(PRESETS)
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
+// Note: shuffle is imported from @/utils/shuffle
 
 // Probability based on remaining (unflipped) cards only — next-click chance
 function remainingProb(name: string, remainingEntries: Entry[], remainingTotal: number) {
@@ -107,7 +103,7 @@ function saveState(s: GachaState) {
 }
 
 const GachaSimulator = () => {
-  useEffect(() => { document.title = '抽卡模拟 | Gleamory 微光集' }, [])
+  useDocumentTitle('抽卡模拟 | Gleamory 微光集')
   const [entries, setEntries] = useState<Entry[]>([])
   const [history, setHistory] = useState<string[]>([])
   const [cardOrder, setCardOrder] = useState<number[]>([])
@@ -494,19 +490,7 @@ const GachaSimulator = () => {
         </div>
       )}
 
-      {/* Fixed footer — home link only */}
-      <footer
-        className="fixed bottom-0 left-0 right-0 flex justify-center py-4 z-40"
-        style={{ background: 'var(--bg-page)', borderTop: '0.5px solid var(--border-line)' }}
-      >
-        <Link
-          to="/"
-          className="text-[0.6rem] uppercase tracking-widest transition-opacity hover:opacity-70"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          ← 返回首页
-        </Link>
-      </footer>
+      <BackFooter />
     </div>
   )
 }

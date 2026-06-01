@@ -33,6 +33,12 @@
   - 特性网格 / 截图灯箱 / 使用说明 / 下载区四区块布局
   - 暗色主题，无缝贴合网易云音乐网页版风格
   - 自动命名下载为「歌手 - 歌名.jpg」
+- 🎨 **Pixiv 封面提取** — `PixivCoverPage.tsx`（`/pixiv-cover` 路由）
+  - Pixiv 作品页 Chrome 扩展插件详情页，复用 `PluginDetailPage` 模板
+  - 强调色 `#0096fa`（Pixiv 蓝）
+  - 4 项特性：一键提取 / 原图下载 / 作者信息 / 批量保存
+  - 适配 Chrome 88+（Manifest V3），需登录 Pixiv 账号
+  - 版本 v1.2（来源：`/mnt/f/Downloads/Hermes_Area/pixiv-image-extractor/manifest.json`）
 - 🐟 **Sakana~** — `SakanaPage.tsx`（`/sakana` 路由）
 ### Changed
 

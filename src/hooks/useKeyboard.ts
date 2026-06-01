@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getMidiFromKey, KEYBOARD_PRESETS, DEFAULT_PRESET } from '@/data/pianoNotes'
+import { frequencyFromMidi } from '@/utils/music'
 
 const MIN_OCTAVE_OFFSET = -2
 const MAX_OCTAVE_OFFSET = 2
 const MIDI_MIN = 36 // C2
 const MIDI_MAX = 83 // B5
-
-function frequencyFromMidi(midi: number): number {
-  return 440 * Math.pow(2, (midi - 69) / 12)
-}
 
 interface UseKeyboardReturn {
   octaveOffset: number
