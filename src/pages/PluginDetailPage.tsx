@@ -495,7 +495,7 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <LucideIcon name="download" />
                   </svg>
-                  {download.label || '立即下载'}
+                  {download.label || (version ? `下载 v${version} 插件` : '立即下载')}
                 </a>
               )}
               {github && (
