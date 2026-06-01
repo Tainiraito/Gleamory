@@ -174,7 +174,7 @@ interface TimelineProps {
 | name        | string | yes      | Display name                                                                  |
 | description | string | yes      | One-line description                                                          |
 | url         | string | yes      | External URL (opens in new tab via `<a target="_blank">`)                     |
-| status      | string | no       | 开发中 \| 已上线 \| 已下线                                                    |
+| status      | string | no       | 开发中 \| 已发布 \| 已下线                                                    |
 | tags        | array  | no       | String tags (在线网站, 小游戏, 杂项, etc.)                                    |
 | cover       | string | no       | Public URL path e.g. `"/covers/xxx.png"`; empty string = elevated placeholder |
 | version     | string | no       | e.g., "v1.0.0"                                                                |

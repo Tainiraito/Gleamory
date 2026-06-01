@@ -99,7 +99,7 @@ Gleamory/
   "name": "项目名称",
   "description": "项目描述",
   "url": "https://example.com",
-  "status": "开发中|已上线|已下线",
+  "status": "开发中|已发布|已下线",
   "tags": ["标签1", "标签2"],
   "cover": "/covers/xxx.png",
   "version": "v1.0.0",
