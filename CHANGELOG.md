@@ -6,6 +6,19 @@
 
 ### Added
 
+- ✨ **UI/UX 锐评改进** — 12 项全量修复（来源：ui-ux-pro-max 锐评）
+  - 状态颜色差异化：`statusStyle.ts` 为 4 种状态（在线/开发中/已上线/已下线）提供语义化颜色
+  - 安装流程提示：下载按钮下方新增 3 步 chip（下载 ZIP → 安装扩展 → 访问 pixiv.net）
+  - 步骤列表可扫描性：`StepList` 支持 hover 高亮、含链接步骤的徽章颜色更深
+  - Lightbox 可访问性：主图加 `role="button"` + `tabIndex` + Enter/Space 快捷键，关闭后焦点回到主图
+  - `InlineStep` 安全组件：替代 `dangerouslySetInnerHTML`，支持裸 URL / `<link>` / `<code>` token 自动识别
+  - `CoverPlaceholder` 渐变占位组件：4 种主题渐变 + 项目首字大字
+  - 卡片顶部色条：list 模式无 cover 卡片加 4px 状态色条，hover 变 6px
+  - 卡片 hover 微动效：box-shadow 增强 + 边框变色
+  - og/twitter meta 补全：og:url、og:image、twitter:card=summary_large_image
+  - 下载按钮文案优化："立即下载" → "下载 v1.2 插件"
+  - 列表卡片底部元数据（version/updatedAt）移至仅 featured 卡片，弱化列表噪音
+
 - 🎵 **节拍器** — `Metronome.tsx` + `useMetronome.ts`（`/metronome` 路由）
   - Web Audio API 合成 6 种音色（click/kick/snare/hihat/wood/metal）
   - 每拍独立音色选择：左键单击循环切换 / 长按或右键弹出面板

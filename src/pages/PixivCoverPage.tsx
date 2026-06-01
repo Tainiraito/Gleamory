@@ -35,7 +35,7 @@ const config: PluginConfig = {
     {
       src: '/assets/screenshots/pixiv-download.png',
       alt: '插件弹窗截图',
-      caption: '插件弹窗 — 作品预览 + 文件名模板 + 单图/批量下载',
+      caption: '插件主界面 — 打开 Pixiv 作品页后自动展示',
     },
   ],
 
@@ -47,7 +47,7 @@ const config: PluginConfig = {
       '选择插件文件夹，完成安装',
     ],
     usage: [
-      '打开 <a href="https://www.pixiv.net/" target="_blank" rel="noopener noreferrer" style="color:var(--accent-amber);text-decoration:underline;text-underline-offset:3px">pixiv.net</a> 并浏览作品页',
+      '打开 https://www.pixiv.net/ 并浏览作品页',
       '点击浏览器工具栏插件图标打开弹窗',
       '弹窗自动识别当前作品并展示插画/作者信息',
       '点击「下载」按钮保存原图到本地',
@@ -56,7 +56,8 @@ const config: PluginConfig = {
 
   download: {
     url: 'https://github.com/Tainiraito/pixiv-image-extractor/releases/tag/v1.2',
-    label: '下载插件',
+    label: '下载 v1.2 插件',
+    steps: ['下载 ZIP', '安装扩展', '访问 pixiv.net'],
   },
 
   github: 'https://github.com/Tainiraito/pixiv-image-extractor',
