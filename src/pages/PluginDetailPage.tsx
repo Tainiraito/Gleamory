@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import BackFooter from '@/components/BackFooter'
+import InlineStep from '@/components/InlineStep'
 
 // ════════════════════════════════════════════════════════════
 // Plugin Detail Page — 可复用的插件详情页模板
@@ -38,6 +39,8 @@ export interface PluginConfig {
   download?: {
     url: string
     label?: string
+    /** 安装流程提示，渲染在下载按钮下方 */
+    steps?: string[]
   }
   github?: string
   note?: string
@@ -96,11 +99,19 @@ interface ScreenshotShowcaseProps {
 const ScreenshotShowcase = ({ screenshots, accentColor }: ScreenshotShowcaseProps) => {
  const [activeIndex, setActiveIndex] = useState(0)
  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+ const mainImageRef = useRef<HTMLDivElement>(null)
 
  if (!screenshots || screenshots.length ===0) return null
 
  const hasMultiple = screenshots.length >1
  const current = screenshots[activeIndex]
+
+ const openLightbox = () => setIsLightboxOpen(true)
+ const closeLightbox = () => {
+   setIsLightboxOpen(false)
+   // 关闭后焦点回到主图（可访问性）
+   setTimeout(() => mainImageRef.current?.focus(), 0)
+ }
 
  const goPrev = (e?: React.MouseEvent) => {
  e?.stopPropagation()
@@ -115,12 +126,24 @@ return (
     <div className="flex flex-col gap-4">
       {/* 主图区 */}
       <div
-        className="relative overflow-hidden rounded-2xl cursor-zoom-in group"
+        ref={mainImageRef}
+        tabIndex={0}
+        role="button"
+        aria-label={`放大查看截图：${current.alt || `第 ${activeIndex + 1} 张`}`}
+        className="relative overflow-hidden rounded-2xl cursor-zoom-in group focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-amber)] outline-none"
         style={{
           border: '0.5px solid var(--border-line)',
           background: 'var(--bg-card)',
+          // @ts-expect-error CSS custom property for focus ring color
+          '--tw-ring-color': 'var(--accent-amber)',
         }}
-        onClick={() => setIsLightboxOpen(true)}
+        onClick={openLightbox}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            openLightbox()
+          }
+        }}
       >
         <div
           className="flex items-center justify-center p-4 sm:p-6"
@@ -232,7 +255,7 @@ return (
         <Lightbox
           screenshots={screenshots}
           index={activeIndex}
-          onClose={() => setIsLightboxOpen(false)}
+          onClose={closeLightbox}
           onNavigate={(i) => setActiveIndex(i)}
         />
       )}
@@ -366,18 +389,31 @@ interface StepListProps {
 }
 
 const StepList = ({ steps, accentColor }: StepListProps) => (
-  <ol className="flex flex-col gap-3">
-    {steps.map((step, i) => (
-      <li key={i} className="flex items-start gap-3 text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-        <span
-          className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold mt-0.5"
-          style={{ background: accentColor, color: '#fff' }}
+  <ol className="flex flex-col gap-2">
+    {steps.map((step, i) => {
+      // 步骤字符串里如果包含 URL 或 <link>/<code> token，单独高亮
+      const hasLink = /<a\s|<link>|https?:\/\//i.test(step)
+      return (
+        <li
+          key={i}
+          className="group/step flex items-start gap-3 text-sm leading-relaxed p-2 -mx-2 rounded-lg transition-colors duration-150 hover:bg-[var(--bg-card)] cursor-default"
+          style={{ color: 'var(--text-secondary)' }}
         >
-          {i + 1}
-        </span>
-        <span className="pt-0.5" dangerouslySetInnerHTML={{ __html: step }} />
-      </li>
-    ))}
+          <span
+            className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold mt-0.5 transition-transform duration-150 group-hover/step:scale-110"
+            style={{
+              background: hasLink ? accentColor : `${accentColor}cc`,
+              color: '#fff',
+            }}
+          >
+            {i + 1}
+          </span>
+          <span className="pt-0.5">
+            <InlineStep text={step} />
+          </span>
+        </li>
+      )
+    })}
   </ol>
 )
 
@@ -442,14 +478,19 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
         {/* ── 下载 & 仓库（置顶） ── */}
         {(download?.url || github) && (
           <section className="mb-8">
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-3">
               {download?.url && (
                 <a
                   href={download.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-85 cursor-pointer"
-                  style={{ background: accentColor, color: '#fff' }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer hover:brightness-110 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 active:translate-y-0"
+                  style={{
+                    background: accentColor,
+                    color: '#fff',
+                    boxShadow: `0 4px 14px ${accentColor}40`,
+                  }}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <LucideIcon name="download" />
@@ -462,7 +503,7 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
                   href={github}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 hover:opacity-80 cursor-pointer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:scale-95 active:translate-y-0"
                   style={{
                     background: 'var(--bg-page)',
                     color: 'var(--text-secondary)',
@@ -479,6 +520,34 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {note}
                 </span>
+              )}
+              </div>
+              {download?.steps && download.steps.length > 0 && (
+                <div
+                  className="flex items-center gap-1.5 text-[11px] tracking-wide"
+                  style={{ color: 'var(--text-muted)' }}
+                  aria-label="安装流程"
+                >
+                  {download.steps.map((s, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5">
+                      {i > 0 && (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.5 }}>
+                          <polyline points="9 6 15 12 9 18" />
+                        </svg>
+                      )}
+                      <span
+                        className="px-1.5 py-0.5 rounded"
+                        style={{
+                          background: `${accentColor}10`,
+                          color: accentColor,
+                          fontWeight: 500,
+                        }}
+                      >
+                        {i + 1}. {s}
+                      </span>
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
           </section>

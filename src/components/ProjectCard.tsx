@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion'
 import type { Project } from '@/types'
+import { getStatusStyle } from '@/utils/statusStyle'
+import CoverPlaceholder from '@/components/CoverPlaceholder'
 
 interface ProjectCardProps {
   project: Project
@@ -20,7 +22,7 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
           <img
             src={project.cover}
             alt=""
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
           />
           {/* Gradient overlay */}
           <div className="absolute inset-0" style={{
@@ -28,9 +30,10 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
           }} />
         </div>
       ) : (
-        <div className="absolute inset-0" style={{
-          background: 'linear-gradient(135deg, rgba(247,131,172,0.15), rgba(247,131,172,0.05))'
-        }} />
+        <CoverPlaceholder
+          name={project.name}
+          className="absolute inset-0 transition-transform duration-700 group-hover:scale-[1.03]"
+        />
       )}
 
       {/* Content on top */}
@@ -66,19 +69,22 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
                   {tag}
                 </span>
               ))}
-              {project.status && (
-                <span
-                  className="text-[0.65rem] px-2.5 py-1"
-                  style={{
-                    color: 'var(--accent-pink)',
-                    border: '0.5px solid rgba(247,131,172,0.3)',
-                    background: 'rgba(247,131,172,0.1)',
-                    backdropFilter: 'blur(4px)',
-                  }}
-                >
-                  {project.status}
-                </span>
-              )}
+              {project.status && (() => {
+                const s = getStatusStyle(project.status)
+                return (
+                  <span
+                    className="text-[0.65rem] px-2.5 py-1 font-medium"
+                    style={{
+                      color: s.color,
+                      border: `0.5px solid ${s.border}`,
+                      background: s.background,
+                      backdropFilter: 'blur(4px)',
+                    }}
+                  >
+                    {project.status}
+                  </span>
+                )
+              })()}
             </div>
           )}
 
@@ -97,13 +103,20 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
             </div>
           )}
         </div>
+        </div>
       </div>
-    </div>
   )
 
   // List: simple card
   const listContent = (
-    <div className="flex flex-col h-full p-6 sm:p-8">
+    <div className="flex flex-col h-full relative overflow-hidden">
+      {/* 顶部色条 — 替代 cover 图，给无 cover 卡片提供视觉锚点 */}
+      <div
+        className="h-1 w-full transition-all duration-300 group-hover:h-1.5"
+        style={{ background: getStatusStyle(project.status).color }}
+        aria-hidden="true"
+      />
+      <div className="flex flex-col flex-1 p-6 sm:p-8">
       <h2
         className="font-display text-xl font-semibold mb-1"
         style={{ color: 'var(--text-primary)' }}
@@ -132,40 +145,31 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
               </span>
             )
           })}
-          {project.status && (
-            <span
-              className="text-[0.65rem] px-2 py-0.5 select-none"
-              style={{
-                color: 'var(--accent-pink)',
-                border: '0.5px solid rgba(44,42,48,0.12)',
-                background: 'transparent',
-                transform: 'rotate(-1deg)',
-              }}
-            >
-              {project.status}
-            </span>
-          )}
+          {project.status && (() => {
+            const s = getStatusStyle(project.status)
+            return (
+              <span
+                key="status"
+                className="text-[0.65rem] px-2 py-0.5 select-none font-medium"
+                style={{
+                  color: s.color,
+                  border: `0.5px solid ${s.border}`,
+                  background: s.background,
+                  transform: 'rotate(-1deg)',
+                }}
+              >
+                {project.status}
+              </span>
+            )
+          })()}
         </div>
       )}
-      {(project.version || (project.updatedAt && project.updatedAt !== '-')) && (
-        <div className="flex gap-4 mt-auto">
-          {project.version && (
-            <span className="text-[0.6rem] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-              {project.version}
-            </span>
-          )}
-          {project.updatedAt && project.updatedAt !== '-' && (
-            <span className="text-[0.6rem] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-              {project.updatedAt}
-            </span>
-          )}
-        </div>
-      )}
+    </div>
     </div>
   )
 
   const motionProps = {
-    className: 'group block h-full',
+    className: 'group block h-full rounded-2xl',
     style: {
       background: isFeatured ? 'transparent' : 'var(--bg-card)',
       border: isFeatured ? 'none' : '0.5px solid var(--border-line)',
@@ -177,7 +181,12 @@ const ProjectCard = ({ project, index, variant }: ProjectCardProps) => {
     transition: { duration: 0.6, delay: isFeatured ? 0 : index * 0.08 },
     whileHover: isFeatured
       ? { y: -3, transition: { duration: 0.12 } }
-      : { y: -3, boxShadow: '0 0 20px rgba(247, 131, 172, 0.1)', transition: { duration: 0.12 } },
+      : {
+          y: -3,
+          boxShadow: '0 8px 24px rgba(247, 131, 172, 0.18)',
+          borderColor: 'rgba(247, 131, 172, 0.4)',
+          transition: { duration: 0.12 },
+        },
   }
 
   const inner = isFeatured ? featuredContent : listContent
