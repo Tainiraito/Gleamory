@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import { Metronome } from '@/components/metronome/Metronome'
+import BackFooter from '@/components/BackFooter'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const MetronomePage = () => {
@@ -22,19 +23,7 @@ const MetronomePage = () => {
         <Metronome />
       </main>
 
-      {/* Fixed footer — home link only */}
-      <footer
-        className="fixed bottom-0 left-0 right-0 flex justify-center py-4 z-40"
-        style={{ background: 'var(--bg-page)', borderTop: '0.5px solid var(--border-line)' }}
-      >
-        <Link
-          to="/"
-          className="text-[0.6rem] uppercase tracking-widest transition-opacity hover:opacity-70"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          ← 返回首页
-        </Link>
-      </footer>
+      <BackFooter />
     </div>
   )
 }

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import BackFooter from '@/components/BackFooter'
 
 // ════════════════════════════════════════════════════════════
 // Plugin Detail Page — 可复用的插件详情页模板
@@ -569,22 +569,7 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
         )}
       </main>
 
-      {/* 固定底部返回链接 */}
-      <footer
-        className="fixed bottom-0 left-0 right-0 flex justify-center py-4 z-40"
-        style={{
-          background: 'var(--bg-page)',
-          borderTop: '0.5px solid var(--border-line)',
-        }}
-      >
-        <Link
-          to="/"
-          className="text-[0.6rem] uppercase tracking-widest transition-opacity hover:opacity-70"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          ← 返回首页
-        </Link>
-      </footer>
+      <BackFooter />
     </div>
   )
 }

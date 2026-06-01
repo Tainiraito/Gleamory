@@ -6,6 +6,7 @@ import { ALL_NOTES, getPlayableNotes, KEYBOARD_PRESETS, DEFAULT_PRESET } from '@
 import { usePianoAudio, type SynthTone } from '@/hooks/usePianoAudio'
 import useKeyboard from '@/hooks/useKeyboard'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import BackFooter from '@/components/BackFooter'
 
 const TONES: { id: SynthTone; label: string }[] = [
   { id: 'piano', label: '钢琴' },
@@ -278,19 +279,7 @@ const PianoPage = () => {
         </div>
       </main>
 
-      {/* Fixed footer — home link only */}
-      <footer
-        className="fixed bottom-0 left-0 right-0 flex justify-center py-4 z-40"
-        style={{ background: 'var(--bg-page)', borderTop: '0.5px solid var(--border-line)' }}
-      >
-        <a
-          href="/"
-          className="text-[0.6rem] uppercase tracking-widest transition-opacity hover:opacity-70"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          ← 返回首页
-        </a>
-      </footer>
+      <BackFooter as="a" />
     </div>
   )
 }
