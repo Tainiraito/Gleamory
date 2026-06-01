@@ -5,6 +5,7 @@ import Piano from '@/components/piano/Piano'
 import { ALL_NOTES, getPlayableNotes, KEYBOARD_PRESETS, DEFAULT_PRESET } from '@/data/pianoNotes'
 import { usePianoAudio, type SynthTone } from '@/hooks/usePianoAudio'
 import useKeyboard from '@/hooks/useKeyboard'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const TONES: { id: SynthTone; label: string }[] = [
   { id: 'piano', label: '钢琴' },
@@ -16,7 +17,7 @@ const TONES: { id: SynthTone; label: string }[] = [
 const noteFromMidi = (midi: number) => ALL_NOTES.find((n) => n.midiNumber === midi)
 
 const PianoPage = () => {
-  useEffect(() => { document.title = '极简钢琴 | Gleamory 微光集' }, [])
+  useDocumentTitle('极简钢琴 | Gleamory 微光集')
   const { playNote, stopNote, setTone, toggleSustain, sustain, setSustainPedal } = usePianoAudio()
   const [pressedKeys, setPressedKeys] = useState<Set<number>>(new Set())
   const [activeTone, setActiveTone] = useState<SynthTone>('piano')

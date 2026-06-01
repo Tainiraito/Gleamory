@@ -1,11 +1,11 @@
-import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import { Metronome } from '@/components/metronome/Metronome'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const MetronomePage = () => {
-  useEffect(() => { document.title = '节拍器 | Gleamory 微光集' }, [])
+  useDocumentTitle('节拍器 | Gleamory 微光集')
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
       <SiteHeader />

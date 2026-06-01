@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 interface Entry {
   name: string
@@ -107,7 +108,7 @@ function saveState(s: GachaState) {
 }
 
 const GachaSimulator = () => {
-  useEffect(() => { document.title = '抽卡模拟 | Gleamory 微光集' }, [])
+  useDocumentTitle('抽卡模拟 | Gleamory 微光集')
   const [entries, setEntries] = useState<Entry[]>([])
   const [history, setHistory] = useState<string[]>([])
   const [cardOrder, setCardOrder] = useState<number[]>([])

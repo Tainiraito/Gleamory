@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 // ════════════════════════════════════════════════════════════
 // Plugin Detail Page — 可复用的插件详情页模板
@@ -422,9 +423,7 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
     accentColor = '#e03050',
   } = config
 
-  useEffect(() => {
-    document.title = `${name} | Gleamory 微光集`
-  }, [name])
+  useDocumentTitle(`${name} | Gleamory 微光集`)
 
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
