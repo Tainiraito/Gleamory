@@ -12,7 +12,7 @@ export interface StatusStyle {
 
 export const getStatusStyle = (status: ProjectStatus): StatusStyle => {
   switch (status) {
-    case '已上线':
+    case '已发布':
       // 绿色系：稳定、可靠
       return {
         color: '#10b981',

@@ -18,6 +18,8 @@
   - 下载按钮文案优化："立即下载" → "下载 v1.2 插件"
 - 🐟 **Netease 详情页修复** — `NeteaseCoverPage.tsx`
   - 步骤里的 `<a href="...">music.163.com</a>` raw HTML 改为裸 URL `https://music.163.com/`，由 InlineStep 安全识别
+- 📝 **状态文案统一** — `已上线` → `已发布`（更精确，"已发布" 强调有正式 release，"在线" 强调持续运行）
+  - 涉及：`src/types/index.ts`、`src/utils/statusStyle.ts`、`src/data/projects.json`（网易云 + Pixiv）
 
 - 🎵 **节拍器** — `Metronome.tsx` + `useMetronome.ts`（`/metronome` 路由）
   - Web Audio API 合成 6 种音色（click/kick/snare/hihat/wood/metal）
