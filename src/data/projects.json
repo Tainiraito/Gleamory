@@ -66,10 +66,10 @@
       "updatedAt": "2026-05-29"
     },
     {
-      "id": "pixiv-download",
+      "id": "pixiv-image-extractor",
       "name": "Pixiv 插画下载",
       "description": "从 Pixiv 作品页一键下载插画/漫画原图，支持作者信息和批量保存",
-      "url": "#/pixiv-download",
+      "url": "#/pixiv-image-extractor",
       "status": "已发布",
       "tags": ["小工具", "浏览器插件"],
       "cover": "",

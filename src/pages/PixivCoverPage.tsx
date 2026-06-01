@@ -33,7 +33,7 @@ const config: PluginConfig = {
 
   screenshots: [
     {
-      src: '/assets/screenshots/pixiv-download.png',
+      src: '/assets/screenshots/pixiv-image-extractor.png',
       alt: '插件弹窗截图',
       caption: '插件主界面 — 打开 Pixiv 作品页后自动展示',
     },
