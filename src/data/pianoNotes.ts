@@ -1,3 +1,5 @@
+import { frequencyFromMidi } from '@/utils/music'
+
 /** Represents a single piano key's musical data */
 export interface PianoNote {
   note: string
@@ -9,10 +11,6 @@ export interface PianoNote {
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
 const BLACK_SEMITONES = new Set([1, 3, 6, 8, 10])
-
-function frequencyFromMidi(midi: number): number {
-  return 440 * Math.pow(2, (midi - 69) / 12)
-}
 
 /** Generate all notes from MIDI 36 (C2) to MIDI 83 (B5), 4 full octaves */
 function generateAllNotes(): PianoNote[] {

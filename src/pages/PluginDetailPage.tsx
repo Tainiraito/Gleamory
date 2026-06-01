@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import BackFooter from '@/components/BackFooter'
 
 // ════════════════════════════════════════════════════════════
 // Plugin Detail Page — 可复用的插件详情页模板
@@ -198,7 +199,7 @@ return (
                   style={{
                     border: `2px solid ${i === activeIndex ? accentColor : 'var(--border-line)'}`,
                     opacity: i === activeIndex ? 1 : 0.55,
-                    // @ts-ignore CSS custom property for focus ring color
+                    // @ts-expect-error CSS custom property for focus ring color
                     '--tw-ring-color': accentColor,
                   }}
                 >
@@ -422,9 +423,7 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
     accentColor = '#e03050',
   } = config
 
-  useEffect(() => {
-    document.title = `${name} | Gleamory 微光集`
-  }, [name])
+  useDocumentTitle(`${name} | Gleamory 微光集`)
 
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
@@ -570,22 +569,7 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
         )}
       </main>
 
-      {/* 固定底部返回链接 */}
-      <footer
-        className="fixed bottom-0 left-0 right-0 flex justify-center py-4 z-40"
-        style={{
-          background: 'var(--bg-page)',
-          borderTop: '0.5px solid var(--border-line)',
-        }}
-      >
-        <Link
-          to="/"
-          className="text-[0.6rem] uppercase tracking-widest transition-opacity hover:opacity-70"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          ← 返回首页
-        </Link>
-      </footer>
+      <BackFooter />
     </div>
   )
 }

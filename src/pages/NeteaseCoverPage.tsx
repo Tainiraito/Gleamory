@@ -5,7 +5,7 @@ const config: PluginConfig = {
   name: '网易云封面提取',
   englishName: 'Netease Cloud Music Cover Extractor',
   description: '从网易云音乐网页版提取当前播放歌曲的专辑封面，一键下载高清原图',
-  version: 'v2.2',
+  version: '2.2',
   accentColor: '#e03050',
 
   features: [
