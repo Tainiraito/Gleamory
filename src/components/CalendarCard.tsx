@@ -74,7 +74,7 @@ const CalendarCard = () => {
       </div>
 
       {/* Day cells */}
-      <div className="grid grid-cols-7">
+      <div className="grid grid-cols-7" style={{ rowGap: 2 }}>
         {cells.map((cell, i) => {
           const isToday = cell.type === 'current' && cell.day === todayDate
           const isDimmed = cell.type !== 'current'
@@ -82,8 +82,9 @@ const CalendarCard = () => {
           return (
             <span
               key={i}
-              className="text-center text-sm py-1.5"
+              className="flex items-center justify-center text-sm"
               style={{
+                height: 32,
                 color: isDimmed ? 'var(--text-dimmed)' : isToday ? 'var(--accent-pink)' : 'var(--text-primary)',
                 fontWeight: isToday ? 600 : 400,
               }}
@@ -92,8 +93,8 @@ const CalendarCard = () => {
                 <span
                   className="inline-flex items-center justify-center rounded-full"
                   style={{
-                    width: '28px',
-                    height: '28px',
+                    width: 26,
+                    height: 26,
                     border: '1px solid var(--accent-pink)',
                     background: 'var(--accent-glow)',
                   }}
