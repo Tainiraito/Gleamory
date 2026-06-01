@@ -47,6 +47,12 @@
       "projectId": "netease-cover",
       "content": "新增网易云封面提取插件详情页",
       "date": "2026-05-29"
+    },
+    {
+      "id": "9",
+      "projectId": "pixiv-cover",
+      "content": "新增 Pixiv 封面提取插件详情页",
+      "date": "2026-06-01"
     }
   ]
 }

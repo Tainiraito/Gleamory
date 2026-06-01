@@ -10,6 +10,7 @@ import GachaSimulator from '@/pages/GachaSimulator'
 import PianoPage from '@/pages/PianoPage'
 import MetronomePage from '@/pages/MetronomePage'
 import NeteaseCoverPage from '@/pages/NeteaseCoverPage'
+import PixivCoverPage from '@/pages/PixivCoverPage'
 import projectsData from '@/data/projects.json'
 import updatesData from '@/data/timeline.json'
 
@@ -55,6 +56,7 @@ const App = () => (
       <Route path="/piano" element={<PianoPage />} />
       <Route path="/metronome" element={<MetronomePage />} />
       <Route path="/netease-cover" element={<NeteaseCoverPage />} />
+      <Route path="/pixiv-cover" element={<PixivCoverPage />} />
     </Routes>
   </HashRouter>
 )
