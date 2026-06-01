@@ -50,7 +50,7 @@
     },
     {
       "id": "9",
-      "projectId": "pixiv-cover",
+      "projectId": "pixiv-download",
       "content": "新增 Pixiv 插画下载插件详情页",
       "date": "2026-06-01"
     }
