@@ -87,7 +87,7 @@ Gleamory/
 │   │   ├── PianoPage.tsx      # 极简钢琴 (#/piano)
 │   │   ├── MetronomePage.tsx  # 节拍器 (#/metronome)
 │   │   ├── NeteaseCoverPage.tsx # 网易云封面提取 (#/netease-cover)
-│   │   ├── PixivCoverPage.tsx  # Pixiv 插画下载 (#/pixiv-download)
+│   │   ├── PixivCoverPage.tsx  # Pixiv 插画下载 (#/pixiv-image-extractor)
 │   │   └── PluginDetailPage.tsx # 插件详情页通用模板（NeteaseCoverPage、PixivCoverPage 等使用）
 │   └── styles/
 │       └── globals.css      # Tailwind v4 @import + @theme + CSS vars + font-face + scrollbar

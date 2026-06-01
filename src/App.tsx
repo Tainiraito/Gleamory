@@ -56,7 +56,7 @@ const App = () => (
       <Route path="/piano" element={<PianoPage />} />
       <Route path="/metronome" element={<MetronomePage />} />
       <Route path="/netease-cover" element={<NeteaseCoverPage />} />
-      <Route path="/pixiv-download" element={<PixivCoverPage />} />
+      <Route path="/pixiv-image-extractor" element={<PixivCoverPage />} />
     </Routes>
   </HashRouter>
 )
