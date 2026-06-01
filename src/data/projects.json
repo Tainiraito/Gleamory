@@ -67,8 +67,8 @@
     },
     {
       "id": "pixiv-cover",
-      "name": "Pixiv 封面提取",
-      "description": "从 Pixiv 作品页一键提取插画/漫画原图，支持作者信息和批量下载",
+      "name": "Pixiv 插画下载",
+      "description": "从 Pixiv 作品页一键下载插画/漫画原图，支持作者信息和批量保存",
       "url": "#/pixiv-cover",
       "status": "已发布",
       "tags": ["小工具"],
