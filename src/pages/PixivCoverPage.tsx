@@ -2,9 +2,9 @@ import PluginDetailPage from './PluginDetailPage'
 import type { PluginConfig } from './PluginDetailPage'
 
 const config: PluginConfig = {
-  name: 'Pixiv 封面提取',
+  name: 'Pixiv 插画下载',
   englishName: 'Pixiv Image Extractor',
-  description: '从 Pixiv 作品页一键提取插画/漫画原图，支持作者信息展示与批量下载',
+  description: '从 Pixiv 作品页一键下载插画/漫画原图，支持作者信息展示与批量保存',
   version: '1.2',
   accentColor: '#0096fa',
 
