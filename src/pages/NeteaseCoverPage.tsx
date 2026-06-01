@@ -56,7 +56,6 @@ screenshots: [
 
   download: {
     url: 'https://github.com/Tainiraito/netease-cloud-music-cover/releases',
-    label: '下载插件',
   },
 
   github: 'https://github.com/Tainiraito/netease-cloud-music-cover',

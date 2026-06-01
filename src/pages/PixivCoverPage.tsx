@@ -56,7 +56,6 @@ const config: PluginConfig = {
 
   download: {
     url: 'https://github.com/Tainiraito/pixiv-image-extractor/releases/tag/v1.2',
-    label: '下载 v1.2 插件',
     steps: ['下载 ZIP', '安装扩展', '访问 pixiv.net'],
   },
 
