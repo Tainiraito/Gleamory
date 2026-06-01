@@ -60,18 +60,18 @@
       "description": "从网易云音乐网页版提取专辑封面，一键下载高清原图",
       "url": "#/netease-cover",
       "status": "已发布",
-      "tags": ["小工具"],
+      "tags": ["小工具", "浏览器插件"],
       "cover": "",
       "version": "v2.2",
       "updatedAt": "2026-05-29"
     },
     {
-      "id": "pixiv-cover",
+      "id": "pixiv-download",
       "name": "Pixiv 插画下载",
       "description": "从 Pixiv 作品页一键下载插画/漫画原图，支持作者信息和批量保存",
-      "url": "#/pixiv-cover",
+      "url": "#/pixiv-download",
       "status": "已发布",
-      "tags": ["小工具"],
+      "tags": ["小工具", "浏览器插件"],
       "cover": "",
       "version": "v1.2",
       "updatedAt": "2026-06-01"
