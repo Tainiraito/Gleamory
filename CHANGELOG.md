@@ -6,6 +6,15 @@
 
 ### Added
 
+- 🎵 **音轨分离** — `AudioSeparatorPage.tsx` + `useSeparator.ts` + `separator.worker.ts`（`/audio-separator` 路由）
+  - 浏览器内本地 4-stem 音轨分离（人声/鼓/贝斯/伴奏）
+  - 三档模型：Spleeter 4-stem（轻量）/ htdemucs 单 stem（均衡，按需下）/ htdemucs_ft 完整 bag（高质）
+  - 模型文件缓存在 IndexedDB,首次使用从 huggingface mirror 拉取或主人手动放 `public/models/`
+  - Web Audio API 解码 + 16-bit PCM WAV 输出（不依赖 ffmpeg）
+  - `coi-serviceworker.js` 注入 COOP/COEP header,启用 SharedArrayBuffer + 多线程 WASM
+  - `ort-wasm-simd-threaded.*` 已预放到 `public/ort-wasm/`,Vite build 自动复制
+  - **状态**:开发中 v0.1.0,Worker 推理本身是占位实现(STFT/ISTFT 完整实现待 T5 深化),其他链路打通
+
 - ✨ **UI/UX 锐评改进** — 12 项全量修复（来源：ui-ux-pro-max 锐评）
   - 状态颜色差异化：`statusStyle.ts` 为 4 种状态（在线/开发中/已发布/已下线）提供语义化颜色
   - 安装流程提示：下载按钮下方新增 3 步 chip（下载 ZIP → 安装扩展 → 访问 pixiv.net）
