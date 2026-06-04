@@ -57,7 +57,7 @@
     {
       "id": "10",
       "projectId": "audio-separator",
-      "content": "新增项目:音轨分离(开发中,浏览器内本地 4-stem 音轨分离)",
+      "content": "新增项目:音轨分离(开发中,浏览器内本地 4-stem 音轨分离) v0.2.0 UI 重构",
       "date": "2026-06-04"
     }
   ]
