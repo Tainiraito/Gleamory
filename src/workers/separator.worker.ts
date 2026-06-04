@@ -117,7 +117,9 @@ async function runSeparation(
     const id = modelIds[i]
     if (loadedSessions.has(id)) {
       const handle = loadedSessions.get(id)!
-      const stem = handle.model.outputStems[0]
+      const stem = (Array.isArray(handle.model.outputStem)
+        ? handle.model.outputStem[0]
+        : handle.model.outputStem) as StemKey
       sessions.push({ stem, session: handle })
       post({ type: 'separate-progress', phase: 'loading', current: i + 1, total: modelIds.length })
       continue
@@ -140,7 +142,10 @@ async function runSeparation(
 
     const handle = await createSession(buf, model)
     loadedSessions.set(id, handle)
-    sessions.push({ stem: model.outputStems[0], session: handle })
+    const stem = (Array.isArray(model.outputStem)
+      ? model.outputStem[0]
+      : model.outputStem) as StemKey
+    sessions.push({ stem, session: handle })
     post({ type: 'separate-progress', phase: 'loading', current: i + 1, total: modelIds.length })
   }
 

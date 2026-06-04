@@ -7,13 +7,20 @@
 ### Added
 
 - 🎵 **音轨分离** — `AudioSeparatorPage.tsx` + `useSeparator.ts` + `separator.worker.ts`（`/audio-separator` 路由）
-  - 浏览器内本地 4-stem 音轨分离（人声/鼓/贝斯/伴奏）
-  - 三档模型：Spleeter 4-stem（轻量）/ htdemucs 单 stem（均衡，按需下）/ htdemucs_ft 完整 bag（高质）
-  - 模型文件缓存在 IndexedDB,首次使用从 huggingface mirror 拉取或主人手动放 `public/models/`
-  - Web Audio API 解码 + 16-bit PCM WAV 输出（不依赖 ffmpeg）
-  - `coi-serviceworker.js` 注入 COOP/COEP header,启用 SharedArrayBuffer + 多线程 WASM
-  - `ort-wasm-simd-threaded.*` 已预放到 `public/ort-wasm/`,Vite build 自动复制
-  - **状态**:开发中 v0.1.0,Worker 推理本身是占位实现(STFT/ISTFT 完整实现待 T5 深化),其他链路打通
+  - **v0.2.0** — UI/UX 重构
+    - 顶部隐私 banner 改为可展开,内置 8 项资源/注意事项详细说明(网络流量、磁盘、内存、CPU、文件限制、输出格式、精度、浏览器要求)
+    - 卡片语义重整:先勾选 4 个分轨(vocals/drums/bass/other),再为每个分轨选模型(下拉)
+    - 上传后停在「准备就绪」状态,必须用户点「开始分离」按钮才执行
+    - 4 个 fp16 模型(632 MB)已下载到 public/models/
+    - 用纯 CSS 色块代替 emoji(避免字体回退 bug)
+    - 三态模型状态:已缓存(IDB)/ 待缓存(已下但未进 IDB)/ 未下载
+  - **v0.1.0** — 初始版本
+    - 浏览器内本地 4-stem 音轨分离(人声/鼓/贝斯/伴奏)
+    - 三档模型：Spleeter 4-stem(轻量)/ htdemucs 单 stem(均衡,按需下)/ htdemucs_ft 完整 bag(高质) [v0.2 移除 Spleeter/bag,只保留 4 个单 stem]
+    - Web Audio API 解码 + 16-bit PCM WAV 输出(不依赖 ffmpeg)
+    - `coi-serviceworker.js` 注入 COOP/COEP header,启用 SharedArrayBuffer + 多线程 WASM
+    - `ort-wasm-simd-threaded.*` 已预放到 `public/ort-wasm/`,Vite build 自动复制
+    - **状态**:开发中,Worker 推理本身是占位实现(STFT/ISTFT 完整实现待 T5 深化),其他链路打通
 
 - ✨ **UI/UX 锐评改进** — 12 项全量修复（来源：ui-ux-pro-max 锐评）
   - 状态颜色差异化：`statusStyle.ts` 为 4 种状态（在线/开发中/已发布/已下线）提供语义化颜色
