@@ -130,6 +130,8 @@ export function useSeparator() {
   }, [])
 
   const handleWorkerMessage = useCallback((msg: WorkerResponse) => {
+    // refreshCacheMetas 通过 ref 间接持有,刻意不加依赖(避免重建回调)
+    const refreshMetas = refreshCacheMetasRef.current
     switch (msg.type) {
       case 'cache-status': {
         setState((s) => {
@@ -144,7 +146,7 @@ export function useSeparator() {
           }
         })
         // 异步刷 metas 列表
-        void refreshCacheMetas()
+        void refreshMetas()
         return
       }
       case 'download-progress': {
@@ -163,9 +165,13 @@ export function useSeparator() {
           return {
             ...s,
             cachedModels: next,
+            cacheAction: { phase: 'idle' },
             currentStep: '模型下载完成',
           }
         })
+        // 异步重读 IDB metas,让「缓存管理」列表/大小/时间立刻出现新条目
+        // (Set 同步更新会让卡片徽章变「已缓存」;metas 走 IDB 读取是异步的)
+        void refreshMetas()
         return
       }
       case 'separate-progress': {
@@ -330,7 +336,7 @@ export function useSeparator() {
 
   /* -------- 缓存管理 API -------- */
 
-  /** 重新从 IndexedDB 拉 metas */
+  /** 重新从 IndexedDB 拉 metas — 是所有缓存变更后的「单一更新入口」 */
   const refreshCacheMetas = useCallback(async () => {
     try {
       const metas = await listCachedModels()
@@ -339,6 +345,12 @@ export function useSeparator() {
       console.warn('[useSeparator] listCachedModels failed', e)
     }
   }, [])
+
+  // 暴露 ref 供 Worker 消息回调内部调用(避免闭包旧值)
+  const refreshCacheMetasRef = useRef<() => Promise<void>>(async () => {})
+  useEffect(() => {
+    refreshCacheMetasRef.current = refreshCacheMetas
+  }, [refreshCacheMetas])
 
   /** 手动把模型缓存到 IndexedDB(从 /models/ 拉) */
   const cacheModel = useCallback(
@@ -349,23 +361,20 @@ export function useSeparator() {
     [sendToWorker],
   )
 
-  const refreshCacheMetasRef = useRef<() => Promise<void>>(async () => {})
-  useEffect(() => {
-    refreshCacheMetasRef.current = refreshCacheMetas
-  }, [refreshCacheMetas])
-
-  /** 删除某个模型的 IndexedDB 缓存 */
+  /** 删除某个模型的 IndexedDB 缓存 — 完成后自动刷新 metas,UI 实时同步 */
   const uncacheModel = useCallback(
     async (modelId: string) => {
       setState((s) => ({ ...s, cacheAction: { phase: 'deleting', targetId: modelId } }))
       try {
         await deleteCachedModel(modelId)
+        // 立刻更新 Set + metas,UI 全链路同步
         setState((s) => {
           const next = new Set(s.cachedModels)
           next.delete(modelId)
           return { ...s, cachedModels: next, cacheAction: { phase: 'idle' } }
         })
-        await refreshCacheMetasRef.current()
+        // 单条删除后,只 metas 需要重查(列表项没了 → 大小/时间)
+        await refreshCacheMetas()
       } catch (e) {
         setState((s) => ({
           ...s,
@@ -374,10 +383,10 @@ export function useSeparator() {
         }))
       }
     },
-    [],
+    [refreshCacheMetas],
   )
 
-  /** 清空所有模型缓存 */
+  /** 清空所有模型缓存 — 完成后自动刷新 metas */
   const clearAllCache = useCallback(async () => {
     setState((s) => ({ ...s, cacheAction: { phase: 'clearing' } }))
     try {
@@ -390,6 +399,7 @@ export function useSeparator() {
         cacheMetas: [],
         cacheAction: { phase: 'idle' },
       }))
+      // 清空后 metas 自然变空,无需再查(setState 已做)
     } catch (e) {
       setState((s) => ({
         ...s,
