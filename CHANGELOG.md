@@ -7,8 +7,18 @@
 ### Added
 
 - 🎵 **音轨分离** — `AudioSeparatorPage.tsx` + `useSeparator.ts` + `separator.worker.ts`（`/audio-separator` 路由）
+  - **v0.3.0** — 主人反馈 7 项 UI 大改
+    - 安装 `lucide-react@^0.460.0`,所有图标统一化(锁、CloudUpload、HardDrive、Settings2、ChevronDown、Trash2、Download、Sparkles、Music、Check、AlertCircle、X、FileAudio)
+    - 4 个分轨卡去 checkbox,改用整卡 clickable(`<motion.button aria-pressed>`),选中态三重视觉反馈:边框色 + 阴影 + 不透明度
+    - 「分轨选择区」顶部加统计行:「已选 N/4 个分轨,点击卡片切换」
+    - 模型下拉美化:`appearance: none` + 自定义 ChevronDown + hover 边框琥珀 + focus 阴影
+    - 折叠展开动画:framer-motion `AnimatePresence` + height: auto 过渡(隐私 banner + 缓存管理面板)
+    - 缓存管理面板:列出已缓存模型 + 大小 + 时间,带「清空所有」按钮(用 lucide Trash2)
+    - 每分轨卡内嵌「下载到缓存 / 清缓存」小按钮,联动 worker
+    - 错误提示加 AlertCircle 图标 + 淡入动画
+    - 准备就绪面板:FileAudio 图标 + Sparkles 主按钮 + 弹性 hover/tap 动画
   - **v0.2.0** — UI/UX 重构
-    - 顶部隐私 banner 改为可展开,内置 8 项资源/注意事项详细说明(网络流量、磁盘、内存、CPU、文件限制、输出格式、精度、浏览器要求)
+    - 顶部隐私 banner 改为可展开,内置 8 项资源/注意事项详细说明
     - 卡片语义重整:先勾选 4 个分轨(vocals/drums/bass/other),再为每个分轨选模型(下拉)
     - 上传后停在「准备就绪」状态,必须用户点「开始分离」按钮才执行
     - 4 个 fp16 模型(632 MB)已下载到 public/models/
@@ -16,7 +26,6 @@
     - 三态模型状态:已缓存(IDB)/ 待缓存(已下但未进 IDB)/ 未下载
   - **v0.1.0** — 初始版本
     - 浏览器内本地 4-stem 音轨分离(人声/鼓/贝斯/伴奏)
-    - 三档模型：Spleeter 4-stem(轻量)/ htdemucs 单 stem(均衡,按需下)/ htdemucs_ft 完整 bag(高质) [v0.2 移除 Spleeter/bag,只保留 4 个单 stem]
     - Web Audio API 解码 + 16-bit PCM WAV 输出(不依赖 ffmpeg)
     - `coi-serviceworker.js` 注入 COOP/COEP header,启用 SharedArrayBuffer + 多线程 WASM
     - `ort-wasm-simd-threaded.*` 已预放到 `public/ort-wasm/`,Vite build 自动复制
