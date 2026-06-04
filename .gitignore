@@ -53,3 +53,7 @@ opencode.json
 # Claude Code 规划产物
 docs/superpowers/
 docs/plans/
+
+# ONNX 模型文件(太大不进 git,运行时下载或手动放)
+public/models/*.onnx
+public/models/*.bin

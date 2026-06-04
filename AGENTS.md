@@ -54,6 +54,9 @@ Gleamory/
 │   ├── covers/              # Project cover images (served as static files)
 │   ├── assets/
 │   │   └── screenshots/     # Plugin/project screenshots for detail pages
+│   ├── ort-wasm/            # onnxruntime-web WASM 文件(预放,Vite 自动复制)
+│   ├── models/              # ONNX 音轨分离模型(运行时下载/手动放,详见 README)
+│   ├── coi-serviceworker.js # COOP/COEP polyfill,启用 SharedArrayBuffer + 多线程 WASM
 │   ├── CNAME                # Custom domain: gleamory.lovelysia.top
 │   └── favicon.svg          # Pink-purple gradient star favicon
 ├── src/
@@ -71,7 +74,18 @@ Gleamory/
 │   │   └── metronome/       # 节拍器组件
 │   │       └── Metronome.tsx# 核心组件：拍点/音色选择/小节管理/BPM控制
 │   ├── hooks/
-│   │   └── useMetronome.ts  # 节拍器 Web Audio API + 播放控制 + 变速模式 hook
+│   │   ├── useMetronome.ts  # 节拍器 Web Audio API + 播放控制 + 变速模式 hook
+│   │   └── useSeparator.ts  # 音轨分离 React hook(Worker 通信 + 状态)
+│   ├── workers/
+│   │   └── separator.worker.ts  # Web Worker — 跑 ONNX 推理
+│   ├── lib/
+│   │   ├── onnx/            # 音轨分离 ONNX Runtime 封装
+│   │   │   ├── modelRegistry.ts    # 6 个模型元数据(轻量/均衡/高质)
+│   │   │   ├── indexedDBCache.ts   # 模型缓存层
+│   │   │   └── backend.ts          # ONNX Runtime session 工厂
+│   │   └── audio/           # 音频编解码
+│   │       ├── decode.ts            # File → AudioBuffer(Web Audio API)
+│   │       └── encode.ts            # Float32Array → 16-bit PCM WAV Blob
 │   ├── types/
 │   │   ├── index.ts         # TypeScript type definitions (Project, Update, etc.)
 │   │   └── metronome.ts     # 节拍器类型定义（Beat, Measure, MetronomeConfig, TempoChangeConfig）
@@ -88,6 +102,7 @@ Gleamory/
 │   │   ├── MetronomePage.tsx  # 节拍器 (#/metronome)
 │   │   ├── NeteaseCoverPage.tsx # 网易云封面提取 (#/netease-cover)
 │   │   ├── PixivCoverPage.tsx  # Pixiv 插画下载 (#/pixiv-image-extractor)
+│   │   ├── AudioSeparatorPage.tsx # 音轨分离 (#/audio-separator) — 浏览器内本地 4-stem 分离
 │   │   └── PluginDetailPage.tsx # 插件详情页通用模板（NeteaseCoverPage、PixivCoverPage 等使用）
 │   └── styles/
 │       └── globals.css      # Tailwind v4 @import + @theme + CSS vars + font-face + scrollbar
@@ -253,6 +268,7 @@ All CSS custom properties are defined in `src/styles/globals.css` under `:root`.
   - `/gacha-simulator` — `GachaSimulator.tsx` (翻牌抽卡)
   - `/piano` — `PianoPage.tsx` (极简钢琴)
   - `/metronome` — `MetronomePage.tsx` (节拍器)
+  - `/audio-separator` — `AudioSeparatorPage.tsx` (音轨分离，浏览器内本地 4-stem 分离)
   - `/netease-cover` — `NeteaseCoverPage.tsx` (网易云封面提取)
 - Homepage layout:
 

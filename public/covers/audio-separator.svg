@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <!-- 暖琥珀 + 玫粉渐变(跟 Gleamory 主色调一致) -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fdf6ec" />
+      <stop offset="100%" stop-color="#f5e0d0" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#c4956a" />
+      <stop offset="50%" stop-color="#d68b8b" />
+      <stop offset="100%" stop-color="#c4956a" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#c4956a" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#c4956a" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="400" height="400" fill="url(#bg)" />
+
+  <!-- 中央柔光 -->
+  <circle cx="200" cy="200" r="160" fill="url(#glow)" />
+
+  <!-- 4 条声波 stem 装饰(从中心向外) -->
+  <g stroke="url(#accent)" stroke-width="3" stroke-linecap="round" opacity="0.85">
+    <!-- vocals (顶) -->
+    <line x1="200" y1="200" x2="200" y2="80" />
+    <circle cx="200" cy="80" r="14" fill="#fff" stroke="#c4956a" stroke-width="3" />
+    <text x="200" y="84" text-anchor="middle" font-size="14" font-weight="600" fill="#c4956a" font-family="serif">人</text>
+
+    <!-- drums (右) -->
+    <line x1="200" y1="200" x2="320" y2="200" />
+    <circle cx="320" cy="200" r="14" fill="#fff" stroke="#c4956a" stroke-width="3" />
+    <text x="320" y="204" text-anchor="middle" font-size="14" font-weight="600" fill="#c4956a" font-family="serif">鼓</text>
+
+    <!-- bass (底) -->
+    <line x1="200" y1="200" x2="200" y2="320" />
+    <circle cx="200" cy="320" r="14" fill="#fff" stroke="#c4956a" stroke-width="3" />
+    <text x="200" y="324" text-anchor="middle" font-size="14" font-weight="600" fill="#c4956a" font-family="serif">贝</text>
+
+    <!-- other (左) -->
+    <line x1="200" y1="200" x2="80" y2="200" />
+    <circle cx="80" cy="200" r="14" fill="#fff" stroke="#c4956a" stroke-width="3" />
+    <text x="80" y="204" text-anchor="middle" font-size="14" font-weight="600" fill="#c4956a" font-family="serif">伴</text>
+  </g>
+
+  <!-- 中心节点(混音源) -->
+  <circle cx="200" cy="200" r="22" fill="#fff" stroke="#c4956a" stroke-width="4" />
+  <circle cx="200" cy="200" r="8" fill="#c4956a" />
+
+  <!-- 底部标题 -->
+  <text x="200" y="370" text-anchor="middle" font-size="22" font-weight="600"
+        fill="#3a2e22" font-family="Source Han Serif CN, serif" letter-spacing="4">音轨分离</text>
+  <text x="200" y="390" text-anchor="middle" font-size="11"
+        fill="#7a6a58" font-family="serif" letter-spacing="2">Audio Stem Separator</text>
+</svg>

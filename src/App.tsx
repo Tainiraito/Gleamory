@@ -11,6 +11,7 @@ import PianoPage from '@/pages/PianoPage'
 import MetronomePage from '@/pages/MetronomePage'
 import NeteaseCoverPage from '@/pages/NeteaseCoverPage'
 import PixivCoverPage from '@/pages/PixivCoverPage'
+import AudioSeparatorPage from '@/pages/AudioSeparatorPage'
 import projectsData from '@/data/projects.json'
 import updatesData from '@/data/timeline.json'
 
@@ -57,6 +58,7 @@ const App = () => (
       <Route path="/metronome" element={<MetronomePage />} />
       <Route path="/netease-cover" element={<NeteaseCoverPage />} />
       <Route path="/pixiv-image-extractor" element={<PixivCoverPage />} />
+      <Route path="/audio-separator" element={<AudioSeparatorPage />} />
     </Routes>
   </HashRouter>
 )
