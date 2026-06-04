@@ -57,7 +57,7 @@
     {
       "id": "10",
       "projectId": "audio-separator",
-      "content": "新增项目:音轨分离(开发中,浏览器内本地 4-stem 音轨分离) v0.2.0 UI 重构",
+      "content": "新增项目:音轨分离 v0.3.0 — 引入 lucide-react 统一图标 + 缓存管理面板 + 整卡点击切换 + 折叠动画 + 下拉美化",
       "date": "2026-06-04"
     }
   ]

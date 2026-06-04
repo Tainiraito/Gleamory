@@ -18,6 +18,11 @@ import {
 import type { WorkerRequest, WorkerResponse } from '@/workers/separator.worker'
 import { decodeAudioFile, toMono, validateFileSize, validateDuration } from '@/lib/audio/decode'
 import { encodeWav, downloadBlob } from '@/lib/audio/encode'
+import {
+  listCachedModels,
+  deleteCachedModel,
+  type CachedModelMeta,
+} from '@/lib/onnx/indexedDBCache'
 
 export type SeparatorPhase =
   | 'idle'
@@ -31,6 +36,9 @@ export type SeparatorPhase =
   | 'error'
   | 'cancelled'
 
+/** 缓存管理操作的细分状态(不影响主 phase,UI 上显示小动画) */
+export type CacheActionPhase = 'idle' | 'downloading' | 'deleting' | 'clearing'
+
 export interface SeparatorState {
   phase: SeparatorPhase
   /** 0..1 */
@@ -41,6 +49,10 @@ export interface SeparatorState {
   error: string | null
   /** 已缓存的模型 id 集合 */
   cachedModels: Set<string>
+  /** 缓存模型元数据列表(用于显示大小/时间) */
+  cacheMetas: CachedModelMeta[]
+  /** 缓存操作细状态 */
+  cacheAction: { phase: CacheActionPhase; targetId?: string }
   /** 4 个 stem 的分离结果(完成后填充) */
   stems: Partial<Record<StemKey, Float32Array>> | null
   /** 原始 AudioBuffer(分离前填充) */
@@ -57,6 +69,8 @@ const INITIAL_STATE: SeparatorState = {
   currentStep: '',
   error: null,
   cachedModels: new Set(),
+  cacheMetas: [],
+  cacheAction: { phase: 'idle' },
   stems: null,
   originalBuffer: null,
   originalSampleRate: 44100,
@@ -129,6 +143,8 @@ export function useSeparator() {
             ),
           }
         })
+        // 异步刷 metas 列表
+        void refreshCacheMetas()
         return
       }
       case 'download-progress': {
@@ -312,6 +328,77 @@ export function useSeparator() {
     [state.fileName, state.originalSampleRate, state.stems],
   )
 
+  /* -------- 缓存管理 API -------- */
+
+  /** 重新从 IndexedDB 拉 metas */
+  const refreshCacheMetas = useCallback(async () => {
+    try {
+      const metas = await listCachedModels()
+      setState((s) => ({ ...s, cacheMetas: metas }))
+    } catch (e) {
+      console.warn('[useSeparator] listCachedModels failed', e)
+    }
+  }, [])
+
+  /** 手动把模型缓存到 IndexedDB(从 /models/ 拉) */
+  const cacheModel = useCallback(
+    (modelId: string) => {
+      setState((s) => ({ ...s, cacheAction: { phase: 'downloading', targetId: modelId } }))
+      sendToWorker({ type: 'download-model', modelId })
+    },
+    [sendToWorker],
+  )
+
+  const refreshCacheMetasRef = useRef<() => Promise<void>>(async () => {})
+  useEffect(() => {
+    refreshCacheMetasRef.current = refreshCacheMetas
+  }, [refreshCacheMetas])
+
+  /** 删除某个模型的 IndexedDB 缓存 */
+  const uncacheModel = useCallback(
+    async (modelId: string) => {
+      setState((s) => ({ ...s, cacheAction: { phase: 'deleting', targetId: modelId } }))
+      try {
+        await deleteCachedModel(modelId)
+        setState((s) => {
+          const next = new Set(s.cachedModels)
+          next.delete(modelId)
+          return { ...s, cachedModels: next, cacheAction: { phase: 'idle' } }
+        })
+        await refreshCacheMetasRef.current()
+      } catch (e) {
+        setState((s) => ({
+          ...s,
+          cacheAction: { phase: 'idle' },
+          error: `删除失败: ${e instanceof Error ? e.message : String(e)}`,
+        }))
+      }
+    },
+    [],
+  )
+
+  /** 清空所有模型缓存 */
+  const clearAllCache = useCallback(async () => {
+    setState((s) => ({ ...s, cacheAction: { phase: 'clearing' } }))
+    try {
+      // 在主线程直接清 IDB(避免让 worker 重复实现)
+      const { clearAllCache: doClear } = await import('@/lib/onnx/indexedDBCache')
+      await doClear()
+      setState((s) => ({
+        ...s,
+        cachedModels: new Set(),
+        cacheMetas: [],
+        cacheAction: { phase: 'idle' },
+      }))
+    } catch (e) {
+      setState((s) => ({
+        ...s,
+        cacheAction: { phase: 'idle' },
+        error: `清空失败: ${e instanceof Error ? e.message : String(e)}`,
+      }))
+    }
+  }, [])
+
   return {
     state,
     models: MODELS,
@@ -320,5 +407,9 @@ export function useSeparator() {
     cancel,
     reset,
     downloadStemWav,
+    cacheModel,
+    uncacheModel,
+    clearAllCache,
+    refreshCacheMetas,
   }
 }
