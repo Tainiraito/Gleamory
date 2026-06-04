@@ -1,3 +1,17 @@
+/* ============================================================
+ * 音轨分离 — v0.4
+ *  6 项 UX 优化(主人 2026-06-04 feedback):
+ *   1. 缓存管理自动刷新(下载/删除/清空完成 → metas 即时重查)
+ *   2. 下载进度条移至「上传音频」section 顶部
+ *   3. 下载按钮 + 模型下拉 同行(flex-1 下拉 + shrink-0 按钮)
+ *   4. 下拉 <option> 标「✓ 已缓存 / 未缓存」
+ *   5. 卡片右上角无 status 角标,只靠按钮文字表达
+ *   6. 缓存管理面板 单条删除按钮
+ *  Bug 修复:
+ *   - StemCard 外层 <motion.button> 改成 <motion.div role="button">,
+ *     避免内部按钮嵌套导致的 hydration 错误 + click 失效
+ * ============================================================ */
+
 import { useCallback, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -10,10 +24,11 @@ import {
   Trash2,
   X,
   AlertCircle,
-  Check,
   Sparkles,
   Music,
   Settings2,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react'
 import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
@@ -26,17 +41,6 @@ import {
   type StemSelections,
 } from '@/hooks/useSeparator'
 import { ALL_STEMS, getModelsForStem, type ModelInfo, type StemKey } from '@/lib/onnx/modelRegistry'
-
-/* =====================================================================
- * 音轨分离 — v0.3 大改版
- *  ① 顶部隐私 banner(可展开 + framer-motion 高度过渡)
- *  ② 4 个分轨卡片(无 checkbox,整卡 clickable + 选中态高亮 + 微动效)
- *  ③ 每卡内嵌模型下拉(美化 + 琥珀色 caret + hover/focus 边框)
- *  ④ 每卡状态:已缓存/待缓存/未下载,带「下载/删除」小按钮
- *  ⑤ 缓存管理面板(列表 + 单删 + 一键清空)
- *  ⑥ 上传 dropzone 沿用 lucide CloudUpload
- *  ⑦ 准备就绪面板(用户点「开始分离」才跑)
- * ===================================================================== */
 
 const STEM_META: Record<StemKey, { label: string; accent: string }> = {
   vocals: { label: '人声', accent: '#c4956a' },
@@ -79,6 +83,13 @@ const AudioSeparatorPage = () => {
 
   const enabledCount = ALL_STEMS.filter((s) => selections[s].enabled).length
 
+  /* ---- 当前正在下载的模型(用于下载进度条) ---- */
+  const downloadingModelId =
+    state.cacheAction.phase === 'downloading' ? state.cacheAction.targetId : null
+  const downloadingModelName = downloadingModelId
+    ? state.cacheMetas.find((m) => m.id === downloadingModelId)?.id ?? downloadingModelId
+    : null
+
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
       <SiteHeader />
@@ -88,13 +99,13 @@ const AudioSeparatorPage = () => {
           name="音轨分离"
           englishName="Audio Stem Separator"
           description="浏览器内本地分离歌曲人声/鼓/贝斯/伴奏，数据不离开设备"
-          version="0.3.0"
+          version="0.4.0"
         />
 
         {/* ① 顶部隐私/资源说明(可展开) */}
         <PrivacyNotice />
 
-        {/* ② 分轨 + 模型选择(无 checkbox) */}
+        {/* ② 分轨 + 模型选择 */}
         <section className="mt-10 max-w-3xl mx-auto" aria-labelledby="stem-heading">
           <h2
             id="stem-heading"
@@ -108,7 +119,6 @@ const AudioSeparatorPage = () => {
             {ALL_STEMS.map((stem) => (
               <StemCard
                 key={stem}
-                stem={stem}
                 meta={STEM_META[stem]}
                 selection={selections[stem]}
                 availableModels={getModelsForStem(stem)}
@@ -130,15 +140,16 @@ const AudioSeparatorPage = () => {
           </p>
         </section>
 
-        {/* 缓存管理面板 */}
+        {/* 缓存管理面板(支持单条删除) */}
         <CacheManagerPanel
           cacheMetas={state.cacheMetas}
           cacheAction={state.cacheAction}
           onRefresh={refreshCacheMetas}
           onClearAll={clearAllCache}
+          onUncache={uncacheModel}
         />
 
-        {/* ③ 上传区 */}
+        {/* ③ 上传区 — 进度条插在顶部 */}
         <section className="mt-10 max-w-3xl mx-auto" aria-labelledby="upload-heading">
           <h2
             id="upload-heading"
@@ -148,6 +159,18 @@ const AudioSeparatorPage = () => {
             <CloudUpload size={14} strokeWidth={1.5} />
             ② 上传音频
           </h2>
+
+          {/* 下载进度条(主 phase 为 downloading-model 时显示) */}
+          <AnimatePresence>
+            {state.phase === 'downloading-model' && downloadingModelName && (
+              <DownloadProgress
+                key="dl-progress"
+                modelId={downloadingModelName}
+                progress={state.progress}
+                loadedText={state.currentStep}
+              />
+            )}
+          </AnimatePresence>
 
           {state.phase === 'idle' || state.phase === 'cancelled' || state.phase === 'error' ? (
             <UploadZone
@@ -173,34 +196,30 @@ const AudioSeparatorPage = () => {
           )}
         </section>
 
-        {/* ④ 结果区 */}
+        {/* 完成态(分轨下载) */}
         {state.phase === 'done' &&
-          state.stems !== null &&
+          state.stems &&
           (() => {
-            const stems = state.stems
+            const available = ALL_STEMS.filter((s) => state.stems?.[s])
+            if (available.length === 0) return null
             return (
-              <section
-                className="mt-10 max-w-3xl mx-auto"
-                aria-labelledby="result-heading"
-              >
+              <section className="mt-10 max-w-3xl mx-auto" aria-labelledby="results-heading">
                 <h2
-                  id="result-heading"
-                  className="text-xs uppercase tracking-[0.25em] font-medium mb-4 flex items-center gap-2"
+                  id="results-heading"
+                  className="text-xs uppercase tracking-[0.25em] font-medium mb-4"
                   style={{ color: 'var(--text-muted)' }}
                 >
-                  <Download size={14} strokeWidth={1.5} />
-                  ③ 试听 & 下载
+                  ③ 下载分轨
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {ALL_STEMS.map((stem) => {
+                  {available.map((stem) => {
                     const meta = STEM_META[stem]
-                    const available = Boolean(stems[stem])
                     return (
-                      <StemResultCard
+                      <ResultCard
                         key={stem}
                         label={meta.label}
                         accent={meta.accent}
-                        available={available}
+                        available={state.stems?.[stem] != null}
                         onDownload={() => downloadStemWav(stem)}
                       />
                     )
@@ -338,23 +357,9 @@ const DetailItem = ({ label, children }: { label: string; children: React.ReactN
   </div>
 )
 
-/* ============================== 分轨选择卡(无 checkbox) ============================== */
+/* ============================== 分轨选择卡 ============================== */
 
-const StemCard = ({
-  // stem 仅在 React key 阶段使用,组件本身用 meta.label
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  stem: _stem,
-  meta,
-  selection,
-  availableModels,
-  cachedModels,
-  cacheAction,
-  onToggle,
-  onChangeModel,
-  onCache,
-  onUncache,
-}: {
-  stem: StemKey
+interface StemCardProps {
   meta: { label: string; accent: string }
   selection: { enabled: boolean; modelId: string | null }
   availableModels: ModelInfo[]
@@ -364,31 +369,43 @@ const StemCard = ({
   onChangeModel: (id: string) => void
   onCache: (id: string) => void
   onUncache: (id: string) => void
-}) => {
+}
+
+const StemCard = ({
+  meta,
+  selection,
+  availableModels,
+  cachedModels,
+  cacheAction,
+  onToggle,
+  onChangeModel,
+  onCache,
+  onUncache,
+}: StemCardProps) => {
   const currentModel = availableModels.find((m) => m.id === selection.modelId)
   const isCached = currentModel ? cachedModels.has(currentModel.id) : false
-  const isLocal = currentModel?.id.startsWith('htdemucs-ft-')
 
   const isCachingThis = cacheAction.phase === 'downloading' && cacheAction.targetId === currentModel?.id
   const isDeletingThis = cacheAction.phase === 'deleting' && cacheAction.targetId === currentModel?.id
 
-  const statusText = !currentModel
-    ? ''
-    : isCached
-      ? '已缓存'
-      : isLocal
-        ? '待缓存'
-        : '未下载'
-
+  /* ---- 关键修复:外层用 div + role=button,内层用 button 即可,无 HTML 嵌套错误 ---- */
   return (
-    <motion.button
-      type="button"
+    <motion.div
+      role="button"
+      tabIndex={0}
       onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault()
+          onToggle()
+        }
+      }}
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       aria-pressed={selection.enabled}
-      className="text-left rounded-xl p-3 cursor-pointer w-full"
+      aria-label={`${meta.label} 分轨 ${selection.enabled ? '已选' : '未选'}`}
+      className="text-left rounded-xl p-3 cursor-pointer w-full focus:outline-none"
       style={{
         background: selection.enabled ? 'var(--bg-card)' : 'transparent',
         border: selection.enabled
@@ -400,7 +417,7 @@ const StemCard = ({
           : 'none',
       }}
     >
-      {/* 顶行:色块 + 标签 + 状态徽章 */}
+      {/* 顶行:色块 + 标签(去掉原「待缓存/已缓存」角标) */}
       <div className="flex items-center gap-2 mb-2.5">
         <span
           className="w-3 h-3 rounded-full flex-shrink-0"
@@ -408,79 +425,83 @@ const StemCard = ({
           aria-hidden
         />
         <span
-          className="text-sm font-semibold"
+          className="text-sm font-semibold flex-1"
           style={{ color: 'var(--text-primary)' }}
         >
           {meta.label}
         </span>
-        <span
-          className="ml-auto text-[0.6rem] font-mono px-1.5 py-0.5 rounded"
-          style={{
-            color: isCached ? 'var(--accent-amber)' : 'var(--text-muted)',
-            background: isCached ? 'var(--accent-glow)' : 'transparent',
-            border: isCached ? '0.5px solid var(--accent-amber)' : 'none',
-          }}
-        >
-          {isCached && <Check size={10} strokeWidth={2.5} className="inline -mt-0.5 mr-0.5" />}
-          {statusText}
-        </span>
+        {isCached && (
+          <span
+            className="text-[0.6rem] flex items-center gap-0.5"
+            style={{ color: 'var(--accent-amber)' }}
+            title="模型已缓存在 IndexedDB"
+            aria-label="已缓存"
+          >
+            <CheckCircle2 size={11} strokeWidth={2} />
+          </span>
+        )}
       </div>
 
-      {/* 模型下拉 — 自定义样式(select 用 appearance:none + chevron icon) */}
-      <div className="relative" onClick={(e) => e.stopPropagation()}>
-        <select
-          value={selection.modelId ?? ''}
-          onChange={(e) => onChangeModel(e.target.value)}
-          disabled={!selection.enabled}
-          className="w-full pl-2.5 pr-8 py-1.5 rounded-lg text-xs appearance-none cursor-pointer disabled:cursor-not-allowed transition-all"
-          style={{
-            background: 'var(--bg-page)',
-            color: 'var(--text-primary)',
-            border: '0.5px solid var(--border-line)',
-            outline: 'none',
-          }}
-          onMouseEnter={(e) => {
-            ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-amber)'
-          }}
-          onMouseLeave={(e) => {
-            ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border-line)'
-          }}
-          onFocus={(e) => {
-            ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-amber)'
-            ;(e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 3px var(--accent-glow)'
-          }}
-          onBlur={(e) => {
-            ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border-line)'
-            ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
-          }}
-          aria-label={`${meta.label}使用的模型`}
-        >
-          {availableModels.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name} · {m.size}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          size={14}
-          strokeWidth={1.5}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-          style={{ color: 'var(--text-muted)' }}
-        />
-      </div>
+      {/* 第 3 项改动:下拉 + 缓存按钮同行 — flex 布局 */}
+      <div
+        className="flex items-stretch gap-2"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        {/* 模型下拉(优化 #4:选项标缓存状态) */}
+        <div className="relative flex-1 min-w-0">
+          <select
+            value={selection.modelId ?? ''}
+            onChange={(e) => onChangeModel(e.target.value)}
+            disabled={!selection.enabled}
+            className="w-full pl-2.5 pr-7 py-1.5 rounded-lg text-xs appearance-none cursor-pointer disabled:cursor-not-allowed transition-all"
+            style={{
+              background: 'var(--bg-page)',
+              color: 'var(--text-primary)',
+              border: '0.5px solid var(--border-line)',
+              outline: 'none',
+            }}
+            onMouseEnter={(e) => {
+              ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-amber)'
+            }}
+            onMouseLeave={(e) => {
+              ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border-line)'
+            }}
+            onFocus={(e) => {
+              ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-amber)'
+              ;(e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 3px var(--accent-glow)'
+            }}
+            onBlur={(e) => {
+              ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border-line)'
+              ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
+            }}
+            aria-label={`${meta.label}使用的模型`}
+          >
+            {availableModels.map((m) => {
+              const cached = cachedModels.has(m.id)
+              return (
+                <option key={m.id} value={m.id}>
+                  {m.name} · {m.size} · {cached ? '✓ 已缓存' : '未缓存'}
+                </option>
+              )
+            })}
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.5}
+            className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ color: 'var(--text-muted)' }}
+          />
+        </div>
 
-      {/* 缓存操作行 */}
-      {currentModel && (
-        <div
-          className="mt-2.5 flex items-center gap-2"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {isCached ? (
+        {/* 缓存操作按钮 */}
+        {currentModel && (
+          isCached ? (
             <button
               type="button"
               onClick={() => onUncache(currentModel.id)}
               disabled={isDeletingThis}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[0.65rem] cursor-pointer transition-all hover:opacity-80 disabled:opacity-50"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[0.65rem] cursor-pointer transition-all hover:opacity-80 disabled:opacity-50 shrink-0"
               style={{
                 background: 'transparent',
                 color: 'var(--text-muted)',
@@ -488,15 +509,16 @@ const StemCard = ({
               }}
               aria-label={`删除 ${currentModel.name} 缓存`}
             >
-              <Trash2 size={11} strokeWidth={1.5} />
-              {isDeletingThis ? '删除中…' : '清缓存'}
+              {isDeletingThis && <Loader2 size={11} strokeWidth={1.5} className="animate-spin" />}
+              {!isDeletingThis && <Trash2 size={11} strokeWidth={1.5} />}
+              <span className="whitespace-nowrap">清缓存</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => onCache(currentModel.id)}
               disabled={isCachingThis}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[0.65rem] cursor-pointer transition-all hover:opacity-80 disabled:opacity-50"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[0.65rem] cursor-pointer transition-all hover:opacity-80 disabled:opacity-50 shrink-0"
               style={{
                 background: 'var(--accent-glow)',
                 color: 'var(--accent-amber)',
@@ -504,29 +526,34 @@ const StemCard = ({
               }}
               aria-label={`下载 ${currentModel.name} 到缓存`}
             >
-              <Download size={11} strokeWidth={1.5} />
-              {isCachingThis ? '下载中…' : '下载到缓存'}
+              {isCachingThis && <Loader2 size={11} strokeWidth={1.5} className="animate-spin" />}
+              {!isCachingThis && <Download size={11} strokeWidth={1.5} />}
+              <span className="whitespace-nowrap">{isCachingThis ? '下载中' : '下载'}</span>
             </button>
-          )}
-        </div>
-      )}
-    </motion.button>
+          )
+        )}
+      </div>
+    </motion.div>
   )
 }
 
-/* ============================== 缓存管理面板(可展开) ============================== */
+/* ============================== 缓存管理面板(支持单条删除) ============================== */
+
+interface CacheManagerPanelProps {
+  cacheMetas: { id: string; sizeBytes: number; cachedAt: string }[]
+  cacheAction: { phase: string; targetId?: string }
+  onRefresh: () => void
+  onClearAll: () => void
+  onUncache: (id: string) => void
+}
 
 const CacheManagerPanel = ({
   cacheMetas,
   cacheAction,
   onRefresh,
   onClearAll,
-}: {
-  cacheMetas: { id: string; sizeBytes: number; cachedAt: string }[]
-  cacheAction: { phase: string; targetId?: string }
-  onRefresh: () => void
-  onClearAll: () => void
-}) => {
+  onUncache,
+}: CacheManagerPanelProps) => {
   const [expanded, setExpanded] = useState(false)
   const totalSize = cacheMetas.reduce((sum, m) => sum + m.sizeBytes, 0)
   const isClearing = cacheAction.phase === 'clearing'
@@ -602,35 +629,56 @@ const CacheManagerPanel = ({
                   </p>
                 ) : (
                   <ul className="space-y-1.5 mt-1">
-                    {cacheMetas.map((m) => (
-                      <li
-                        key={m.id}
-                        className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded"
-                        style={{ background: 'var(--bg-page)' }}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className="text-[0.7rem] truncate"
-                            style={{ color: 'var(--text-primary)' }}
-                            title={m.id}
+                    {cacheMetas.map((m) => {
+                      const isDeleting = cacheAction.phase === 'deleting' && cacheAction.targetId === m.id
+                      return (
+                        <li
+                          key={m.id}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded"
+                          style={{ background: 'var(--bg-page)' }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className="text-[0.7rem] truncate"
+                              style={{ color: 'var(--text-primary)' }}
+                              title={m.id}
+                            >
+                              {m.id}
+                            </p>
+                            <p
+                              className="text-[0.6rem] font-mono"
+                              style={{ color: 'var(--text-muted)' }}
+                            >
+                              {(m.sizeBytes / 1024 / 1024).toFixed(0)} MB ·{' '}
+                              {new Date(m.cachedAt).toLocaleString('zh-CN', {
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                          </div>
+                          {/* 第 6 项改动:单条删除按钮 */}
+                          <button
+                            type="button"
+                            onClick={() => onUncache(m.id)}
+                            disabled={isDeleting}
+                            className="flex items-center gap-1 px-2 py-1 rounded text-[0.6rem] cursor-pointer transition-all hover:opacity-80 disabled:opacity-50 shrink-0"
+                            style={{
+                              background: 'transparent',
+                              color: 'var(--text-muted)',
+                              border: '0.5px solid var(--border-line)',
+                            }}
+                            aria-label={`删除 ${m.id} 缓存`}
+                            title="删除此模型"
                           >
-                            {m.id}
-                          </p>
-                          <p
-                            className="text-[0.6rem] font-mono"
-                            style={{ color: 'var(--text-muted)' }}
-                          >
-                            {(m.sizeBytes / 1024 / 1024).toFixed(0)} MB ·{' '}
-                            {new Date(m.cachedAt).toLocaleString('zh-CN', {
-                              month: '2-digit',
-                              day: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </p>
-                        </div>
-                      </li>
-                    ))}
+                            {isDeleting && <Loader2 size={10} strokeWidth={1.5} className="animate-spin" />}
+                            {!isDeleting && <Trash2 size={10} strokeWidth={1.5} />}
+                            <span>删除</span>
+                          </button>
+                        </li>
+                      )
+                    })}
                   </ul>
                 )}
 
@@ -655,8 +703,11 @@ const CacheManagerPanel = ({
                         border: '0.5px solid var(--danger-red, #c84444)',
                       }}
                     >
-                      <Trash2 size={11} strokeWidth={1.5} />
-                      {isClearing ? '清空中…' : `清空所有 (${(totalSize / 1024 / 1024).toFixed(0)} MB)`}
+                      {isClearing && <Loader2 size={11} strokeWidth={1.5} className="animate-spin" />}
+                      {!isClearing && <Trash2 size={11} strokeWidth={1.5} />}
+                      {isClearing
+                        ? '清空中…'
+                        : `清空所有 (${(totalSize / 1024 / 1024).toFixed(0)} MB)`}
                     </button>
                   )}
                 </div>
@@ -666,6 +717,67 @@ const CacheManagerPanel = ({
         </AnimatePresence>
       </div>
     </section>
+  )
+}
+
+/* ============================== 下载进度条(优化 #2) ============================== */
+
+interface DownloadProgressProps {
+  modelId: string
+  progress: number
+  loadedText: string
+}
+
+const DownloadProgress = ({ modelId, progress, loadedText }: DownloadProgressProps) => {
+  const pct = Math.round(progress * 100)
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.25 }}
+      className="mb-4 rounded-xl overflow-hidden"
+      style={{
+        background: 'var(--bg-card)',
+        border: '0.5px solid var(--border-line)',
+      }}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="p-4 flex items-center gap-3">
+        <Loader2
+          size={18}
+          strokeWidth={1.8}
+          className="animate-spin shrink-0"
+          style={{ color: 'var(--accent-amber)' }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+              下载模型 {modelId}
+            </p>
+            <p className="text-xs font-mono shrink-0" style={{ color: 'var(--accent-amber)' }}>
+              {pct}%
+            </p>
+          </div>
+          <div
+            className="h-1.5 rounded-full overflow-hidden"
+            style={{ background: 'var(--bg-page)' }}
+          >
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: 'var(--accent-amber)' }}
+              initial={{ width: 0 }}
+              animate={{ width: `${pct}%` }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            />
+          </div>
+          <p className="text-[0.65rem] mt-1 font-mono" style={{ color: 'var(--text-muted)' }}>
+            {loadedText}
+          </p>
+        </div>
+      </div>
+    </motion.div>
   )
 }
 
@@ -837,42 +949,53 @@ const ProgressPanel = ({
 }) => {
   const labels: Partial<Record<SeparatorPhase, string>> = {
     'downloading-model': '下载模型',
+    'model-ready': '准备就绪',
     decoding: '解码音频',
-    separating: 'AI 推理',
+    separating: 'AI 分离中',
   }
   const label = labels[phase] ?? '处理中'
+  const pct = Math.round(progress * 100)
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center gap-3 p-8 rounded-xl"
+      className="flex flex-col items-center gap-3 p-6 rounded-xl"
       style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
-      role="status"
-      aria-live="polite"
     >
-      <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
-        {label}
-      </p>
+      <div className="flex items-center gap-2 w-full">
+        <Loader2
+          size={16}
+          strokeWidth={1.8}
+          className="animate-spin shrink-0"
+          style={{ color: 'var(--accent-amber)' }}
+        />
+        <p className="text-sm font-medium flex-1" style={{ color: 'var(--text-primary)' }}>
+          {label}
+        </p>
+        <p className="text-xs font-mono" style={{ color: 'var(--accent-amber)' }}>
+          {pct}%
+        </p>
+      </div>
       <div
-        className="w-full max-w-md h-1.5 rounded-full overflow-hidden"
-        style={{ background: 'var(--accent-glow)' }}
+        className="h-1.5 w-full rounded-full overflow-hidden"
+        style={{ background: 'var(--bg-page)' }}
       >
         <motion.div
-          className="h-full"
+          className="h-full rounded-full"
           style={{ background: 'var(--accent-amber)' }}
           initial={{ width: 0 }}
-          animate={{ width: `${Math.round(progress * 100)}%` }}
-          transition={{ duration: 0.3 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.2 }}
         />
       </div>
-      <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-        {currentStep || `${Math.round(progress * 100)}%`}
+      <p className="text-xs self-start" style={{ color: 'var(--text-muted)' }}>
+        {currentStep}
       </p>
       <button
         type="button"
         onClick={onCancel}
-        className="mt-1 px-4 py-1.5 rounded-lg text-xs cursor-pointer transition-all hover:opacity-70"
+        className="text-[0.7rem] mt-1 px-3 py-1 rounded cursor-pointer transition-all hover:opacity-70"
         style={{ background: 'transparent', color: 'var(--text-muted)' }}
       >
         取消
@@ -881,7 +1004,7 @@ const ProgressPanel = ({
   )
 }
 
-const StemResultCard = ({
+const ResultCard = ({
   label,
   accent,
   available,
@@ -893,50 +1016,37 @@ const StemResultCard = ({
   onDownload: () => void
 }) => (
   <motion.div
-    initial={{ opacity: 0, y: 4 }}
-    animate={{ opacity: 1, y: 0 }}
-    whileHover={available ? { y: -2 } : {}}
+    whileHover={{ y: -2 }}
     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-    className="flex items-center justify-between p-4 rounded-xl"
+    className="flex items-center gap-3 p-3 rounded-xl"
     style={{
       background: 'var(--bg-card)',
-      border: `0.5px solid ${available ? accent : 'var(--border-line)'}`,
-      opacity: available ? 1 : 0.5,
+      border: `1.5px solid ${available ? accent : 'var(--border-line)'}`,
+      opacity: available ? 1 : 0.4,
     }}
   >
-    <div className="flex items-center gap-3">
-      <span
-        className="w-2.5 h-2.5 rounded-full"
-        style={{ background: accent }}
-        aria-hidden
-      />
-      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-        {label}
-      </span>
-      {!available && (
-        <span
-          className="text-[0.6rem] uppercase tracking-wider"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          (未选)
-        </span>
-      )}
-    </div>
-    <motion.button
+    <span
+      className="w-3 h-3 rounded-full shrink-0"
+      style={{ background: accent }}
+      aria-hidden
+    />
+    <span className="text-sm font-semibold flex-1" style={{ color: 'var(--text-primary)' }}>
+      {label}
+    </span>
+    <button
       type="button"
       onClick={onDownload}
       disabled={!available}
-      whileHover={available ? { scale: 1.05 } : {}}
-      whileTap={available ? { scale: 0.95 } : {}}
-      className="flex items-center gap-1.5 px-3 h-8 rounded-full cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-      style={{ background: 'transparent', border: '1px solid var(--border-line)' }}
-      aria-label={`下载 ${label} WAV`}
+      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[0.7rem] cursor-pointer transition-all hover:opacity-80 disabled:cursor-not-allowed"
+      style={{
+        background: 'var(--accent-glow)',
+        color: 'var(--accent-amber)',
+        border: '0.5px solid var(--accent-amber)',
+      }}
     >
-      <Download size={13} strokeWidth={1.5} />
-      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-        WAV
-      </span>
-    </motion.button>
+      <Download size={12} strokeWidth={1.5} />
+      WAV
+    </button>
   </motion.div>
 )
 
