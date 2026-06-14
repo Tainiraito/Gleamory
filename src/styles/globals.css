@@ -5,7 +5,7 @@
    ======================================== */
 @font-face {
   font-family: 'Source Han Serif CN';
-  src: url('../assets/fonts/SourceHanSerifCN-Medium.otf') format('opentype');
+  src: url('../assets/fonts/SourceHanSerifCN-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -13,7 +13,7 @@
 
 @font-face {
   font-family: 'Source Han Serif CN';
-  src: url('../assets/fonts/SourceHanSerifCN-SemiBold.otf') format('opentype');
+  src: url('../assets/fonts/SourceHanSerifCN-SemiBold.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
@@ -21,7 +21,7 @@
 
 @font-face {
   font-family: 'Source Han Serif CN';
-  src: url('../assets/fonts/SourceHanSerifCN-Bold.otf') format('opentype');
+  src: url('../assets/fonts/SourceHanSerifCN-Bold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;

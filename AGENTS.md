@@ -1,362 +1,157 @@
-# AGENTS.md — Gleamory 微光集
+# AGENTS.md - Gleamory 微光集
 
-> **For AI agents**: This file describes the project, its conventions, and how to work on it.
-> Keep this file current when adding or changing build commands, conventions, or architecture.
+## 项目定位
 
-## Project Overview
+Gleamory 是个人微产品入口站，由品牌首页、站内小工具和浏览器插件说明页组成。它是纯静态 React 单页应用，部署到 GitHub Pages。
 
-**Gleamory** (微光集) is a personal project showcase homepage — a central landing page that displays all of the owner's projects as cards with a magazine-style editorial layout. It serves as a unified entry point and personal branding site.
+- UI 文案使用中文。
+- 代码标识符使用英文。
+- 数据以静态 JSON 为主。
+- 保持轻量，不引入后端或全局状态库，除非需求明确要求。
 
-- **Repository**: https://github.com/Tainiraito/Gleamory
-- **Language**: Chinese (UI text), English (code identifiers)
-- **License**: MIT
-- **Docs**: `README.md`, `CHANGELOG.md`, `docs/requirements.md`
+## 技术栈
 
-## Tech Stack
+| 类别 | 技术 |
+| --- | --- |
+| 框架 | React 19 |
+| 语言 | TypeScript 5.7，strict |
+| 构建 | Vite 6 |
+| 路由 | React Router 7，HashRouter |
+| 样式 | Tailwind CSS 4 |
+| 动画 | Framer Motion 12 |
+| 测试 | Vitest 4、Testing Library |
+| 规范 | ESLint 10、Prettier 3 |
+| 部署 | GitHub Pages、GitHub Actions、Node.js 20 |
 
-| Category         | Technology                | Version            |
-| ---------------- | ------------------------- | ------------------ |
-| Framework        | React                     | ^19.0.0            |
-| Language         | TypeScript                | ^5.8               |
-| Build Tool       | Vite                      | ^7.0 (inferred)    |
-| CSS Framework    | Tailwind CSS              | ^4.3.0             |
-| Animation        | Framer Motion             | ^12.0.0            |
-| Linter           | ESLint                    | ^10.3.0 (flat cfg) |
-| Formatter        | Prettier                  | ^3.8.3             |
-| Font (primary)   | Source Han Serif CN (OTF) | — (local, 3 wts)   |
-| Font (poetry)    | LXGW WenKai (GoogleFonts) | —                  |
-| Data Storage     | Static JSON files         | —                  |
-| Deploy           | GitHub Pages (Actions)    | —                  |
-
-## Project Structure
-
-```
-Gleamory/
-├── index.html               # HTML entry point
-├── package.json             # Dependencies and scripts
-├── vite.config.ts           # Vite config: @tailwindcss/vite + @vitejs/plugin-react + @ alias
-├── tsconfig.json            # TypeScript project references (app + node)
-├── tsconfig.app.json        # TS config for src/ (strict, react-jsx, @/ path alias)
-├── tsconfig.node.json       # TS config for vite.config.ts
-├── eslint.config.js         # ESLint flat config (react-hooks + typescript-eslint)
-├── .prettierrc              # Prettier config (no semi, single quote, printWidth 100)
-├── .gitignore               # Git ignore rules
-├── AGENTS.md                # This file
-├── CHANGELOG.md             # Semantic versioning changelog
-├── README.md                # Project readme
-├── components.json          # shadcn/ui config (initialized but unused)
-├── .github/
-│   └── workflows/
-│       └── deploy.yml       # GitHub Actions: npm ci → build → deploy Pages
-├── docs/
-│   └── requirements.md      # Full requirements document (Chinese)
-├── public/
-│   ├── covers/              # Project cover images (served as static files)
-│   ├── assets/
-│   │   └── screenshots/     # Plugin/project screenshots for detail pages
-│   ├── CNAME                # Custom domain: gleamory.lovelysia.top
-│   └── favicon.svg          # Pink-purple gradient star favicon
-├── src/
-│   ├── main.tsx             # React entry point (StrictMode + createRoot)
-│   ├── App.tsx              # Root layout: floating logo, project grid, calendar+poem, timeline, footer
-│   ├── vite-env.d.ts        # Vite client type declarations
-│   ├── components/
-│   │   ├── FloatingLogo.tsx # Fixed top-left brand text
-│   │   ├── ProjectGrid.tsx  # Magazine grid: featured (7cols) + secondary (5cols) + list
-│   │   ├── ProjectCard.tsx  # Card component (featured/secondary variant)
-│   │   ├── CalendarCard.tsx # Live calendar display (current month + today highlight)
-│   │   ├── PoemCard.tsx     # Daily poem (API with local JSON fallback)
-│   │   ├── Timeline.tsx     # Update timeline (Framer Motion staggered animation)
-│   │   ├── Footer.tsx       # Footer with copyright + GitHub link
-│   │   └── metronome/       # 节拍器组件
-│   │       └── Metronome.tsx# 核心组件：拍点/音色选择/小节管理/BPM控制
-│   ├── hooks/
-│   │   └── useMetronome.ts  # 节拍器 Web Audio API + 播放控制 + 变速模式 hook
-│   ├── types/
-│   │   ├── index.ts         # TypeScript type definitions (Project, Update, etc.)
-│   │   └── metronome.ts     # 节拍器类型定义（Beat, Measure, MetronomeConfig, TempoChangeConfig）
-│   ├── data/
-│   │   ├── projects.json    # Project data records
-│   │   ├── timeline.json    # Timeline update records
-│   │   ├── poems.json       # Fallback poem collection (31 poems)
-│   │   └── beatSounds.ts    # 6种节拍音色配置（Web Audio合成参数）+ 音色预设
-│   ├── assets/
-│   │   └── fonts/           # Source Han Serif CN font files (3 weights)
-│   ├── pages/
-│   │   ├── GachaSimulator.tsx # 翻牌抽卡模拟器 (#/gacha-simulator)
-│   │   ├── PianoPage.tsx      # 极简钢琴 (#/piano)
-│   │   ├── MetronomePage.tsx  # 节拍器 (#/metronome)
-│   │   ├── NeteaseCoverPage.tsx # 网易云封面提取 (#/netease-cover)
-│   │   ├── PixivCoverPage.tsx  # Pixiv 插画下载 (#/pixiv-image-extractor)
-│   │   └── PluginDetailPage.tsx # 插件详情页通用模板（NeteaseCoverPage、PixivCoverPage 等使用）
-│   └── styles/
-│       └── globals.css      # Tailwind v4 @import + @theme + CSS vars + font-face + scrollbar
-```
-
-## Commands
-
-### Development
+## 常用命令
 
 ```bash
-npm run dev        # Start Vite dev server (HMR, localhost)
+npm install --legacy-peer-deps
+npm run dev
+npm test
+npm run lint
+npm run build
+npm run preview
 ```
 
-### Build & Preview
+GitHub Actions 使用 `npm ci --legacy-peer-deps`，并按 test、lint、build、deploy 顺序执行。
 
-```bash
-npm run build      # tsc -b + vite build → dist/
-npm run preview    # Preview production build locally
+## 架构
+
+```text
+src/
+├── App.tsx                     路由和首页组合
+├── components/                共享组件
+│   ├── metronome/             节拍器 UI
+│   └── piano/                 钢琴键盘 UI
+├── data/                      静态项目与工具配置
+├── hooks/                     浏览器生命周期与音频 Hook
+├── lib/                       可独立测试的业务逻辑
+├── pages/                     路由页面
+├── styles/globals.css         Tailwind、主题变量和字体
+├── tests/setup.ts             Vitest 设置
+└── utils/                     纯工具函数
 ```
 
-### Linting & Formatting
+首页及共享外壳位于主入口包。以下非首页路由使用 `React.lazy`：
 
-```bash
-npm run lint       # ESLint check (.ts, .tsx)
-npm run format     # Prettier auto-format (src/**/*.{ts,tsx,css}, *.{json,md})
-```
+| 路由 | 页面 |
+| --- | --- |
+| `/gacha-simulator` | `GachaSimulator.tsx` |
+| `/piano` | `PianoPage.tsx` |
+| `/metronome` | `MetronomePage.tsx` |
+| `/netease-cover` | `NeteaseCoverPage.tsx` |
+| `/pixiv-image-extractor` | `PixivCoverPage.tsx` |
 
-The project uses **ESLint** (flat config, `eslint.config.js`) with `typescript-eslint` and `eslint-plugin-react-hooks`, plus **Prettier** (`.prettierrc`, semi-free, single quotes, printWidth 100). No test framework.
+插件页通过 `PluginDetailPage.tsx` 配置化复用。
 
-## Architecture
+## 数据来源
 
-### Data Flow
+### `src/data/projects.json`
 
-```
-src/data/projects.json ──┐
-                         ├──> App.tsx ──> ProjectGrid.tsx ──> ProjectCard.tsx
-src/data/timeline.json ──┘        │
-                                   ├── CalendarCard.tsx (self-contained, JS Date)
-                                   ├── PoemCard.tsx (self-contained, API + fallback)
-                                   └── Timeline.tsx (receives updates prop)
-```
-
-- Data is imported statically from JSON files at build time (no API/fetch).
-- `App.tsx` imports all data and passes relevant props to children.
-- `CalendarCard` and `PoemCard` are self-contained with no props from App.
-- `PoemCard` fetches from `v1.jinrishici.com` API on mount; falls back to local `poems.json` on failure.
-- Components use arrow functions with named exports.
-
-### Component Props
-
-**ProjectCard.tsx**
 ```ts
-interface ProjectCardProps {
-  project: Project
-  index: number
-  variant: 'featured' | 'secondary'
+interface Project {
+  id: string
+  name: string
+  description: string
+  url: string
+  status: '开发中' | '已发布' | '已下线' | '在线'
+  tags: string[]
+  cover?: string
+  placeholderGradient?: string
+  version?: string
+  updatedAt?: string
 }
-// featured: full-width with large image; secondary: padded inset image + text
 ```
 
-**ProjectGrid.tsx**
+### `src/data/timeline.json`
+
 ```ts
-interface ProjectGridProps {
-  projects: Project[]
-}
-// Magazine layout: first project 7cols featured, second 5cols secondary, rest as list
-```
-
-**Timeline.tsx**
-```ts
-interface TimelineProps {
-  updates: Update[]
-}
-// Shows first 5 by default; "显示全部" expands; "收起" collapses
-```
-
-### Data Schema
-
-**projects.json** — `{ projects: [...] }`
-
-| Field       | Type   | Required | Description                                                                   |
-| ----------- | ------ | -------- | ----------------------------------------------------------------------------- |
-| id          | string | yes      | Unique project identifier                                                     |
-| name        | string | yes      | Display name                                                                  |
-| description | string | yes      | One-line description                                                          |
-| url         | string | yes      | External URL (opens in new tab via `<a target="_blank">`)                     |
-| status      | string | no       | 开发中 \| 已发布 \| 已下线                                                    |
-| tags        | array  | no       | String tags (在线网站, 小游戏, 杂项, etc.)                                    |
-| cover       | string | no       | Public URL path e.g. `"/covers/xxx.png"`; empty string = elevated placeholder |
-| version     | string | no       | e.g., "v1.0.0"                                                                |
-| updatedAt   | string | no       | ISO date, e.g., "2026-04-29"                                                  |
-
-**timeline.json** — `{ updates: [...] }`
-
-| Field     | Type   | Required | Description               |
-| --------- | ------ | -------- | ------------------------- |
-| id        | string | yes      | Unique entry identifier   |
-| projectId | string | yes      | Foreign key to project.id |
-| content   | string | yes      | Update description        |
-| date      | string | yes      | ISO date                  |
-
-### Vite Config
-
-- **Plugins**: `@tailwindcss/vite` (Tailwind v4), `@vitejs/plugin-react`
-- **Path alias**: `@` → `./src` (configured in `vite.config.ts` + `tsconfig.app.json`)
-- **Watch polling**: enabled for WSL compatibility (`usePolling: true`, 500ms interval)
-
-## Styling & Design
-
-### Design System — "素笺 (Clean Editorial)"
-
-Warm paper-toned magazine aesthetic with pink accent touches.
-
-- **Background**: `#f7f4ef` (warm rice paper)
-- **Card background**: `#ffffff` (white)
-- **Primary text**: `#2c2a30` (soft black)
-- **Secondary text**: `#6b6570` (muted gray-purple)
-- **Accent**: `#f783ac` (pink)
-- **Lines/borders**: `rgba(44,42,48,0.06)`
-- **Shadows**: subtle `0 2px 8px rgba(44,42,48,0.04)`
-
-All CSS custom properties are defined in `src/styles/globals.css` under `:root`.
-
-### Tailwind v4 Theme (CSS-based, no config file)
-
-```css
-@theme inline {
-  --font-display: 'Source Han Serif CN', Georgia, serif;
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-kai: 'LXGW WenKai', 'KaiTi', serif;
+interface Update {
+  id: string
+  projectId: string
+  content: string
+  date: string
 }
 ```
 
-**Note**: Tailwind v4 uses `@theme` in CSS instead of `tailwind.config.js`. All theme tokens are in `globals.css`.
+时间线在运行时按日期降序排列，不依赖 JSON 写入顺序。
 
-### Fonts
+## 资源规则
 
-- **Display (titles)**: Source Han Serif CN (思源宋体), local OTF from `src/assets/fonts/`
-  - Medium (500) — body text
-  - SemiBold (600) — section / card titles
-  - Bold (700) — page title
-- **Sans (body)**: system-ui stack (no custom font)
-- **Kai (poetry block)**: LXGW WenKai (霞鹜文楷) via Google Fonts
+- 项目封面放在 `public/covers/`，优先使用 WebP。
+- 社交分享图为 `public/og-cover.jpg`。
+- 思源宋体存放在 `src/assets/fonts/`，使用子集化 WOFF2。
+- 插件截图放在 `public/assets/screenshots/`。
+- 不重新加入大体积 OTF 或未压缩项目封面。
 
-### Animations
+## 编码约定
 
-- **Project cards**: Framer Motion `motion.a` — fade-in + slide-up on scroll with staggered delay (index * 0.12s), hover lift (-2px) + shadow transition
-- **Timeline**: Framer Motion — fade-in + slide from left (0.08s staggered)
-- **Global**: smooth transitions on hover effects
+- 使用 React 函数组件和具名 Props `interface`。
+- 使用 `@/` 路径别名。
+- 业务逻辑优先提取为纯函数并测试，页面不重复实现。
+- 不使用 `any`；外部或存储数据先以 `unknown` 校验。
+- 注释只解释非显然的约束或意图。
+- 遵循现有无分号、单引号、100 字符行宽格式。
+- 修改浏览器事件、定时器或 Web Audio 时必须提供清理逻辑。
+- 新路由默认使用懒加载，不扩大首页入口包。
 
-### Layout
+## 测试约定
 
-- **Magazine grid**: `grid-cols-1 md:grid-cols-12` with 7/5 split for first two projects
-- **List**: full-width stacked cards for remaining projects
-- **Calendar + Poem side-by-side**: 5/7 column split on md+
-- **Timeline**: centered full-width with decorative horizontal rule header
+当前测试文件：
 
-## Components
+- `src/lib/gacha.test.ts`
+- `src/utils/timeline.test.ts`
+- `src/hooks/useDocumentTitle.test.tsx`
+- `src/hooks/usePianoAudio.test.tsx`
 
-### App.tsx
-- HashRouter with Routes:
-  - `/` — Homepage (`FloatingLogo` + `ProjectGrid` + `CalendarCard` + `PoemCard` + `Timeline` + `Footer`)
-  - `/gacha-simulator` — `GachaSimulator.tsx` (翻牌抽卡)
-  - `/piano` — `PianoPage.tsx` (极简钢琴)
-  - `/metronome` — `MetronomePage.tsx` (节拍器)
-  - `/netease-cover` — `NeteaseCoverPage.tsx` (网易云封面提取)
-- Homepage layout:
+行为修复遵循：
 
-### ProjectCard.tsx
-Wraps each project in a Framer Motion `<motion.a>` targeting `_blank`.
-- Accent pink line at top (48px)
-- Cover image: full-width for featured, white-bordered inset for secondary
-- Placeholder when no cover: elevated background with aspect-ratio 16/9
-- Title, description, tags (bordered pills), status badge (pink-bordered)
+1. 添加能复现问题的失败测试。
+2. 确认失败原因正确。
+3. 编写最小修复。
+4. 运行聚焦测试。
+5. 运行完整 test、lint、build。
 
-### ProjectGrid.tsx
-Magazine layout:
-- Project[0] → 7 cols featured card
-- Project[1] → 5 cols secondary card + "Coming Soon" placeholder
-- Projects[2+] → full list of secondary cards with 8px gap
+配置、文档和机械资源转换可以不添加单元测试，但必须通过对应构建或产物检查。
 
-### CalendarCard.tsx
-Self-contained calendar component rendering current month using `useMemo`.
-- Weekday headers (一二三四五六日)
-- Grid of day cells with dimmed prev/next months
-- Today highlighted with pink border circle
+## 新增项目或页面
 
-### PoemCard.tsx
-- On mount: fetch from `v1.jinrishici.com` API (8s timeout)
-- On success: display poem content, title, author in kai font
-- On failure: fallback to local `poems.json` using `(date + 30) % length` index
-- Loading state: "加载中..."
+1. 新增页面和 Hash 路由。
+2. 非首页页面使用 `React.lazy`。
+3. 更新 `src/data/projects.json`。
+4. 更新 `src/data/timeline.json`。
+5. 更新 `CHANGELOG.md`。
+6. 为纯业务行为添加测试。
+7. 运行 `npm test`、`npm run lint`、`npm run build`。
 
-### Timeline.tsx
-- Vertical line + dot-per-entry layout
-- Dot: pink-bordered circle with page-background fill
-- Shows first 5 by default; "显示全部 (N)" button toggles all
-- Staggered fade-in from left (0.08s delay per item)
+## 部署
 
-## Coding Conventions
+推送到 `main` 后触发 `.github/workflows/deploy.yml`：
 
-### React
-- Functional components with arrow functions
-- Props typed via `interface` (not inline)
-- Use `useState` / `useEffect` / `useMemo` from React
-- `motion.*` components from Framer Motion for animated elements
-- Imports use `@/` path alias from `src/` (e.g., `import ProjectGrid from '@/components/ProjectGrid'`)
-
-### TypeScript
-- Strict mode enabled
-- `tsc -b` for type checking before build
-- No `any` — use proper types or `unknown`
-- JSON imports cast via `as` type assertion
-
-### JavaScript
-- ES modules (`"type": "module"` in `package.json`)
-- Prefer `const`, use `let` only when reassignment is necessary
-- Use template literals for string interpolation
-
-### Styling
-- Tailwind utility classes for layout and spacing
-- Inline styles for CSS custom properties (e.g., `style={{ color: 'var(--accent-pink)' }}`)
-- CSS custom properties in `globals.css` for design tokens
-- Scoped animation configuration in Framer Motion props
-
-### Naming
-- **React components**: PascalCase filenames (`ProjectCard.tsx`)
-- **Other files**: kebab-case (`globals.css`, `vite.config.ts`)
-- **JSON data files**: kebab-case (`projects.json`)
-
-### Comments
-- Comments are in Chinese
-- Not verbose — only where behavior is non-obvious
-
-### Git
-- **Commit style**: Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, etc.)
-- **Branches**: `main` is the default branch, `archive/*` for archived versions
-
-## GitHub Pages Deployment
-
-Triggered by push to `main` branch via `.github/workflows/deploy.yml`:
-1. Checkout → setup Node 20 → `npm ci` → `npm run build`
-2. Upload `dist/` as Pages artifact
-3. Deploy via `actions/deploy-pages@v4`
-
-Custom domain: `gleamory.lovelysia.top` (Cloudflare DNS proxy).
-
-## New Project / New Page Workflow
-
-When adding a new project feature (e.g., a new page like metronome/piano/gacha):
-
-1. **Hermes agent**: Load the local `gleamory-manager` Hermes skill first (`~/.hermes/skills/workflow/gleamory-manager/`) for full workflow details, project paths, and conventions.
-
-2. **Development**: Work on a feature branch (`feature/<name>`), use `superpowers` workflow (brainstorming → plan → subagent-driven-development).
-
-3. **Data updates** (required after feature is done):
-   - `src/data/projects.json` — add project entry (id, name, description, url=`#/page`, tags, version, updatedAt)
-   - `src/data/timeline.json` — add launch update entry
-   - `CHANGELOG.md` — record feature under `[Unreleased] > Added`
-
-4. **Build & lint**: `npm run build` → `npm run lint` (must pass before commit)
-
-5. **Publish**:
-   - Feature branch → merge to `main`
-   - `git push origin main`
-   - GitHub Actions auto-deploys to `gleamory.lovelysia.top` (~1-2 min)
-
-## Environment
-
-- **Node.js**: v20 (GitHub Actions), LTS recommended locally
-- **Package manager**: npm (see `package-lock.json`)
-- **OS**: Cross-platform (Linux, macOS, Windows — polling mode for WSL)
+1. 安装依赖；
+2. 运行测试；
+3. 运行 ESLint；
+4. 生产构建；
+5. 上传 `dist/`；
+6. 部署 GitHub Pages。
