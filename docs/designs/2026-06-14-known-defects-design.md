@@ -1,108 +1,108 @@
-# Known Defects Optimization Design
+# 已知缺陷优化设计
 
-## Goal
+## 目标
 
-Improve Gleamory's verified correctness, maintainability, delivery checks, and initial-load performance without adding product features, changing public routes, introducing a backend, or redesigning the existing UI.
+在不新增产品功能、不修改公开路由、不引入后端、不重新设计现有 UI 的前提下，提升 Gleamory 的正确性、可维护性、交付检查能力和首次加载性能。
 
-## Scope
+## 范围
 
-### Correctness
+### 正确性
 
-- Restore the previous document title when a routed page unmounts instead of clearing it.
-- Sort timeline entries by their ISO date rather than assuming JSON insertion order.
-- Remove the no-op piano cleanup interval and close or release audio resources on unmount.
-- Fix the `GachaSimulator` memo dependency warning.
-- Add the missing Open Graph image referenced by `index.html`.
+- 路由页面卸载时恢复之前的网页标题，不再将标题清空。
+- 按 ISO 日期对时间线条目排序，不再依赖 JSON 中的写入顺序。
+- 移除钢琴模块中无实际作用的清理定时器，并在组件卸载时释放或关闭音频资源。
+- 修复 `GachaSimulator` 的 `useMemo` 依赖警告。
+- 补充 `index.html` 所引用但实际缺失的 Open Graph 分享图片。
 
-### Test Integrity
+### 测试可信度
 
-- Make `GachaSimulator` consume the tested helpers in `src/lib/gacha.ts` for parsing, deduplication, shuffling, and persisted-state validation.
-- Align the helper state types with the currently shipped flip-card interaction model.
-- Add regression tests before changing each extracted behavior.
-- Add focused tests for title restoration and timeline sorting.
+- 让 `GachaSimulator` 实际使用 `src/lib/gacha.ts` 中经过测试的文本解析、去重、洗牌和持久化状态校验逻辑。
+- 将工具函数中的状态类型与当前已经发布的翻牌交互模型统一。
+- 每项行为调整都先添加回归测试，再修改生产代码。
+- 为标题恢复和时间线排序添加聚焦测试。
 
-### Performance
+### 性能
 
-- Lazy-load non-home routes with `React.lazy` and `Suspense`.
-- Convert the three Source Han Serif CN fonts from OTF to WOFF2 and update font declarations.
-- Convert large project covers to WebP, update data references, and retain only assets still referenced by the application.
-- Keep the existing visual hierarchy, typography weights, routes, and visible content.
+- 使用 `React.lazy` 和 `Suspense` 延迟加载非首页路由。
+- 将三份思源宋体 OTF 字体转换为 WOFF2，并更新字体声明。
+- 将大体积项目封面转换为 WebP，更新数据引用，只保留应用仍在使用的资源。
+- 保持现有视觉层级、字重、路由和可见内容不变。
 
-### Delivery
+### 交付流程
 
-- Run tests, lint, and build in the GitHub Pages workflow before deployment.
-- Keep deployment on Node.js 20 and GitHub Pages.
+- GitHub Pages 工作流必须先执行测试、Lint 和构建，再进行部署。
+- 继续使用 Node.js 20 和 GitHub Pages。
 
-### Documentation
+### 文档
 
-- Update `AGENTS.md` and `README.md` to describe the actual React/Vitest architecture and current files.
-- Replace stale implementation details in `docs/requirements.md` with a concise current-state product and acceptance reference.
-- Remove inaccurate or duplicated unreleased changelog entries, including the nonexistent Sakana route.
-- Record these fixes under the unreleased changelog.
+- 更新 `AGENTS.md` 和 `README.md`，使其准确描述当前 React、Vitest 架构和真实文件结构。
+- 将 `docs/requirements.md` 中过时的实现细节替换为精简的当前产品状态及验收参考。
+- 删除不准确或重复的未发布变更记录，包括并不存在的 Sakana 路由。
+- 在未发布变更日志中记录本轮修复。
 
-## Architecture
+## 架构
 
-The application remains a static React SPA using `HashRouter`. The home page and shared shell stay in the entry bundle; each tool or plugin page becomes a separate lazy-loaded route chunk. Static JSON remains the project catalog and timeline source.
+应用继续采用基于 `HashRouter` 的静态 React 单页应用架构。首页和共享外壳保留在入口包中；每个工具页和插件页分别成为延迟加载的独立路由分包。静态 JSON 继续作为项目目录和时间线的数据来源。
 
-Pure behavior is kept in small library functions and tested directly. React components consume those functions instead of maintaining duplicate implementations. No state-management dependency or server-side layer is introduced.
+纯业务行为放在小型工具函数中并直接测试。React 组件消费这些函数，不再维护重复实现。本轮不引入状态管理依赖或服务端层。
 
-## Data Flow
+## 数据流
 
-### Project Catalog
+### 项目目录
 
-`src/data/projects.json` remains authoritative for project cards. Cover paths will change from PNG to optimized WebP files, but the schema and public card behavior remain unchanged.
+`src/data/projects.json` 继续作为项目卡片的权威数据源。封面路径会从 PNG 改为优化后的 WebP 文件，但数据结构和公开卡片行为保持不变。
 
-### Timeline
+### 时间线
 
-`Timeline` receives static entries and delegates ordering to a pure date-sort helper. Invalid dates retain deterministic source order after valid dated entries.
+`Timeline` 接收静态条目，并将排序工作委托给纯日期排序函数。日期无效的条目排在有效日期条目之后，并保持原始相对顺序，从而保证结果稳定可预测。
 
-### Gacha
+### 抽卡
 
-`GachaSimulator` owns UI state, while `src/lib/gacha.ts` owns:
+`GachaSimulator` 负责 UI 状态，`src/lib/gacha.ts` 负责：
 
-- text parsing;
-- optional deduplication;
-- Fisher-Yates shuffling;
-- preset-compatible state validation;
-- session storage serialization and fallback.
+- 文本解析；
+- 可选去重；
+- Fisher-Yates 洗牌；
+- 与预设兼容的状态校验；
+- `sessionStorage` 序列化与回退。
 
-The UI state shape is the only supported persisted schema after this change. Existing incompatible or corrupt session data falls back to the default preset.
+本轮修改后，当前 UI 状态结构是唯一支持的持久化结构。已有的不兼容数据或损坏数据将回退到默认牌组。
 
-## Error Handling
+## 错误处理
 
-- Failed or malformed session storage reads fall back to a valid default state.
-- Font and cover optimization must preserve original source files until the generated replacements have been validated in a production build; obsolete originals are removed only after references are updated.
-- Lazy route loading uses a lightweight page fallback and does not alter route URLs.
-- The poetry API keeps its current timeout and local fallback behavior.
+- 读取失败或格式错误的会话存储数据时，回退到有效的默认状态。
+- 字体和封面优化过程中，在生产构建验证通过前保留原始源文件；更新所有引用并完成验证后，才删除不再使用的原文件。
+- 延迟加载路由使用轻量级页面占位，不改变现有路由 URL。
+- 每日诗句 API 保留现有超时和本地回退行为。
 
-## Testing Strategy
+## 测试策略
 
-1. Add failing unit tests for timeline ordering, title restoration, gacha parsing/deduplication, and persisted-state validation.
-2. Run each focused test to verify the expected failure.
-3. Implement the minimum production change.
-4. Re-run focused tests and then the complete suite.
-5. Run ESLint with zero warnings.
-6. Run the production build and inspect route chunks and total asset sizes.
-7. Perform a browser smoke test of the home page and every public route at desktop and mobile widths.
+1. 为时间线排序、标题恢复、抽卡文本解析与去重、持久化状态校验编写失败测试。
+2. 分别运行聚焦测试，确认它们因目标行为尚未实现而失败。
+3. 编写使测试通过的最小生产代码。
+4. 重新运行聚焦测试，然后运行完整测试套件。
+5. 运行 ESLint，要求零错误、零警告。
+6. 执行生产构建，检查路由分包结果和总资源体积。
+7. 以桌面端和移动端宽度，在浏览器中冒烟测试首页和所有公开路由。
 
-## Acceptance Criteria
+## 验收标准
 
-- `npm test` passes with tests covering the production gacha helper model.
-- `npm run lint` reports zero errors and zero warnings.
-- `npm run build` succeeds.
-- Returning from any tool page restores `Gleamory 微光集` as the document title.
-- Timeline order is date-based and deterministic.
-- All existing public hash routes still render.
-- Social metadata references an existing image.
-- Non-home pages are emitted as separate JavaScript chunks.
-- Font assets use WOFF2 and are materially smaller than the current OTF files.
-- Project cover assets are optimized and all referenced images load.
-- GitHub Actions executes test, lint, and build before deployment.
-- Project documentation matches the implemented architecture and feature set.
+- `npm test` 通过，并且测试覆盖生产环境实际使用的抽卡辅助逻辑和状态模型。
+- `npm run lint` 报告零错误、零警告。
+- `npm run build` 成功。
+- 从任意工具页面返回后，网页标题恢复为 `Gleamory 微光集`。
+- 时间线按日期排序，且结果稳定可预测。
+- 所有现有公开 Hash 路由仍能正常渲染。
+- 社交分享元数据引用的图片真实存在。
+- 非首页页面被构建为独立 JavaScript 分包。
+- 字体资源使用 WOFF2，体积相较当前 OTF 文件显著下降。
+- 项目封面完成优化，所有被引用图片均能正常加载。
+- GitHub Actions 在部署前执行测试、Lint 和构建。
+- 项目文档与实际架构和功能保持一致。
 
-## Explicit Non-Goals
+## 明确不做
 
-- No new tools, routes, backend, authentication, analytics, or cloud synchronization.
-- No visual redesign or broad component-library migration.
-- No rewrite of the metronome, piano, or plugin detail pages solely to reduce file length.
-- No public route renaming or data schema expansion beyond what is needed for tested persistence.
+- 不新增工具、路由、后端、认证、分析统计或云同步。
+- 不进行视觉重设计或组件库整体迁移。
+- 不仅仅为了缩短文件长度而重写节拍器、钢琴或插件详情页面。
+- 除测试持久化逻辑所必需的调整外，不修改公开路由或扩展数据结构。
