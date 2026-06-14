@@ -207,15 +207,6 @@ export const usePianoAudio = (): UsePianoAudioReturn => {
     [getContext, sustainToggle],
   )
 
-  // Clean up completed oscillator nodes (scheduled stop after decay)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Remove notes whose oscillators have stopped
-      // (their stop was scheduled in stopNote)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
-
   const stopNote = useCallback(
     (frequency: number): void => {
       const activeNotes = activeNotesRef.current
@@ -245,6 +236,21 @@ export const usePianoAudio = (): UsePianoAudioReturn => {
     })
     activeNotes.clear()
   }, [])
+
+  useEffect(() => {
+    const activeNotes = activeNotesRef.current
+
+    return () => {
+      releaseAll()
+
+      const ctx = ctxRef.current
+      if (ctx && ctx.state !== 'closed') {
+        void ctx.close()
+      }
+      ctxRef.current = null
+      activeNotes.clear()
+    }
+  }, [releaseAll])
 
   return {
     playNote,

@@ -1,428 +1,141 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  fisherYatesShuffle,
-  deduplicateByName,
-  parseEntryText,
-  getEntryProbability,
-  getUniqueNames,
-  drawUnique,
-  drawRepeat,
-  computeModeSwitch,
-  loadState,
-  saveState,
   STORAGE_KEY,
-  type Entry,
+  createCardOrder,
+  loadState,
+  mergeEntryNames,
+  parseEntryText,
+  saveState,
   type GachaState,
 } from './gacha'
 
-// ==================== fisherYatesShuffle ====================
-describe('fisherYatesShuffle', () => {
-  it('preserves all elements (same length, same items)', () => {
-    const original = [1, 2, 3, 4, 5]
-    const shuffled = fisherYatesShuffle(original)
-    expect(shuffled).toHaveLength(original.length)
-    expect(shuffled.sort()).toEqual([...original].sort())
-  })
+const defaultState: GachaState = {
+  entries: [
+    { name: 'A', enabled: true },
+    { name: 'B', enabled: true },
+  ],
+  history: [],
+  cardOrder: [0, 1],
+  flipped: [false, false],
+  presetName: '二次元角色',
+}
 
-  it('does not mutate the original array', () => {
-    const original = [1, 2, 3, 4, 5]
-    const copy = [...original]
-    fisherYatesShuffle(original)
-    expect(original).toEqual(copy)
-  })
-
-  it('handles empty array', () => {
-    expect(fisherYatesShuffle([])).toEqual([])
-  })
-
-  it('handles single-element array', () => {
-    expect(fisherYatesShuffle([42])).toEqual([42])
-  })
-
-  it('produces different orders over many runs (probabilistic)', () => {
-    const arr = [1, 2, 3, 4, 5, 6, 7, 8]
-    const results = new Set<string>()
-    for (let i = 0; i < 100; i++) {
-      results.add(fisherYatesShuffle(arr).join(','))
-    }
-    // With 8! = 40320 permutations, 100 runs should produce > 1 unique order
-    expect(results.size).toBeGreaterThan(1)
-  })
-
-  it('works with string arrays', () => {
-    const original = ['a', 'b', 'c', 'd']
-    const shuffled = fisherYatesShuffle(original)
-    expect(shuffled.sort()).toEqual(['a', 'b', 'c', 'd'])
-  })
-
-  it('works with object arrays', () => {
-    const original = [{ id: 1 }, { id: 2 }, { id: 3 }]
-    const shuffled = fisherYatesShuffle(original)
-    expect(shuffled).toHaveLength(3)
-    const ids = shuffled.map((o) => o.id).sort()
-    expect(ids).toEqual([1, 2, 3])
-  })
-})
-
-// ==================== deduplicateByName ====================
-describe('deduplicateByName', () => {
-  it('removes duplicate names, keeping first occurrence', () => {
-    const names = ['a', 'b', 'a', 'c', 'b']
-    expect(deduplicateByName(names)).toEqual(['a', 'b', 'c'])
-  })
-
-  it('case sensitivity: "abc" and "ABC" are different entries', () => {
-    const names = ['abc', 'ABC', 'abc']
-    expect(deduplicateByName(names)).toEqual(['abc', 'ABC'])
-  })
-
-  it('empty strings are preserved (not filtered here — that is parseEntryText)', () => {
-    // deduplicateByName is a generic deduper; it keeps empty strings
-    const names = ['', 'a', '', 'b']
-    expect(deduplicateByName(names)).toEqual(['', 'a', 'b'])
-  })
-
-  it('returns empty array for empty input', () => {
-    expect(deduplicateByName([])).toEqual([])
-  })
-
-  it('returns same array when no duplicates', () => {
-    const names = ['a', 'b', 'c']
-    expect(deduplicateByName(names)).toEqual(['a', 'b', 'c'])
-  })
-
-  it('handles single-element array', () => {
-    expect(deduplicateByName(['only'])).toEqual(['only'])
-  })
-})
-
-// ==================== getUniqueNames ====================
-describe('getUniqueNames', () => {
-  it('extracts unique names, preserving first-seen order', () => {
-    const items: Entry[] = [
-      { name: 'A', enabled: true },
-      { name: 'B', enabled: true },
-      { name: 'A', enabled: false },
-      { name: 'C', enabled: true },
-      { name: 'B', enabled: true },
-    ]
-    expect(getUniqueNames(items)).toEqual(['A', 'B', 'C'])
-  })
-
-  it('returns empty array for empty input', () => {
-    expect(getUniqueNames([])).toEqual([])
-  })
-
-  it('returns same names when no duplicates', () => {
-    const items: Entry[] = [
-      { name: 'X', enabled: true },
-      { name: 'Y', enabled: false },
-    ]
-    expect(getUniqueNames(items)).toEqual(['X', 'Y'])
-  })
-
-  it('handles single item', () => {
-    expect(getUniqueNames([{ name: 'only', enabled: true }])).toEqual(['only'])
-  })
-})
-
-// ==================== parseEntryText ====================
 describe('parseEntryText', () => {
-  it('splits by newline and trims whitespace', () => {
-    expect(parseEntryText('  a  \n b \n  c  ')).toEqual(['a', 'b', 'c'])
-  })
-
-  it('filters out empty lines', () => {
-    expect(parseEntryText('a\n\nb\n\n\nc')).toEqual(['a', 'b', 'c'])
-  })
-
-  it('filters out whitespace-only lines', () => {
-    expect(parseEntryText('a\n   \nb')).toEqual(['a', 'b'])
-  })
-
-  it('returns empty array for empty string', () => {
-    expect(parseEntryText('')).toEqual([])
-  })
-
-  it('returns empty array for whitespace-only string', () => {
-    expect(parseEntryText('  \n  \n  ')).toEqual([])
-  })
-
-  it('handles single line', () => {
-    expect(parseEntryText('single')).toEqual(['single'])
-  })
-
-  it('handles Windows-style line endings (\\r\\n)', () => {
-    expect(parseEntryText('a\r\nb\r\nc')).toEqual(['a', 'b', 'c'])
+  it('去掉空行和首尾空格', () => {
+    expect(parseEntryText(' A \n\nB\n  C  ')).toEqual(['A', 'B', 'C'])
   })
 })
 
-// ==================== getEntryProbability ====================
-describe('getEntryProbability', () => {
-  it('returns 1/N for N enabled entries', () => {
-    expect(getEntryProbability(4)).toBe(0.25)
-    expect(getEntryProbability(2)).toBe(0.5)
-    expect(getEntryProbability(1)).toBe(1)
+describe('mergeEntryNames', () => {
+  it('追加并去除当前牌组和输入中的重复项', () => {
+    expect(mergeEntryNames(['A'], 'A\nB\nB', 'append', true)).toEqual(['A', 'B'])
   })
 
-  it('returns 0 for 0 enabled entries', () => {
-    expect(getEntryProbability(0)).toBe(0)
+  it('关闭去重时保留追加输入中的重复项', () => {
+    expect(mergeEntryNames(['A'], 'A\nB\nB', 'append', false)).toEqual([
+      'A',
+      'A',
+      'B',
+      'B',
+    ])
   })
 
-  it('returns 0 for negative count (defensive)', () => {
-    expect(getEntryProbability(-1)).toBe(0)
-  })
-
-  it('returns correct value for large N', () => {
-    expect(getEntryProbability(100)).toBe(0.01)
-  })
-})
-
-// ==================== drawUnique ====================
-describe('drawUnique', () => {
-  const pool: Entry[] = [
-    { name: 'A', enabled: true },
-    { name: 'B', enabled: true },
-    { name: 'C', enabled: true },
-    { name: 'D', enabled: true },
-  ]
-
-  it('draws exactly count items', () => {
-    const drawn = drawUnique(pool, 2)
-    expect(drawn).toHaveLength(2)
-  })
-
-  it('drawn items are from the pool', () => {
-    const drawn = drawUnique(pool, 3)
-    const poolNames = pool.map((e) => e.name)
-    drawn.forEach((name) => {
-      expect(poolNames).toContain(name)
-    })
-  })
-
-  it('drawn items have no duplicates within a single draw', () => {
-    const drawn = drawUnique(pool, 3)
-    expect(new Set(drawn).size).toBe(drawn.length)
-  })
-
-  it('cannot draw more than pool size', () => {
-    const drawn = drawUnique(pool, 10)
-    expect(drawn).toHaveLength(pool.length)
-  })
-
-  it('returns empty array when pool is empty', () => {
-    expect(drawUnique([], 3)).toEqual([])
-  })
-
-  it('returns empty array when count is 0', () => {
-    expect(drawUnique(pool, 0)).toEqual([])
-  })
-
-  it('drawing all items returns all names in shuffled order', () => {
-    const drawn = drawUnique(pool, pool.length)
-    expect(drawn.sort()).toEqual(['A', 'B', 'C', 'D'])
+  it('覆盖模式只使用新输入并遵循去重设置', () => {
+    expect(mergeEntryNames(['旧'], 'A\nB\nB', 'overwrite', true)).toEqual(['A', 'B'])
+    expect(mergeEntryNames(['旧'], 'A\nB\nB', 'overwrite', false)).toEqual([
+      'A',
+      'B',
+      'B',
+    ])
   })
 })
 
-// ==================== drawRepeat ====================
-describe('drawRepeat', () => {
-  const pool: Entry[] = [
-    { name: 'A', enabled: true },
-    { name: 'B', enabled: true },
-    { name: 'C', enabled: true },
-  ]
+describe('createCardOrder', () => {
+  it('返回完整且不重复的卡牌索引', () => {
+    const order = createCardOrder(8)
 
-  it('draws exactly count items', () => {
-    const drawn = drawRepeat(pool, 5)
-    expect(drawn).toHaveLength(5)
+    expect(order).toHaveLength(8)
+    expect([...order].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
   })
 
-  it('drawn items are from the pool', () => {
-    const drawn = drawRepeat(pool, 10)
-    const poolNames = pool.map((e) => e.name)
-    drawn.forEach((name) => {
-      expect(poolNames).toContain(name)
-    })
-  })
-
-  it('same item can be drawn multiple times', () => {
-    // Run multiple draws and check that duplicates can appear
-    let hasDuplicate = false
-    for (let i = 0; i < 100; i++) {
-      const drawn = drawRepeat(pool, 5)
-      if (new Set(drawn).size < drawn.length) {
-        hasDuplicate = true
-        break
-      }
-    }
-    expect(hasDuplicate).toBe(true)
-  })
-
-  it('returns empty array when pool is empty', () => {
-    expect(drawRepeat([], 3)).toEqual([])
-  })
-
-  it('returns empty array when count is 0', () => {
-    expect(drawRepeat(pool, 0)).toEqual([])
+  it('空牌组返回空数组', () => {
+    expect(createCardOrder(0)).toEqual([])
   })
 })
 
-// ==================== computeModeSwitch ====================
-describe('computeModeSwitch', () => {
-  const fullPool: Entry[] = [
-    { name: 'A', enabled: true },
-    { name: 'B', enabled: false },
-  ]
-
-  it('returns new mode and restored pool when switching modes', () => {
-    const result = computeModeSwitch('unique', 'repeat', fullPool)
-    expect(result).not.toBeNull()
-    expect(result!.mode).toBe('repeat')
-    expect(result!.entries).toEqual(fullPool)
-  })
-
-  it('returns null when mode does not change', () => {
-    expect(computeModeSwitch('unique', 'unique', fullPool)).toBeNull()
-    expect(computeModeSwitch('repeat', 'repeat', fullPool)).toBeNull()
-  })
-
-  it('switching from repeat to unique restores full pool', () => {
-    const result = computeModeSwitch('repeat', 'unique', fullPool)
-    expect(result).not.toBeNull()
-    expect(result!.mode).toBe('unique')
-    expect(result!.entries).toEqual(fullPool)
-  })
-
-  it('returns a copy of pool, not the same reference', () => {
-    const result = computeModeSwitch('unique', 'repeat', fullPool)
-    expect(result!.entries).not.toBe(fullPool)
-  })
-
-  it('switch back and forth preserves pool', () => {
-    const r1 = computeModeSwitch('unique', 'repeat', fullPool)!
-    const r2 = computeModeSwitch('repeat', 'unique', r1.entries)!
-    expect(r2.mode).toBe('unique')
-    expect(r2.entries).toEqual(fullPool)
-  })
-})
-
-// ==================== loadState / saveState ====================
 describe('sessionStorage persistence', () => {
-  const mockStorage = new Map<string, string>()
+  const storage = new Map<string, string>()
 
   beforeEach(() => {
-    mockStorage.clear()
-    vi.stubGlobal(
-      'sessionStorage',
-      {
-        getItem: vi.fn((key: string) => mockStorage.get(key) ?? null),
-        setItem: vi.fn((key: string, value: string) => {
-          mockStorage.set(key, value)
-        }),
-        removeItem: vi.fn((key: string) => {
-          mockStorage.delete(key)
-        }),
-      }
-    )
-  })
-
-  it('saveState writes to sessionStorage', () => {
-    const state: GachaState = {
-      entries: [{ name: 'X', enabled: true }],
-      mode: 'unique',
-      history: [{ round: 1, results: ['X'] }],
-      poolExhausted: false,
-      dedupEnabled: true,
-    }
-    saveState(state)
-    expect(sessionStorage.setItem).toHaveBeenCalledWith(
-      STORAGE_KEY,
-      JSON.stringify(state)
-    )
-  })
-
-  it('loadState returns default state when sessionStorage is empty', () => {
-    const state = loadState()
-    expect(state).toEqual({
-      entries: [],
-      mode: 'unique',
-      history: [],
-      poolExhausted: false,
-      dedupEnabled: true,
+    storage.clear()
+    vi.stubGlobal('sessionStorage', {
+      getItem: vi.fn((key: string) => storage.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => storage.set(key, value)),
     })
   })
 
-  it('loadState reads saved state correctly', () => {
+  it('读取字段完整且与预设兼容的状态', () => {
     const saved: GachaState = {
       entries: [
+        { name: 'B', enabled: true },
         { name: 'A', enabled: true },
-        { name: 'B', enabled: false },
       ],
-      mode: 'repeat',
-      history: [{ round: 1, results: ['A'] }],
-      poolExhausted: true,
-      dedupEnabled: false,
+      history: ['A'],
+      cardOrder: [1, 0],
+      flipped: [true, false],
+      presetName: '扑克牌',
     }
-    mockStorage.set(STORAGE_KEY, JSON.stringify(saved))
-    const loaded = loadState()
-    expect(loaded.entries).toEqual(saved.entries)
-    expect(loaded.mode).toBe('repeat')
-    expect(loaded.history).toEqual(saved.history)
-    expect(loaded.poolExhausted).toBe(true)
-    expect(loaded.dedupEnabled).toBe(false)
+    storage.set(STORAGE_KEY, JSON.stringify(saved))
+
+    expect(loadState(defaultState, ['二次元角色', '扑克牌'])).toEqual(saved)
   })
 
-  it('loadState filters invalid entry objects', () => {
-    mockStorage.set(
-      STORAGE_KEY,
+  it.each([
+    ['损坏 JSON', 'not-json'],
+    [
+      '旧状态结构',
       JSON.stringify({
-        entries: [
-          { name: 'A', enabled: true },
-          null,
-          { name: 123, enabled: true }, // name not a string
-          { name: 'B' }, // missing enabled
-          { name: 'C', enabled: 'yes' }, // enabled not boolean
-        ],
+        entries: defaultState.entries,
         mode: 'unique',
-        history: [],
-        poolExhausted: false,
-      })
-    )
-    const loaded = loadState()
-    expect(loaded.entries).toHaveLength(1)
-    expect(loaded.entries[0].name).toBe('A')
+        history: [{ round: 1, results: ['A'] }],
+      }),
+    ],
+    [
+      '牌序长度不一致',
+      JSON.stringify({ ...defaultState, cardOrder: [0] }),
+    ],
+    [
+      '牌序包含重复索引',
+      JSON.stringify({ ...defaultState, cardOrder: [0, 0] }),
+    ],
+    [
+      '翻牌状态长度不一致',
+      JSON.stringify({ ...defaultState, flipped: [false] }),
+    ],
+    [
+      '未知预设',
+      JSON.stringify({ ...defaultState, presetName: '未知' }),
+    ],
+  ])('%s 时回退到默认状态', (_label, raw) => {
+    storage.set(STORAGE_KEY, raw)
+
+    expect(loadState(defaultState, ['二次元角色', '扑克牌'])).toEqual(defaultState)
   })
 
-  it('loadState defaults to unique mode for invalid mode value', () => {
-    mockStorage.set(
+  it('保存当前生产状态结构', () => {
+    saveState(defaultState)
+
+    expect(sessionStorage.setItem).toHaveBeenCalledWith(
       STORAGE_KEY,
-      JSON.stringify({ entries: [], mode: 'invalid', history: [], poolExhausted: false })
+      JSON.stringify(defaultState),
     )
-    expect(loadState().mode).toBe('unique')
   })
 
-  it('loadState handles corrupt JSON gracefully', () => {
-    mockStorage.set(STORAGE_KEY, 'not-valid-json{{{')
-    const state = loadState()
-    expect(state.entries).toEqual([])
-    expect(state.mode).toBe('unique')
-  })
-
-  it('loadState defaults missing poolExhausted field', () => {
-    mockStorage.set(
-      STORAGE_KEY,
-      JSON.stringify({ entries: [], mode: 'unique', history: [] })
-    )
-    expect(loadState().poolExhausted).toBe(false)
-  })
-
-  it('saveState silently ignores quota errors', () => {
-    vi.spyOn(JSON, 'stringify').mockImplementationOnce(() => {
+  it('存储写入失败时不向外抛错', () => {
+    vi.mocked(sessionStorage.setItem).mockImplementationOnce(() => {
       throw new Error('quota')
     })
-    // Should not throw
-    expect(() =>
-      saveState({ entries: [], mode: 'unique', history: [], poolExhausted: false, dedupEnabled: true })
-    ).not.toThrow()
+
+    expect(() => saveState(defaultState)).not.toThrow()
   })
 })
