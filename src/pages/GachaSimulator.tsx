@@ -4,22 +4,14 @@ import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import BackFooter from '@/components/BackFooter'
-import { shuffle } from '@/utils/shuffle'
-
-interface Entry {
-  name: string
-  enabled: boolean
-}
-
-interface GachaState {
-  entries: Entry[]
-  history: string[]
-  cardOrder: number[]
-  flipped: boolean[]
-  presetName: string
-}
-
-const STORAGE_KEY = 'gacha-simulator-state'
+import {
+  createCardOrder,
+  loadState,
+  mergeEntryNames,
+  saveState,
+  type Entry,
+  type GachaState,
+} from '@/lib/gacha'
 
 const ANIME_PRESET = [
   'gbc所有人', '尼尔机械纪元-2B', '魔禁-神裂火织', '刀剑神域-亚丝娜',
@@ -69,7 +61,17 @@ const PRESETS: Record<string, string[]> = {
 }
 const PRESET_NAMES = Object.keys(PRESETS)
 
-// Note: shuffle is imported from @/utils/shuffle
+function createPresetState(presetName: string): GachaState {
+  const entries = PRESETS[presetName].map((name) => ({ name, enabled: true }))
+
+  return {
+    entries,
+    history: [],
+    cardOrder: createCardOrder(entries.length),
+    flipped: new Array(entries.length).fill(false),
+    presetName,
+  }
+}
 
 // Probability based on remaining (unflipped) cards only — next-click chance
 function remainingProb(name: string, remainingEntries: Entry[], remainingTotal: number) {
@@ -77,29 +79,6 @@ function remainingProb(name: string, remainingEntries: Entry[], remainingTotal: 
   const single = ((1 / remainingTotal) * 100).toFixed(1)
   const grouped = ((sameNameCount / remainingTotal) * 100).toFixed(1)
   return { single, grouped, showBoth: single !== grouped }
-}
-
-function loadState(): GachaState {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const p = JSON.parse(raw)
-      const entries = Array.isArray(p.entries) ? p.entries.filter((e: unknown) => e != null && typeof (e as Entry).name === 'string') : []
-      const history = Array.isArray(p.history) ? p.history : []
-      const cardOrder = Array.isArray(p.cardOrder) ? p.cardOrder : []
-      const flipped = Array.isArray(p.flipped) ? p.flipped : []
-      const presetName = typeof p.presetName === 'string' && PRESET_NAMES.includes(p.presetName) ? p.presetName : '二次元角色'
-      if (entries.length > 0) return { entries, history, cardOrder, flipped, presetName }
-    }
-  } catch { /* ignore */ }
-  const defaultName = '二次元角色'
-  const names = PRESETS[defaultName]
-  const preset = names.map((n) => ({ name: n, enabled: true }))
-  return { entries: preset, history: [], cardOrder: shuffle(preset.map((_, i) => i)), flipped: new Array(preset.length).fill(false), presetName: defaultName }
-}
-
-function saveState(s: GachaState) {
-  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch { /* quota */ }
 }
 
 const GachaSimulator = () => {
@@ -114,7 +93,7 @@ const GachaSimulator = () => {
   const [dedupEnabled, setDedupEnabled] = useState(true)
 
   useEffect(() => {
-    const saved = loadState()
+    const saved = loadState(createPresetState('二次元角色'), PRESET_NAMES)
     setEntries(saved.entries)
     setHistory(saved.history)
     setCardOrder(saved.cardOrder)
@@ -135,42 +114,37 @@ const GachaSimulator = () => {
     const newEntries = entryNames.map((n) => ({ name: n, enabled: true }))
     setActivePreset(name)
     setEntries(newEntries)
-    setCardOrder(shuffle(newEntries.map((_, i) => i)))
+    setCardOrder(createCardOrder(newEntries.length))
     setFlipped(new Array(newEntries.length).fill(false))
     setHistory([])
     setEntryText('')
   }, [activePreset])
 
   const rebuild = useCallback((newEntries: Entry[]) => {
-    setCardOrder(shuffle(newEntries.map((_, i) => i)))
+    setCardOrder(createCardOrder(newEntries.length))
     setFlipped(new Array(newEntries.length).fill(false))
     setHistory([])
   }, [])
 
   const handleAddEntries = useCallback(() => {
-    const lines = entryText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)
-    if (lines.length === 0) return
-    const newEntries: Entry[] = lines.map((n) => ({ name: n, enabled: true }))
-    if (entryMode === 'overwrite') {
-      const seen = new Set<string>()
-      const deduped = newEntries.filter((e) => { if (seen.has(e.name)) return false; seen.add(e.name); return true })
-      const final = dedupEnabled ? deduped : newEntries
-      setEntries(final)
-      rebuild(final)
-    } else {
-      if (dedupEnabled) {
-        const existing = new Set(entries.map((e) => e.name))
-        const deduped = newEntries.filter((e) => { if (existing.has(e.name)) return false; existing.add(e.name); return true })
-        if (deduped.length === 0) return
-        const merged = [...entries, ...deduped]
-        setEntries(merged)
-        rebuild(merged)
-      } else {
-        const merged = [...entries, ...newEntries]
-        setEntries(merged)
-        rebuild(merged)
-      }
+    const mergedNames = mergeEntryNames(
+      entries.map((entry) => entry.name),
+      entryText,
+      entryMode,
+      dedupEnabled,
+    )
+    if (mergedNames.length === 0) return
+    if (
+      entryMode === 'append' &&
+      mergedNames.length === entries.length &&
+      mergedNames.every((name, index) => name === entries[index].name)
+    ) {
+      return
     }
+
+    const mergedEntries = mergedNames.map((name) => ({ name, enabled: true }))
+    setEntries(mergedEntries)
+    rebuild(mergedEntries)
     setEntryText('')
   }, [entryText, entryMode, entries, dedupEnabled, rebuild])
 
@@ -187,7 +161,7 @@ const GachaSimulator = () => {
     setFlipped(new Array(entries.length).fill(false))
     // After flip animation completes, shuffle and clear history
     const timer = setTimeout(() => {
-      setCardOrder(shuffle(entries.map((_, i) => i)))
+      setCardOrder(createCardOrder(entries.length))
       setHistory([])
     }, 500)
     return () => clearTimeout(timer)
@@ -196,7 +170,7 @@ const GachaSimulator = () => {
     const names = PRESETS[activePreset]
     const preset = names.map((n) => ({ name: n, enabled: true }))
     setEntries(preset)
-    setCardOrder(shuffle(preset.map((_, i) => i)))
+    setCardOrder(createCardOrder(preset.length))
     setFlipped(new Array(preset.length).fill(false))
     setHistory([])
   }, [activePreset])
@@ -272,7 +246,7 @@ const GachaSimulator = () => {
         </motion.button>
       )
     })
-  }, [cardOrder, entries, flipped, cardProbMap])
+  }, [cardOrder, entries, flipped, cardProbMap, handleCardClick])
 
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
