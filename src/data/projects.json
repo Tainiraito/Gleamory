@@ -6,11 +6,8 @@
       "description": "个人项目展示首页，汇聚所有微光般的创意与灵感",
       "url": "https://gleamory.lovelysia.top",
       "status": "在线",
-      "tags": [
-        "在线网站",
-        "展示页"
-      ],
-      "cover": "/covers/interlude_RinLen_3.png",
+      "tags": ["在线网站", "展示页"],
+      "cover": "/covers/interlude_RinLen_3.webp",
       "version": "v1.0.0",
       "updatedAt": "2026-05-19"
     },
@@ -33,11 +30,8 @@
       "description": "群友们的番剧小站，安利你心中的好番",
       "url": "",
       "status": "开发中",
-      "tags": [
-        "在线网站",
-        "番剧"
-      ],
-      "cover": "/covers/荧月.png",
+      "tags": ["在线网站", "番剧"],
+      "cover": "/covers/荧月.webp",
       "version": "v0.0.1",
       "updatedAt": "-"
     },
