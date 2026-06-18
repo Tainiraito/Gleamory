@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import type { Update } from '@/types'
+import { sortUpdatesByDateDesc } from '@/utils/timeline'
 
 interface TimelineProps {
   updates: Update[]
@@ -11,7 +12,7 @@ const INITIAL_COUNT = 5
 const Timeline = ({ updates }: TimelineProps) => {
   const [expanded, setExpanded] = useState(false)
   // Most recent first
-  const sortedUpdates = useMemo(() => [...updates].reverse(), [updates])
+  const sortedUpdates = useMemo(() => sortUpdatesByDateDesc(updates), [updates])
   const visibleUpdates = expanded ? sortedUpdates : sortedUpdates.slice(0, INITIAL_COUNT)
   const hasMore = updates.length > INITIAL_COUNT
 

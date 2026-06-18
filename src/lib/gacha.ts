@@ -3,132 +3,115 @@ export interface Entry {
   enabled: boolean
 }
 
-export interface HistoryRound {
-  round: number
-  results: string[]
-}
-
 export interface GachaState {
   entries: Entry[]
-  mode: 'unique' | 'repeat'
-  history: HistoryRound[]
-  poolExhausted: boolean
-  dedupEnabled: boolean
+  history: string[]
+  cardOrder: number[]
+  flipped: boolean[]
+  presetName: string
 }
+
+export type EntryMode = 'append' | 'overwrite'
 
 export const STORAGE_KEY = 'gacha-simulator-state'
 
-/** Fisher-Yates (Knuth) shuffle — returns a new shuffled array, does not mutate original */
-export function fisherYatesShuffle<T>(arr: readonly T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
+export function fisherYatesShuffle<T>(items: readonly T[]): T[] {
+  const shuffled = [...items]
+
+  for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
-  return a
+
+  return shuffled
 }
 
-/** Deduplicate strings by value (case-sensitive). Keeps first occurrence. */
-export function deduplicateByName(names: string[]): string[] {
-  const seen = new Set<string>()
-  return names.filter((name) => {
-    if (seen.has(name)) return false
-    seen.add(name)
-    return true
-  })
-}
-
-/** Parse raw text into trimmed, non-empty lines */
 export function parseEntryText(text: string): string[] {
   return text
     .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
 }
 
-/** Probability for each enabled entry given N enabled entries */
-export function getEntryProbability(enabledCount: number): number {
-  return enabledCount > 0 ? 1 / enabledCount : 0
+export function mergeEntryNames(
+  currentNames: readonly string[],
+  rawText: string,
+  mode: EntryMode,
+  dedupEnabled: boolean,
+): string[] {
+  const parsedNames = parseEntryText(rawText)
+  const combined = mode === 'append' ? [...currentNames, ...parsedNames] : parsedNames
+
+  if (!dedupEnabled) return combined
+
+  return [...new Set(combined)]
 }
 
-/** Extract unique names from entries, preserving first-seen order */
-export function getUniqueNames<T extends { name: string }>(items: readonly T[]): string[] {
-  const seen = new Set<string>()
-  const result: string[] = []
-  for (const item of items) {
-    if (!seen.has(item.name)) {
-      seen.add(item.name)
-      result.push(item.name)
-    }
+export function createCardOrder(length: number): number[] {
+  return fisherYatesShuffle(Array.from({ length }, (_, index) => index))
+}
+
+function isEntry(value: unknown): value is Entry {
+  if (!value || typeof value !== 'object') return false
+
+  const entry = value as Partial<Entry>
+  return (
+    typeof entry.name === 'string' &&
+    entry.name.trim().length > 0 &&
+    typeof entry.enabled === 'boolean'
+  )
+}
+
+function isValidCardOrder(value: unknown, entryCount: number): value is number[] {
+  if (!Array.isArray(value) || value.length !== entryCount) return false
+  if (!value.every((index) => Number.isInteger(index) && index >= 0 && index < entryCount)) {
+    return false
   }
-  return result
+
+  return new Set(value).size === entryCount
 }
 
-/** Draw `count` items without replacement from unique entry names */
-export function drawUnique<T extends { name: string }>(
-  pool: readonly T[],
-  count: number
-): string[] {
-  const uniqueNames = getUniqueNames(pool)
-  const safe = Math.min(count, uniqueNames.length)
-  if (safe <= 0) return []
-  const shuffled = fisherYatesShuffle(uniqueNames)
-  return shuffled.slice(0, safe)
+function isGachaState(
+  value: unknown,
+  validPresetNames: readonly string[],
+): value is GachaState {
+  if (!value || typeof value !== 'object') return false
+
+  const state = value as Partial<GachaState>
+  if (!Array.isArray(state.entries) || state.entries.length === 0) return false
+
+  return (
+    state.entries.every(isEntry) &&
+    Array.isArray(state.history) &&
+    state.history.every((item) => typeof item === 'string') &&
+    isValidCardOrder(state.cardOrder, state.entries.length) &&
+    Array.isArray(state.flipped) &&
+    state.flipped.length === state.entries.length &&
+    state.flipped.every((item) => typeof item === 'boolean') &&
+    typeof state.presetName === 'string' &&
+    validPresetNames.includes(state.presetName)
+  )
 }
 
-/** Draw `count` items with replacement from unique entry names */
-export function drawRepeat<T extends { name: string }>(
-  pool: readonly T[],
-  count: number
-): string[] {
-  const uniqueNames = getUniqueNames(pool)
-  if (uniqueNames.length === 0) return []
-  return Array.from({ length: count }, () => {
-    return uniqueNames[Math.floor(Math.random() * uniqueNames.length)]
-  })
-}
-
-/** Compute state after a mode switch. Returns null if mode didn't change. */
-export function computeModeSwitch(
-  currentMode: 'unique' | 'repeat',
-  newMode: 'unique' | 'repeat',
-  fullPool: Entry[]
-): { mode: 'unique' | 'repeat'; entries: Entry[] } | null {
-  if (newMode === currentMode) return null
-  return { mode: newMode, entries: [...fullPool] }
-}
-
-export function loadState(): GachaState {
+export function loadState(
+  defaultState: GachaState,
+  validPresetNames: readonly string[],
+): GachaState {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      const entries: Entry[] = Array.isArray(parsed.entries)
-        ? parsed.entries.filter(
-            (e: unknown) =>
-              e != null &&
-              typeof (e as Entry).name === 'string' &&
-              typeof (e as Entry).enabled === 'boolean'
-          )
-        : []
-      return {
-        entries,
-        mode: parsed.mode === 'unique' || parsed.mode === 'repeat' ? parsed.mode : 'unique',
-        history: Array.isArray(parsed.history) ? parsed.history : [],
-        poolExhausted: typeof parsed.poolExhausted === 'boolean' ? parsed.poolExhausted : false,
-        dedupEnabled: typeof parsed.dedupEnabled === 'boolean' ? parsed.dedupEnabled : true,
-      }
-    }
+    if (!raw) return defaultState
+
+    const parsed: unknown = JSON.parse(raw)
+    return isGachaState(parsed, validPresetNames) ? parsed : defaultState
   } catch {
-    /* corrupted data, reset */
+    return defaultState
   }
-  return { entries: [], mode: 'unique', history: [], poolExhausted: false, dedupEnabled: true }
 }
 
 export function saveState(state: GachaState): void {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch {
-    /* quota exceeded, silently ignore */
+    // Storage may be unavailable or full; the simulator remains usable in memory.
   }
 }
