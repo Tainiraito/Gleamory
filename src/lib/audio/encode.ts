@@ -3,15 +3,23 @@
  * 不依赖 ffmpeg.wasm,纯 JS,文件 ~10MB/分钟
  * ============================================================ */
 
+export type WavSamples = Float32Array | [Float32Array, Float32Array]
+
 /**
- * 编码 Float32Array (单声道) 到 16-bit PCM WAV Blob。
+ * 编码 Float32Array(单声道) 或 [L,R](立体声) 到 16-bit PCM WAV Blob。
  */
-export function encodeWav(samples: Float32Array, sampleRate: number = 44100): Blob {
-  const numChannels = 1
+export function encodeWav(samples: WavSamples, sampleRate: number = 44100): Blob {
+  const isStereo = Array.isArray(samples)
+  const numChannels = isStereo ? 2 : 1
+  const left = isStereo ? samples[0] : samples
+  const right = isStereo ? samples[1] : null
+  if (right && right.length !== left.length) {
+    throw new Error(`左右声道长度不一致: L=${left.length}, R=${right.length}`)
+  }
   const bitsPerSample = 16
   const byteRate = (sampleRate * numChannels * bitsPerSample) / 8
   const blockAlign = (numChannels * bitsPerSample) / 8
-  const dataSize = samples.length * 2 // 16-bit = 2 bytes
+  const dataSize = left.length * numChannels * 2 // 16-bit = 2 bytes
   const bufferSize = 44 + dataSize
 
   const arrayBuffer = new ArrayBuffer(bufferSize)
@@ -38,15 +46,20 @@ export function encodeWav(samples: Float32Array, sampleRate: number = 44100): Bl
 
   /* PCM samples */
   let offset = 44
-  for (let i = 0; i < samples.length; i++) {
-    let s = Math.max(-1, Math.min(1, samples[i]))
-    // float [-1, 1] → int16 [-32768, 32767]
-    s = s < 0 ? s * 0x8000 : s * 0x7fff
-    view.setInt16(offset, s, true)
-    offset += 2
+  for (let i = 0; i < left.length; i++) {
+    offset = writePcm16(view, offset, left[i])
+    if (right) offset = writePcm16(view, offset, right[i])
   }
 
   return new Blob([arrayBuffer], { type: 'audio/wav' })
+}
+
+function writePcm16(view: DataView, offset: number, sample: number): number {
+  let s = Math.max(-1, Math.min(1, sample))
+  // float [-1, 1] → int16 [-32768, 32767]
+  s = s < 0 ? s * 0x8000 : s * 0x7fff
+  view.setInt16(offset, s, true)
+  return offset + 2
 }
 
 function writeString(view: DataView, offset: number, str: string): void {

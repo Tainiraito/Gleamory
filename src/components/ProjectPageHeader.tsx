@@ -62,7 +62,7 @@ export function ProjectPageHeader({ name, englishName, description, version, chi
       >
         <span
           className="text-xs uppercase tracking-[0.25em] font-medium"
-          style={{ color: 'var(--text-muted)' }}
+          style={{ color: 'var(--text-secondary)' }}
         >
           {englishName}
         </span>
@@ -71,7 +71,7 @@ export function ProjectPageHeader({ name, englishName, description, version, chi
       {/* ④ 简介 — 斜体，更像题记 */}
       <motion.p
         className="text-sm leading-relaxed max-w-xl mx-auto italic"
-        style={{ color: 'var(--text-muted)' }}
+        style={{ color: 'var(--text-secondary)' }}
         custom={2}
         variants={stagger}
         initial="initial"
@@ -84,7 +84,7 @@ export function ProjectPageHeader({ name, englishName, description, version, chi
       {version && (
         <motion.p
           className="mt-3 text-[0.6rem] font-mono tracking-wider"
-          style={{ color: 'var(--text-muted)' }}
+          style={{ color: 'var(--text-secondary)', opacity: 0.78 }}
           custom={2.5}
           variants={stagger}
           initial="initial"

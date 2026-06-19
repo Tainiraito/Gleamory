@@ -12,23 +12,35 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   MODELS,
   ALL_STEMS,
-  getDefaultModelForStem,
   type StemKey,
 } from '@/lib/onnx/modelRegistry'
+import {
+  cancelModelDownload,
+  finishModelAction,
+  startModelDelete,
+  startModelDownload,
+  updateModelDownload,
+  type CacheActionsByModel,
+  type CacheActionPhase,
+  type CacheActionState,
+} from '@/lib/audio/cacheActionState'
 import type { WorkerRequest, WorkerResponse } from '@/workers/separator.worker'
-import { decodeAudioFile, toMono, validateFileSize, validateDuration } from '@/lib/audio/decode'
+import { decodeAudioFile, toStereo, validateFileSize, validateDuration } from '@/lib/audio/decode'
 import { encodeWav, downloadBlob } from '@/lib/audio/encode'
 import {
   listCachedModels,
   deleteCachedModel,
+  assertEnoughStorageForModel,
   type CachedModelMeta,
 } from '@/lib/onnx/indexedDBCache'
+import { buildSeparationJobs } from '@/lib/audio/separationJobs'
+import type { SeparatedStem, SeparatedStems } from '@/lib/audio/stemTypes'
+import { resampleLinear } from '@/lib/audio/resample'
 
 export type SeparatorPhase =
   | 'idle'
   | 'checking-cache'
   | 'file-selected' // 文件选了,等用户点开始
-  | 'downloading-model'
   | 'model-ready'
   | 'decoding'
   | 'separating'
@@ -36,8 +48,13 @@ export type SeparatorPhase =
   | 'error'
   | 'cancelled'
 
-/** 缓存管理操作的细分状态(不影响主 phase,UI 上显示小动画) */
-export type CacheActionPhase = 'idle' | 'downloading' | 'deleting' | 'clearing'
+export type { CacheActionsByModel, CacheActionPhase, CacheActionState }
+
+export interface ProcessLogEntry {
+  time: string
+  level: 'info' | 'warn' | 'error'
+  message: string
+}
 
 export interface SeparatorState {
   phase: SeparatorPhase
@@ -52,15 +69,19 @@ export interface SeparatorState {
   /** 缓存模型元数据列表(用于显示大小/时间) */
   cacheMetas: CachedModelMeta[]
   /** 缓存操作细状态 */
-  cacheAction: { phase: CacheActionPhase; targetId?: string }
+  cacheAction: CacheActionState
+  /** 按模型隔离的缓存操作状态,支持多个模型并发下载 */
+  cacheActions: CacheActionsByModel
   /** 4 个 stem 的分离结果(完成后填充) */
-  stems: Partial<Record<StemKey, Float32Array>> | null
+  stems: SeparatedStems | null
   /** 原始 AudioBuffer(分离前填充) */
   originalBuffer: AudioBuffer | null
   /** 原始采样率(用于 WAV 编码) */
   originalSampleRate: number
   /** 当前文件名(供 WAV 命名) */
   fileName: string | null
+  /** 本次处理过程日志,用于失败后排查 */
+  logs: ProcessLogEntry[]
 }
 
 const INITIAL_STATE: SeparatorState = {
@@ -71,14 +92,16 @@ const INITIAL_STATE: SeparatorState = {
   cachedModels: new Set(),
   cacheMetas: [],
   cacheAction: { phase: 'idle' },
+  cacheActions: {},
   stems: null,
   originalBuffer: null,
   originalSampleRate: 44100,
   fileName: null,
+  logs: [],
 }
 
 export interface StemSelection {
-  /** 该 stem 是否要分离(用户勾选) */
+  /** 该 stem 是否要分离(由是否选中模型决定) */
   enabled: boolean
   /** 用哪个模型分离(用户从下拉里选) */
   modelId: string | null
@@ -86,17 +109,31 @@ export interface StemSelection {
 
 export type StemSelections = Record<StemKey, StemSelection>
 
-/** 构造默认选择:全选 + 默认模型一一对应 */
+/** 构造默认选择:默认不输出任何分轨,用户选中已缓存模型后才启用 */
 export function buildDefaultSelections(): StemSelections {
   const out = {} as StemSelections
   for (const stem of ALL_STEMS) {
-    const m = getDefaultModelForStem(stem)
     out[stem] = {
-      enabled: true,
-      modelId: m?.id ?? null,
+      enabled: false,
+      modelId: null,
     }
   }
   return out
+}
+
+function appendLog(
+  logs: ProcessLogEntry[],
+  message: string,
+  level: ProcessLogEntry['level'] = 'info',
+): ProcessLogEntry[] {
+  return [
+    ...logs,
+    {
+      time: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+      level,
+      message,
+    },
+  ].slice(-120)
 }
 
 export function useSeparator() {
@@ -152,9 +189,7 @@ export function useSeparator() {
       case 'download-progress': {
         setState((s) => ({
           ...s,
-          phase: 'downloading-model',
-          progress: msg.total > 0 ? msg.loaded / msg.total : 0,
-          currentStep: `下载模型 ${msg.modelId} (${(msg.loaded / 1024 / 1024).toFixed(1)} / ${(msg.total / 1024 / 1024).toFixed(1)} MB)`,
+          cacheActions: updateModelDownload(s.cacheActions, msg.modelId, msg.loaded, msg.total),
         }))
         return
       }
@@ -165,8 +200,7 @@ export function useSeparator() {
           return {
             ...s,
             cachedModels: next,
-            cacheAction: { phase: 'idle' },
-            currentStep: '模型下载完成',
+            cacheActions: finishModelAction(s.cacheActions, msg.modelId),
           }
         })
         // 异步重读 IDB metas,让「缓存管理」列表/大小/时间立刻出现新条目
@@ -174,25 +208,40 @@ export function useSeparator() {
         void refreshMetas()
         return
       }
+      case 'download-cancelled': {
+        setState((s) => ({
+          ...s,
+          cacheActions: cancelModelDownload(s.cacheActions, msg.modelId),
+        }))
+        return
+      }
       case 'separate-progress': {
         const labels: Record<typeof msg.phase, string> = {
-          loading: '加载模型',
+          preprocess: 'STFT 预处理',
           inference: 'AI 推理',
-          postprocessing: '后期处理',
+          postprocess: '后期处理',
         }
         setState((s) => ({
           ...s,
           phase: 'separating',
-          progress: msg.current / msg.total,
-          currentStep: `${labels[msg.phase]} (${msg.current}/${msg.total})`,
+          progress: msg.total > 0 ? msg.current / msg.total : 0,
+          currentStep: msg.label ?? `${labels[msg.phase]} (${msg.current}/${msg.total})`,
+          logs: appendLog(s.logs, msg.label ?? `${labels[msg.phase]} (${msg.current}/${msg.total})`),
+        }))
+        return
+      }
+      case 'log': {
+        setState((s) => ({
+          ...s,
+          logs: appendLog(s.logs, msg.message, msg.level ?? 'info'),
         }))
         return
       }
       case 'separate-complete': {
         setState((s) => {
-          const stems: Partial<Record<StemKey, Float32Array>> = {}
+          const stems: SeparatedStems = {}
           for (const [k, v] of Object.entries(msg.stems)) {
-            stems[k as StemKey] = v
+            stems[k as StemKey] = v as SeparatedStem
           }
           return {
             ...s,
@@ -205,7 +254,12 @@ export function useSeparator() {
         return
       }
       case 'error': {
-        setState((s) => ({ ...s, phase: 'error', error: msg.message }))
+        setState((s) => ({
+          ...s,
+          phase: 'error',
+          error: msg.message,
+          logs: appendLog(s.logs, msg.message, 'error'),
+        }))
         return
       }
       case 'cancelled': {
@@ -226,6 +280,9 @@ export function useSeparator() {
           phase: 'decoding',
           currentStep: '解码音频…',
           error: null,
+          progress: 0,
+          stems: null,
+          logs: appendLog([], `开始读取文件: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`),
         }))
 
         // 1) 校验文件
@@ -246,10 +303,11 @@ export function useSeparator() {
           phase: 'file-selected',
           progress: 0,
           currentStep: '已选择文件,准备就绪',
+          logs: appendLog(s.logs, `解码完成: ${(audioBuffer.duration / 60).toFixed(2)} 分钟, ${audioBuffer.sampleRate}Hz`),
         }))
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
-        setState((s) => ({ ...s, phase: 'error', error: message }))
+        setState((s) => ({ ...s, phase: 'error', error: message, logs: appendLog(s.logs, message, 'error') }))
       }
     },
     [],
@@ -264,19 +322,23 @@ export function useSeparator() {
         return
       }
 
+      const jobs = buildSeparationJobs(selections)
       // 收集实际要跑的 modelId(去重)
-      const modelIds = Array.from(
-        new Set(
-          ALL_STEMS.filter((s) => selections[s].enabled && selections[s].modelId).map(
-            (s) => selections[s].modelId!,
-          ),
-        ),
-      )
+      const modelIds = Array.from(new Set(jobs.map((job) => job.modelId)))
       if (modelIds.length === 0) {
         setState((s) => ({
           ...s,
           phase: 'error',
-          error: '请至少勾选一个分轨并选择模型',
+          error: '请至少选择一个已缓存模型',
+        }))
+        return
+      }
+
+      const missingModelIds = modelIds.filter((id) => !state.cachedModels.has(id))
+      if (missingModelIds.length > 0) {
+        setState((s) => ({
+          ...s,
+          error: `请先下载所选模型：${missingModelIds.join(' / ')}`,
         }))
         return
       }
@@ -288,24 +350,33 @@ export function useSeparator() {
         phase: 'separating',
         currentStep: '开始推理…',
         error: null,
+        progress: 0,
+        stems: null,
+        logs: appendLog([], '开始分离'),
       }))
 
       try {
         // 重新解码(因为原始 buffer 可能被释放了)
         const audioBuffer = await decodeAudioFile(file)
-        const mono = toMono(audioBuffer)
+        let { L, R } = toStereo(audioBuffer)
+        const targetRate = 44100
+        if (audioBuffer.sampleRate !== targetRate) {
+          L = resampleLinear(L, audioBuffer.sampleRate, targetRate)
+          R = resampleLinear(R, audioBuffer.sampleRate, targetRate)
+        }
         sendToWorker({
           type: 'separate',
-          audio: mono,
-          sampleRate: audioBuffer.sampleRate,
-          modelIds,
+          audioL: L,
+          audioR: R,
+          sampleRate: targetRate,
+          jobs,
         })
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
-        setState((s) => ({ ...s, phase: 'error', error: message }))
+        setState((s) => ({ ...s, phase: 'error', error: message, logs: appendLog(s.logs, message, 'error') }))
       }
     },
-    [sendToWorker],
+    [sendToWorker, state.cachedModels],
   )
 
   const cancel = useCallback(() => {
@@ -315,8 +386,20 @@ export function useSeparator() {
   const reset = useCallback(() => {
     pendingFileRef.current = null
     pendingSelectionsRef.current = null
-    setState({ ...INITIAL_STATE, cachedModels: state.cachedModels })
-  }, [state.cachedModels])
+    setState({ ...INITIAL_STATE, cachedModels: state.cachedModels, cacheMetas: state.cacheMetas })
+  }, [state.cacheMetas, state.cachedModels])
+
+  const resetToSelectedFile = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      phase: s.fileName ? 'file-selected' : 'idle',
+      progress: 0,
+      currentStep: s.fileName ? '已选择文件,准备就绪' : '',
+      error: null,
+      stems: null,
+      logs: appendLog(s.logs, '已回到可重试状态'),
+    }))
+  }, [])
 
   /** 把 stem 转成 WAV Blob 触发下载 */
   const downloadStemWav = useCallback(
@@ -327,11 +410,11 @@ export function useSeparator() {
         return
       }
       const baseName = state.fileName ?? 'audio'
-      const blob = encodeWav(data, state.originalSampleRate)
+      const blob = encodeWav(data.channels, data.sampleRate)
       const name = baseName.replace(/\.[^.]+$/, '') + `_${stem}.wav`
       downloadBlob(blob, name)
     },
-    [state.fileName, state.originalSampleRate, state.stems],
+    [state.fileName, state.stems],
   )
 
   /* -------- 缓存管理 API -------- */
@@ -354,33 +437,63 @@ export function useSeparator() {
 
   /** 手动把模型缓存到 IndexedDB(从 /models/ 拉) */
   const cacheModel = useCallback(
-    (modelId: string) => {
-      setState((s) => ({ ...s, cacheAction: { phase: 'downloading', targetId: modelId } }))
+    async (modelId: string) => {
+      const model = MODELS.find((m) => m.id === modelId)
+      if (!model) {
+        setState((s) => ({ ...s, error: `未知模型: ${modelId}` }))
+        return
+      }
+      try {
+        await assertEnoughStorageForModel(model)
+      } catch (error) {
+        setState((s) => ({
+          ...s,
+          error: error instanceof Error ? error.message : String(error),
+        }))
+        return
+      }
+      setState((s) => ({
+        ...s,
+        cacheActions: startModelDownload(s.cacheActions, modelId),
+      }))
       sendToWorker({ type: 'download-model', modelId })
+    },
+    [sendToWorker],
+  )
+
+  const cancelCacheModel = useCallback(
+    (modelId: string) => {
+      setState((s) => ({
+        ...s,
+        cacheActions: cancelModelDownload(s.cacheActions, modelId),
+      }))
+      sendToWorker({ type: 'cancel-download', modelId })
     },
     [sendToWorker],
   )
 
   /** 删除某个模型的 IndexedDB 缓存 — 完成后自动刷新 metas,UI 实时同步 */
   const uncacheModel = useCallback(
-    async (modelId: string) => {
-      setState((s) => ({ ...s, cacheAction: { phase: 'deleting', targetId: modelId } }))
+    async (modelId: string): Promise<boolean> => {
+      setState((s) => ({ ...s, cacheActions: startModelDelete(s.cacheActions, modelId) }))
       try {
         await deleteCachedModel(modelId)
         // 立刻更新 Set + metas,UI 全链路同步
         setState((s) => {
           const next = new Set(s.cachedModels)
           next.delete(modelId)
-          return { ...s, cachedModels: next, cacheAction: { phase: 'idle' } }
+          return { ...s, cachedModels: next, cacheActions: finishModelAction(s.cacheActions, modelId) }
         })
         // 单条删除后,只 metas 需要重查(列表项没了 → 大小/时间)
         await refreshCacheMetas()
+        return true
       } catch (e) {
         setState((s) => ({
           ...s,
-          cacheAction: { phase: 'idle' },
+          cacheActions: finishModelAction(s.cacheActions, modelId),
           error: `删除失败: ${e instanceof Error ? e.message : String(e)}`,
         }))
+        return false
       }
     },
     [refreshCacheMetas],
@@ -398,12 +511,14 @@ export function useSeparator() {
         cachedModels: new Set(),
         cacheMetas: [],
         cacheAction: { phase: 'idle' },
+        cacheActions: {},
       }))
       // 清空后 metas 自然变空,无需再查(setState 已做)
     } catch (e) {
       setState((s) => ({
         ...s,
         cacheAction: { phase: 'idle' },
+        cacheActions: {},
         error: `清空失败: ${e instanceof Error ? e.message : String(e)}`,
       }))
     }
@@ -416,8 +531,10 @@ export function useSeparator() {
     start,
     cancel,
     reset,
+    resetToSelectedFile,
     downloadStemWav,
     cacheModel,
+    cancelCacheModel,
     uncacheModel,
     clearAllCache,
     refreshCacheMetas,

@@ -27,16 +27,28 @@ export interface SessionHandle {
   release: () => void
 }
 
+export function getSessionOptions(model: ModelInfo): ort.InferenceSession.SessionOptions {
+  if (model.quality === 'high' || model.family === 'htdemucs') {
+    return {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'disabled',
+      enableCpuMemArena: false,
+    }
+  }
+
+  return {
+    executionProviders: ['wasm'],
+    graphOptimizationLevel: 'all',
+    enableCpuMemArena: true,
+  }
+}
+
 /**
  * 从 ArrayBuffer 创建 ONNX session。
  * 这是个**同步**操作(onnxruntime-web 在 worker 里 init 很快)。
  */
 export async function createSession(buffer: ArrayBuffer, model: ModelInfo): Promise<SessionHandle> {
-  const session = await ort.InferenceSession.create(buffer, {
-    executionProviders: ['wasm'],
-    graphOptimizationLevel: 'all',
-    enableCpuMemArena: true,
-  })
+  const session = await ort.InferenceSession.create(buffer, getSessionOptions(model))
 
   return {
     session,

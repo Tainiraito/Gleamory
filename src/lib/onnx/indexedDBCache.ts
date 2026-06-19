@@ -4,6 +4,7 @@
  * ============================================================ */
 
 import type { ModelInfo } from './modelRegistry'
+import { validateModelBuffer } from './modelBufferValidation'
 
 const DB_NAME = 'gleamory-audio-separator'
 const DB_VERSION = 1
@@ -50,6 +51,22 @@ export async function getCachedModel(id: string): Promise<ArrayBuffer | null> {
     req.onsuccess = () => resolve((req.result as ArrayBuffer) ?? null)
     req.onerror = () => reject(req.error)
   })
+}
+
+export async function getValidatedCachedModel(model: ModelInfo): Promise<ArrayBuffer | null> {
+  const buffer = await getCachedModel(model.id)
+  if (!buffer) return null
+  try {
+    validateModelBuffer(model, buffer)
+    return buffer
+  } catch {
+    await deleteCachedModel(model.id)
+    return null
+  }
+}
+
+export async function isModelCacheUsable(model: ModelInfo): Promise<boolean> {
+  return (await getValidatedCachedModel(model)) != null
 }
 
 /** 把模型 ArrayBuffer 写入缓存 */
@@ -104,6 +121,21 @@ export async function getCacheSizeBytes(): Promise<number> {
   return metas.reduce((sum, m) => sum + m.sizeBytes, 0)
 }
 
+export async function assertEnoughStorageForModel(model: ModelInfo): Promise<void> {
+  const estimate = await navigator.storage?.estimate?.()
+  if (!estimate?.quota) return
+
+  const used = estimate.usage ?? await getCacheSizeBytes()
+  const projected = used + model.sizeBytes
+  // 给 IndexedDB 元数据、浏览器开销和 WASM 缓存留一点余量。
+  const reserveBytes = 64 * 1024 * 1024
+  if (projected + reserveBytes > estimate.quota) {
+    throw new Error(
+      `浏览器存储空间不足: 需要约 ${(model.sizeBytes / 1024 / 1024).toFixed(0)} MB, 当前可用约 ${Math.max(0, (estimate.quota - used) / 1024 / 1024).toFixed(0)} MB`,
+    )
+  }
+}
+
 /** 清空全部模型缓存 */
 export async function clearAllCache(): Promise<void> {
   const db = await openDb()
@@ -125,10 +157,33 @@ export async function downloadModel(
   onProgress?: (loaded: number, total: number) => void,
   signal?: AbortSignal,
 ): Promise<ArrayBuffer> {
-  const res = await fetch(model.downloadUrl, { signal })
-  if (!res.ok) throw new Error(`下载失败: HTTP ${res.status} ${res.statusText}`)
+  const urls = model.downloadUrls?.length ? model.downloadUrls : [model.downloadUrl]
+  const errors: string[] = []
 
-  const total = Number(res.headers.get('content-length') ?? model.sizeBytes)
+  for (const url of urls) {
+    try {
+      const buffer = await downloadModelFromUrl(url, model.sizeBytes, onProgress, signal)
+      validateModelBuffer(model, buffer)
+      return buffer
+    } catch (error) {
+      if (signal?.aborted) throw error
+      errors.push(`${url}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  throw new Error(`下载失败,所有来源均不可用: ${errors.join(' | ')}`)
+}
+
+async function downloadModelFromUrl(
+  url: string,
+  expectedSizeBytes: number,
+  onProgress?: (loaded: number, total: number) => void,
+  signal?: AbortSignal,
+): Promise<ArrayBuffer> {
+  const res = await fetch(url, { signal })
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
+
+  const total = Number(res.headers.get('content-length') ?? expectedSizeBytes)
   const reader = res.body?.getReader()
   if (!reader) throw new Error('浏览器不支持流式读取')
 
