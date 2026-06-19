@@ -15,6 +15,7 @@ const PianoPage = lazy(() => import('@/pages/PianoPage'))
 const MetronomePage = lazy(() => import('@/pages/MetronomePage'))
 const NeteaseCoverPage = lazy(() => import('@/pages/NeteaseCoverPage'))
 const PixivCoverPage = lazy(() => import('@/pages/PixivCoverPage'))
+const AudioSeparatorPage = lazy(() => import('@/pages/AudioSeparatorPage'))
 
 const { projects } = projectsData as ProjectsData
 const { updates } = updatesData as UpdatesData
@@ -69,6 +70,7 @@ const App = () => (
         <Route path="/metronome" element={<MetronomePage />} />
         <Route path="/netease-cover" element={<NeteaseCoverPage />} />
         <Route path="/pixiv-image-extractor" element={<PixivCoverPage />} />
+        <Route path="/audio-separator" element={<AudioSeparatorPage />} />
       </Routes>
     </Suspense>
   </HashRouter>

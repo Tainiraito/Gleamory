@@ -17,7 +17,10 @@
       "description": "玄不改非，氪不改命。翻牌抽卡，看看今天是谁来找你~",
       "url": "#/gacha-simulator",
       "status": "在线",
-      "tags": ["小工具", "抽卡"],
+      "tags": [
+        "小工具",
+        "抽卡"
+      ],
       "version": "v1.0.0",
       "updatedAt": "2026-05-19"
     },
@@ -38,7 +41,10 @@
       "description": "轻轻敲醒沉睡的心灵",
       "url": "#/piano",
       "status": "在线",
-      "tags": ["小工具", "音乐"],
+      "tags": [
+        "小工具",
+        "音乐"
+      ],
       "cover": "",
       "version": "v1.0.0",
       "updatedAt": "2026-05-23"
@@ -49,7 +55,10 @@
       "description": "Tiktok♪Tiktok♪~动次打次♪动次打次♪~",
       "url": "#/metronome",
       "status": "在线",
-      "tags": ["小工具", "音乐"],
+      "tags": [
+        "小工具",
+        "音乐"
+      ],
       "cover": "",
       "version": "v1.0.0",
       "updatedAt": "2026-05-24"
@@ -60,7 +69,10 @@
       "description": "从网易云音乐网页版提取专辑封面，一键下载高清原图",
       "url": "#/netease-cover",
       "status": "已发布",
-      "tags": ["小工具", "浏览器插件"],
+      "tags": [
+        "小工具",
+        "浏览器插件"
+      ],
       "cover": "",
       "version": "v2.2",
       "updatedAt": "2026-05-29"
@@ -71,10 +83,29 @@
       "description": "从 Pixiv 作品页一键下载插画/漫画原图，支持作者信息和批量保存",
       "url": "#/pixiv-image-extractor",
       "status": "已发布",
-      "tags": ["小工具", "浏览器插件"],
+      "tags": [
+        "小工具",
+        "浏览器插件"
+      ],
       "cover": "",
       "version": "v1.2",
       "updatedAt": "2026-06-01"
+    },
+    {
+      "id": "audio-separator",
+      "name": "音轨分离",
+      "description": "浏览器内本地分离歌曲人声/鼓/贝斯/伴奏，数据不离开设备",
+      "url": "#/audio-separator",
+      "status": "开发中",
+      "tags": [
+        "在线网站",
+        "小工具",
+        "AI",
+        "音乐"
+      ],
+      "cover": "/covers/audio-separator.svg",
+      "version": "v0.3.0",
+      "updatedAt": "2026-06-04"
     }
   ]
 }

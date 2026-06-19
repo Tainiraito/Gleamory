@@ -53,6 +53,12 @@
       "projectId": "pixiv-image-extractor",
       "content": "新增 Pixiv 插画下载插件详情页",
       "date": "2026-06-01"
+    },
+    {
+      "id": "10",
+      "projectId": "audio-separator",
+      "content": "新增项目:音轨分离 v0.3.0 — 引入 lucide-react 统一图标 + 缓存管理面板 + 整卡点击切换 + 折叠动画 + 下拉美化",
+      "date": "2026-06-04"
     }
   ]
 }
