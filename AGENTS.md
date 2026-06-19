@@ -1,27 +1,31 @@
-# AGENTS.md - Gleamory 微光集
+# AGENTS.md - Gleamory
+
+本文件用于指导 Codex 和其他 LLM 在本项目中工作。除非用户另有明确要求，所有分析、回复、文档和说明都使用中文。
 
 ## 项目定位
 
-Gleamory 是个人微产品入口站，由品牌首页、站内小工具和浏览器插件说明页组成。它是纯静态 React 单页应用，部署到 GitHub Pages。
+Gleamory 是一个个人微光工具站，当前重点包含浏览器本地运行的小工具，其中 `audio-source-separator` 是音频分离功能。项目是纯前端 React 单页应用，目标是在浏览器内完成处理，尽量不引入后端服务。
 
-- UI 文案使用中文。
-- 代码标识符使用英文。
-- 数据以静态 JSON 为主。
-- 保持轻量，不引入后端或全局状态库，除非需求明确要求。
+核心原则：
+
+- 用户音频文件不得上传到远端服务。
+- 音频分离优先保持“浏览器本地推理、模型本地缓存”。
+- 不为了短期功能引入 Python 后端或桌面端依赖，除非用户明确改变产品方向。
+- UI 文案使用中文，代码标识符使用英文。
+- 优先做小而可验证的改动，避免 unrelated refactor。
+- 该功能后续要合并回 Gleamory 主项目，通过普通工具卡片进入，交互形态应与 Gleamory 其他卡片项目保持一致。
 
 ## 技术栈
 
 | 类别 | 技术 |
 | --- | --- |
-| 框架 | React 19 |
-| 语言 | TypeScript 5.7，strict |
-| 构建 | Vite 6 |
-| 路由 | React Router 7，HashRouter |
-| 样式 | Tailwind CSS 4 |
-| 动画 | Framer Motion 12 |
-| 测试 | Vitest 4、Testing Library |
-| 规范 | ESLint 10、Prettier 3 |
-| 部署 | GitHub Pages、GitHub Actions、Node.js 20 |
+| 框架 | React |
+| 语言 | TypeScript |
+| 构建 | Vite |
+| 样式 | Tailwind CSS |
+| 测试 | Vitest |
+| 音频推理 | onnxruntime-web |
+| 存储 | IndexedDB 模型缓存 |
 
 ## 常用命令
 
@@ -31,127 +35,142 @@ npm run dev
 npm test
 npm run lint
 npm run build
-npm run preview
 ```
 
-GitHub Actions 使用 `npm ci --legacy-peer-deps`，并按 test、lint、build、deploy 顺序执行。
-
-## 架构
+本地验证默认地址：
 
 ```text
-src/
-├── App.tsx                     路由和首页组合
-├── components/                共享组件
-│   ├── metronome/             节拍器 UI
-│   └── piano/                 钢琴键盘 UI
-├── data/                      静态项目与工具配置
-├── hooks/                     浏览器生命周期与音频 Hook
-├── lib/                       可独立测试的业务逻辑
-├── pages/                     路由页面
-├── styles/globals.css         Tailwind、主题变量和字体
-├── tests/setup.ts             Vitest 设置
-└── utils/                     纯工具函数
+http://localhost:5173/#/audio-separator
 ```
 
-首页及共享外壳位于主入口包。以下非首页路由使用 `React.lazy`：
+## 代码结构重点
 
-| 路由 | 页面 |
-| --- | --- |
-| `/gacha-simulator` | `GachaSimulator.tsx` |
-| `/piano` | `PianoPage.tsx` |
-| `/metronome` | `MetronomePage.tsx` |
-| `/netease-cover` | `NeteaseCoverPage.tsx` |
-| `/pixiv-image-extractor` | `PixivCoverPage.tsx` |
+音频分离相关模块主要位于：
 
-插件页通过 `PluginDetailPage.tsx` 配置化复用。
+- `src/pages/AudioSeparatorPage.tsx`：音频分离页面和交互状态。
+- `src/workers/separator.worker.ts`：音频分离 worker、模型分发和日志。
+- `src/lib/onnx/modelRegistry.ts`：模型注册表、下载源、family/quality/输出 stem 配置。
+- `src/lib/onnx/indexedDBCache.ts`：模型下载、缓存、校验和存储配额。
+- `src/lib/audio/`：音频重采样、编码、分块、推理后处理。
 
-## 数据来源
+新增音频模型时，优先扩展 registry 和 engine，不要把模型逻辑硬编码在页面组件里。
 
-### `src/data/projects.json`
+## 音频分离规则
 
-```ts
-interface Project {
-  id: string
-  name: string
-  description: string
-  url: string
-  status: '开发中' | '已发布' | '已下线' | '在线'
-  tags: string[]
-  cover?: string
-  placeholderGradient?: string
-  version?: string
-  updatedAt?: string
-}
+### 模型 family
+
+当前模型路线：
+
+- `spleeter`：快速模式，质量一般，保留为轻量兜底。
+- `htdemucs`：高质量模式，已实测效果较好，是当前主线。
+- `uvr-mdx`：候补路线，用于适配 UVR / MDX-Net ONNX 模型。
+- `uvr-mdxc`：候补路线，暂不默认暴露为可运行模型，除非完成浏览器 ONNX 兼容验证。
+
+worker 协议应以 `jobs: { stem, modelId }[]` 为中心，由 `model.family` 分发到对应 engine。
+
+### HT-Demucs
+
+HT-Demucs 是当前高质量主线。实现要求：
+
+- 输入统一为 44100Hz stereo。
+- 单声道输入复制成左右声道。
+- 推理使用 chunk + overlap-add，避免长音频 OOM。
+- 输出统一为 stereo WAV。
+- 日志必须包含模型加载、session 创建、chunk 进度和失败上下文。
+- 错误信息要包含 `modelId`、chunk index、输入输出 tensor name，不能只抛裸数字。
+
+如果新增 drums/bass：
+
+- 使用同一套 `htdemucs` engine。
+- 配置正确的 `targetOutputIndex`。
+- 输出行顺序固定为 `[drums, bass, other, vocals]`。
+
+### UVR / MDX
+
+UVR / MDX 候补模型必须先满足以下条件，才能在 UI 中作为可选模型暴露：
+
+- 模型文件是真实 ONNX，不是 HTML 错误页或 Git LFS pointer。
+- `onnxruntime-web` 能创建 session。
+- 已确认输入输出 tensor 名和 shape。
+- 已实现必要的 STFT / normalization / inverse STFT 后处理。
+- 在浏览器中能完成一段短音频推理。
+
+GitHub release 直链在浏览器 `fetch` 下可能受 CORS 或重定向影响。开发环境中优先使用 Vite 同源代理，例如：
+
+```text
+/model-proxy/uvr/<model-file>.onnx
 ```
 
-### `src/data/timeline.json`
+不要因为下载失败就放宽模型校验。下载内容如果是 HTML、过小文件或 Git LFS pointer，应视为失败并清理缓存。
 
-```ts
-interface Update {
-  id: string
-  projectId: string
-  content: string
-  date: string
-}
+UVR 候补模型来自 GitHub Release 时下载可能较慢。UI 必须允许取消下载，且不能让慢下载阻塞 HT-Demucs 主线测试。若 UVR 路线效果确认值得保留，再考虑迁移到更稳定的模型托管源。
+
+## IndexedDB 模型缓存
+
+模型缓存相关改动必须遵守：
+
+- 下载完成后校验模型内容。
+- 已缓存模型在使用前仍要校验可用性。
+- 删除缓存后，如果该模型正被选中，应取消选中。
+- 同时下载多个模型时，各模型进度必须互相独立。
+- 下载中的单个模型必须允许取消，取消只影响该模型，不影响其他并发下载。
+- 存储配额不足时给出明确错误，不自动删除用户已有模型。
+
+## UI / UX 规则
+
+音频分离页面应保持清晰、低认知负担：
+
+- 下载进度、处理进度、处理日志应分区展示。
+- 处理日志自动滚动到最新输出。
+- 上传音频区域不显示模型下载进度。
+- 未下载模型不可选中，不可开始处理。
+- 选中某个 stem 的模型即表示输出该 stem；取消选中即不输出。
+- 处理失败后必须保留可读日志，重试按钮必须重新触发处理。
+- 处理完成后进度不应继续显示“处理中”或转圈。
+- 结果区除了下载 WAV，还应支持直接播放预览。
+
+## 编码规范
+
+- 使用 TypeScript 明确类型，避免 `any`。
+- 页面组件只处理 UI 状态和交互，业务逻辑优先放入 `src/lib/` 或 worker。
+- 复杂音频算法要有单元测试或 mock 推理测试。
+- 不要把大模型文件提交进仓库。
+- 不要用字符串拼接解析复杂结构，优先使用结构化 API。
+- 注释只解释不明显的约束、算法或兼容性原因。
+
+## 测试要求
+
+涉及音频分离逻辑时，优先补充以下测试：
+
+- chunk 切分和尾段 padding。
+- overlap-add 聚合。
+- stereo WAV 编码。
+- worker family dispatch。
+- 模型缓存校验。
+- UVR / MDX fake session 推理流程。
+
+完成改动后尽量运行：
+
+```bash
+npm test
+npm run lint
+npm run build
 ```
 
-时间线在运行时按日期降序排列，不依赖 JSON 写入顺序。
+如果因为本地环境限制无法运行，最终回复必须明确说明未验证项。
 
-## 资源规则
+## Git 和协作
 
-- 项目封面放在 `public/covers/`，优先使用 WebP。
-- 社交分享图为 `public/og-cover.jpg`。
-- 思源宋体存放在 `src/assets/fonts/`，使用子集化 WOFF2。
-- 插件截图放在 `public/assets/screenshots/`。
-- 不重新加入大体积 OTF 或未压缩项目封面。
+- 不要回滚用户或其他 LLM 的改动，除非用户明确要求。
+- 修改前先理解现有实现，保持改动聚焦。
+- 如果工作树已有无关变更，忽略即可，不要清理。
+- 提交或开 PR 前说明改动范围、验证结果和剩余风险。
 
-## 编码约定
+## 当前产品判断
 
-- 使用 React 函数组件和具名 Props `interface`。
-- 使用 `@/` 路径别名。
-- 业务逻辑优先提取为纯函数并测试，页面不重复实现。
-- 不使用 `any`；外部或存储数据先以 `unknown` 校验。
-- 注释只解释非显然的约束或意图。
-- 遵循现有无分号、单引号、100 字符行宽格式。
-- 修改浏览器事件、定时器或 Web Audio 时必须提供清理逻辑。
-- 新路由默认使用懒加载，不扩大首页入口包。
+截至当前阶段：
 
-## 测试约定
-
-当前测试文件：
-
-- `src/lib/gacha.test.ts`
-- `src/utils/timeline.test.ts`
-- `src/hooks/useDocumentTitle.test.tsx`
-- `src/hooks/usePianoAudio.test.tsx`
-
-行为修复遵循：
-
-1. 添加能复现问题的失败测试。
-2. 确认失败原因正确。
-3. 编写最小修复。
-4. 运行聚焦测试。
-5. 运行完整 test、lint、build。
-
-配置、文档和机械资源转换可以不添加单元测试，但必须通过对应构建或产物检查。
-
-## 新增项目或页面
-
-1. 新增页面和 Hash 路由。
-2. 非首页页面使用 `React.lazy`。
-3. 更新 `src/data/projects.json`。
-4. 更新 `src/data/timeline.json`。
-5. 更新 `CHANGELOG.md`。
-6. 为纯业务行为添加测试。
-7. 运行 `npm test`、`npm run lint`、`npm run build`。
-
-## 部署
-
-推送到 `main` 后触发 `.github/workflows/deploy.yml`：
-
-1. 安装依赖；
-2. 运行测试；
-3. 运行 ESLint；
-4. 生产构建；
-5. 上传 `dist/`；
-6. 部署 GitHub Pages。
+- HT-Demucs 高质量模式已由用户实测认为效果不错，应作为主要完成方向。
+- UVR / MDX 是候补增强路线，优先目标是“可下载、可创建 session、可短音频推理”，再谈效果优化。
+- Spleeter 保留为快速模式，不再作为质量优化主线。
+- “适配中”“候选模型”“路线调研”等开发信息应写进项目文档，不放在用户界面中；界面只展示当前可下载、可选择、可尝试的模型。
