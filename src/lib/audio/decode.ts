@@ -42,6 +42,21 @@ export function toMono(audioBuffer: AudioBuffer): Float32Array {
   return mono
 }
 
+/**
+ * 把 AudioBuffer 转成立体声 L/R 通道(mono → 双声道复制)
+ * Spleeter 需要立体声输入([2, num_splits, 512, 1024])
+ */
+export function toStereo(audioBuffer: AudioBuffer): { L: Float32Array; R: Float32Array } {
+  if (audioBuffer.numberOfChannels === 1) {
+    const m = audioBuffer.getChannelData(0)
+    return { L: m.slice(), R: m.slice() }
+  }
+  return {
+    L: audioBuffer.getChannelData(0).slice(),
+    R: audioBuffer.getChannelData(1).slice(),
+  }
+}
+
 /** 文件大小限制(默认 100MB),超过抛错 */
 export function validateFileSize(file: File, maxMB = 100): void {
   const sizeMB = file.size / 1024 / 1024

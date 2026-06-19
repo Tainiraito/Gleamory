@@ -17,12 +17,6 @@ const NeteaseCoverPage = lazy(() => import('@/pages/NeteaseCoverPage'))
 const PixivCoverPage = lazy(() => import('@/pages/PixivCoverPage'))
 const AudioSeparatorPage = lazy(() => import('@/pages/AudioSeparatorPage'))
 
-const GachaSimulator = lazy(() => import('@/pages/GachaSimulator'))
-const PianoPage = lazy(() => import('@/pages/PianoPage'))
-const MetronomePage = lazy(() => import('@/pages/MetronomePage'))
-const NeteaseCoverPage = lazy(() => import('@/pages/NeteaseCoverPage'))
-const PixivCoverPage = lazy(() => import('@/pages/PixivCoverPage'))
-
 const { projects } = projectsData as ProjectsData
 const { updates } = updatesData as UpdatesData
 
