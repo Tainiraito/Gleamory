@@ -14,6 +14,7 @@ import {
 } from '@/types/metronome'
 import type { BeatSoundId } from '@/data/beatSounds'
 import { BEAT_SOUND_MAP, BEAT_SOUNDS, MEASURE_SOUND_PRESETS, type MeasureSoundPreset } from '@/data/beatSounds'
+import { ClampedNumberInput } from '@/components/ui/ClampedNumberInput'
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -530,12 +531,11 @@ export function Metronome() {
                   <path d="M3 8h10M3 8l4-4M3 8l4 4" />
                 </svg>
               </button>
-              <input
-                type="number"
+              <ClampedNumberInput
+                value={config.bpm}
+                onChange={handleBpmChange}
                 min={MIN_BPM}
                 max={MAX_BPM}
-                value={config.bpm}
-                onChange={(e) => handleBpmChange(Number(e.target.value))}
                 aria-label="BPM 值"
                 className="w-16 h-9 text-center font-mono text-base font-medium rounded"
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
@@ -586,9 +586,11 @@ export function Metronome() {
             <div className="w-px h-6" style={{ background: 'var(--border-line)' }} />
             <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>起始</span>
-              <input
-                type="number" value={config.tempoChange.startBpm} min={MIN_BPM} max={MAX_BPM}
-                onChange={(e) => updateTempoChange({ startBpm: Math.max(MIN_BPM, Math.min(MAX_BPM, Number(e.target.value))) })}
+              <ClampedNumberInput
+                value={config.tempoChange.startBpm}
+                onChange={(v) => updateTempoChange({ startBpm: v })}
+                min={MIN_BPM}
+                max={MAX_BPM}
                 aria-label="起始 BPM"
                 className="w-14 h-9 text-center font-mono text-sm rounded"
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
@@ -597,9 +599,11 @@ export function Metronome() {
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>→</span>
             <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>终点</span>
-              <input
-                type="number" value={config.tempoChange.endBpm} min={MIN_BPM} max={MAX_BPM}
-                onChange={(e) => updateTempoChange({ endBpm: Math.max(MIN_BPM, Math.min(MAX_BPM, Number(e.target.value))) })}
+              <ClampedNumberInput
+                value={config.tempoChange.endBpm}
+                onChange={(v) => updateTempoChange({ endBpm: v })}
+                min={MIN_BPM}
+                max={MAX_BPM}
                 aria-label="终点 BPM"
                 className="w-14 h-9 text-center font-mono text-sm rounded"
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
@@ -607,9 +611,11 @@ export function Metronome() {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>每</span>
-              <input
-                type="number" value={config.tempoChange.beatsPerStep} min={1} max={100}
-                onChange={(e) => updateTempoChange({ beatsPerStep: Math.max(1, Math.min(100, Number(e.target.value))) })}
+              <ClampedNumberInput
+                value={config.tempoChange.beatsPerStep}
+                onChange={(v) => updateTempoChange({ beatsPerStep: v })}
+                min={1}
+                max={100}
                 aria-label="每 N 轮变化"
                 className="w-12 h-8 text-center font-mono text-sm rounded"
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
@@ -618,9 +624,11 @@ export function Metronome() {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>+</span>
-              <input
-                type="number" value={config.tempoChange.step} min={1} max={100}
-                onChange={(e) => updateTempoChange({ step: Math.max(1, Math.min(100, Number(e.target.value))) })}
+              <ClampedNumberInput
+                value={config.tempoChange.step}
+                onChange={(v) => updateTempoChange({ step: v })}
+                min={1}
+                max={100}
                 aria-label="每次变化 BPM"
                 className="w-12 h-8 text-center font-mono text-sm rounded"
                 style={{ color: 'var(--text-primary)', border: '0.5px solid var(--border-line)', background: 'var(--bg-card)', appearance: 'none' }}
