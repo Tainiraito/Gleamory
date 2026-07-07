@@ -7,6 +7,7 @@ import { usePianoAudio, type SynthTone } from '@/hooks/usePianoAudio'
 import useKeyboard from '@/hooks/useKeyboard'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import BackFooter from '@/components/BackFooter'
+import { getProjectById } from '@/utils/projectData'
 
 const TONES: { id: SynthTone; label: string }[] = [
   { id: 'piano', label: '钢琴' },
@@ -19,6 +20,7 @@ const noteFromMidi = (midi: number) => ALL_NOTES.find((n) => n.midiNumber === mi
 
 const PianoPage = () => {
   useDocumentTitle('极简钢琴 | Gleamory 微光集')
+  const project = getProjectById('web-piano')!
   const { playNote, stopNote, setTone, toggleSustain, sustain, setSustainPedal } = usePianoAudio()
   const [pressedKeys, setPressedKeys] = useState<Set<number>>(new Set())
   const [activeTone, setActiveTone] = useState<SynthTone>('piano')
@@ -131,10 +133,10 @@ const PianoPage = () => {
 
 <main className="px-6 sm:px-[15%] py-20 sm:py-24">
         <ProjectPageHeader
-          name="极简钢琴"
+          name={project.name}
           englishName="Mini Piano"
-          description="轻轻敲醒沉睡的心灵"
-          version="1.0.0"
+          description={project.description}
+          version={project.version.replace(/^v/, '')}
         />
 
         {/* Tone selector + sustain toggle */}

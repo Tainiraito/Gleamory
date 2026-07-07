@@ -12,6 +12,7 @@ import {
   type Entry,
   type GachaState,
 } from '@/lib/gacha'
+import { getProjectById } from '@/utils/projectData'
 
 const ANIME_PRESET = [
   'gbc所有人', '尼尔机械纪元-2B', '魔禁-神裂火织', '刀剑神域-亚丝娜',
@@ -83,6 +84,7 @@ function remainingProb(name: string, remainingEntries: Entry[], remainingTotal: 
 
 const GachaSimulator = () => {
   useDocumentTitle('抽卡模拟 | Gleamory 微光集')
+  const project = getProjectById('gacha-simulator')!
   const [entries, setEntries] = useState<Entry[]>([])
   const [history, setHistory] = useState<string[]>([])
   const [cardOrder, setCardOrder] = useState<number[]>([])
@@ -254,10 +256,10 @@ const GachaSimulator = () => {
 
       <main className="px-4 sm:px-[15%] py-20 sm:py-24">
         <ProjectPageHeader
-          name="翻牌抽卡"
+          name={project.name}
           englishName="Gacha Simulator"
-          description="翻开一张卡，看看是谁来找你"
-          version="1.0.0"
+          description={project.description}
+          version={project.version.replace(/^v/, '')}
         />
 
         {/* 3-column layout */}
