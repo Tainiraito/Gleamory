@@ -43,6 +43,12 @@
       "date": "2026-05-24"
     },
     {
+      "id": "7b",
+      "projectId": "metronome",
+      "content": "节拍器 v1.1 — 每拍独立细分(1-4)、可视化细分圆、全局细分选择器、ClampedNumberInput",
+      "date": "2026-07-07"
+    },
+    {
       "id": "8",
       "projectId": "netease-cover",
       "content": "新增网易云封面提取插件详情页",

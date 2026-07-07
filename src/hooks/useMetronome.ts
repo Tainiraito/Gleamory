@@ -1,7 +1,8 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
 import type { BeatSoundId } from '@/data/beatSounds'
 import { BEAT_SOUND_MAP } from '@/data/beatSounds'
-import type { Measure, MetronomeConfig, TempoChangeConfig } from '@/types/metronome'
+import type { MetronomeConfig, TempoChangeConfig } from '@/types/metronome'
+import { totalTicks, getTickInfo } from '@/types/metronome'
 
 interface UseMetronomeOptions {
   config: MetronomeConfig
@@ -12,6 +13,7 @@ interface UseMetronomeOptions {
 interface UseMetronomeReturn {
   isPlaying: boolean
   currentBeat: { measure: number; beat: number } | null
+  currentTickIndex: number // 当前 tick 在 beat 内的索引 (0 = 主拍, 1+ = 细分)
   elapsedTime: number
   roundCount: number
   currentBpm: number
@@ -22,14 +24,14 @@ interface UseMetronomeReturn {
   resume: () => void
 }
 
-function synthesizeBeat(audioCtx: AudioContext, sound: BeatSoundId, time: number): void {
+function synthesizeBeat(audioCtx: AudioContext, sound: BeatSoundId, time: number, volume = 0.8): void {
   const config = BEAT_SOUND_MAP[sound]
   if (!config) return
 
   const { frequency = 440, noiseMix = 0, decay = 0.1, type = 'sine' } = config
 
   const masterGain = audioCtx.createGain()
-  masterGain.gain.setValueAtTime(0.8, time)
+  masterGain.gain.setValueAtTime(volume, time)
   masterGain.connect(audioCtx.destination)
 
   if (noiseMix < 1) {
@@ -115,8 +117,7 @@ export function useMetronome({
   const audioCtxRef = useRef<AudioContext | null>(null)
   const timerRef = useRef<number | null>(null)
   const nextBeatTimeRef = useRef<number>(0)
-  const measureIndexRef = useRef<number>(0)
-  const beatIndexRef = useRef<number>(0)
+  const globalTickRef = useRef<number>(0)
   const isPlayingRef = useRef<boolean>(false)
 
   const tempoChangeRef = useRef<TempoChangeConfig>(config.tempoChange)
@@ -159,6 +160,7 @@ export function useMetronome({
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentBeat, setCurrentBeat] = useState<{ measure: number; beat: number } | null>(null)
+  const [currentTickIndex, setCurrentTickIndex] = useState(0)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [roundCount, setRoundCount] = useState(1)
   const [currentBpmDisplay, setCurrentBpmDisplay] = useState(config.bpm)
@@ -203,52 +205,54 @@ export function useMetronome({
     const ctx = audioCtxRef.current
     if (!ctx) return
 
-    const currentMeasures = configRef.current.measures
-    const currentBpm = currentBpmRef.current
-    const beatDuration = 60 / currentBpm
+    const cfg = configRef.current
+    const total = totalTicks(cfg.measures, cfg.beatsPerMeasure)
 
     const lookAhead = 0.1
     while (nextBeatTimeRef.current < ctx.currentTime + lookAhead) {
-      const globalIndex =
-        measureIndexRef.current * configRef.current.beatsPerMeasure + beatIndexRef.current
-      const beatInfo = getBeatAtGlobalIndex(globalIndex, currentMeasures, configRef.current.beatsPerMeasure)
+      const info = getTickInfo(globalTickRef.current, cfg.measures, cfg.beatsPerMeasure)
 
-      if (beatInfo) {
-        synthesizeBeat(ctx, beatInfo.sound, nextBeatTimeRef.current)
+      if (info) {
+        // Volume: first tick of each beat = 0.8, subdivisions = 0.4
+        const volume = info.tickInBeat === 0 ? 0.8 : 0.4
+        synthesizeBeat(ctx, info.sound, nextBeatTimeRef.current, volume)
 
         const delay = (nextBeatTimeRef.current - ctx.currentTime) * 1000
-        const mi = measureIndexRef.current
-        const bi = beatIndexRef.current
+        const mi = info.measureIndex
+        const bi = info.beatIndex
+        const ti = info.tickInBeat
         setTimeout(() => {
           setCurrentBeat({ measure: mi, beat: bi })
+          setCurrentTickIndex(ti)
           onBeatRef.current?.(mi, bi)
         }, Math.max(0, delay))
+
+        // Compute interval for THIS tick (determines when the NEXT tick fires)
+        const beat = cfg.measures[info.measureIndex]?.beats[info.beatIndex]
+        const subs = beat?.subdivisions ?? 1
+        const tickDuration = 60 / (currentBpmRef.current * subs)
+        nextBeatTimeRef.current += tickDuration
       }
 
-      beatIndexRef.current++
-      if (beatIndexRef.current >= configRef.current.beatsPerMeasure) {
-        beatIndexRef.current = 0
-        measureIndexRef.current++
+      globalTickRef.current++
 
-        if (measureIndexRef.current >= currentMeasures.length) {
-          measureIndexRef.current = 0
-          roundCountRef.current++
-          setRoundCount(roundCountRef.current)
+      // Check if we've completed a full round
+      if (globalTickRef.current >= total) {
+        globalTickRef.current = 0
+        roundCountRef.current++
+        setRoundCount(roundCountRef.current)
 
-          if (configRef.current.tempoMode === 'tempoChange') {
-            const newBpm = computeTempoBpm(
-              roundCountRef.current,
-              currentBpmRef.current,
-              tempoChangeRef.current,
-              tempoChangeDirectionRef
-            )
-            currentBpmRef.current = newBpm
-            setCurrentBpmDisplay(newBpm)
-          }
+        if (cfg.tempoMode === 'tempoChange') {
+          const newBpm = computeTempoBpm(
+            roundCountRef.current,
+            currentBpmRef.current,
+            tempoChangeRef.current,
+            tempoChangeDirectionRef
+          )
+          currentBpmRef.current = newBpm
+          setCurrentBpmDisplay(newBpm)
         }
       }
-
-      nextBeatTimeRef.current += beatDuration
     }
 
     timerRef.current = window.setTimeout(scheduleNextBeat, 25)
@@ -257,8 +261,7 @@ export function useMetronome({
   const start = useCallback(() => {
     const ctx = ensureAudioContext()
 
-    measureIndexRef.current = 0
-    beatIndexRef.current = 0
+    globalTickRef.current = 0
     roundCountRef.current = 1
     tempoChangeDirectionRef.current = 1
     currentBpmRef.current = configRef.current.tempoMode === 'tempoChange'
@@ -267,20 +270,30 @@ export function useMetronome({
     setCurrentBpmDisplay(currentBpmRef.current)
     setRoundCount(1)
     setCurrentBeat(null)
-
-    nextBeatTimeRef.current = ctx.currentTime + 0.05
+    setCurrentTickIndex(0)
 
     isPlayingRef.current = true
     setIsPlaying(true)
     startElapsedTicker()
 
-    const firstBeat = getBeatAtGlobalIndex(0, configRef.current.measures, configRef.current.beatsPerMeasure)
-    if (firstBeat) {
-      synthesizeBeat(ctx, firstBeat.sound, ctx.currentTime)
-      setCurrentBeat({ measure: 0, beat: 0 })
-      onBeatRef.current?.(0, 0)
-      nextBeatTimeRef.current = ctx.currentTime + 60 / currentBpmRef.current
-      beatIndexRef.current = 1
+    // Play first tick immediately
+    const firstInfo = getTickInfo(0, configRef.current.measures, configRef.current.beatsPerMeasure)
+    if (firstInfo) {
+      synthesizeBeat(ctx, firstInfo.sound, ctx.currentTime)
+      setCurrentBeat({ measure: firstInfo.measureIndex, beat: firstInfo.beatIndex })
+      onBeatRef.current?.(firstInfo.measureIndex, firstInfo.beatIndex)
+
+      // Compute interval for next tick
+      globalTickRef.current = 1
+      const cfg = configRef.current
+      const nextInfo = getTickInfo(1, cfg.measures, cfg.beatsPerMeasure)
+      let tickDuration = 60 / currentBpmRef.current
+      if (nextInfo) {
+        const beat = cfg.measures[nextInfo.measureIndex]?.beats[nextInfo.beatIndex]
+        const subs = beat?.subdivisions ?? 1
+        tickDuration = 60 / (currentBpmRef.current * subs)
+      }
+      nextBeatTimeRef.current = ctx.currentTime + tickDuration
     }
 
     scheduleNextBeat()
@@ -297,8 +310,7 @@ export function useMetronome({
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
-    measureIndexRef.current = 0
-    beatIndexRef.current = 0
+    globalTickRef.current = 0
     roundCountRef.current = 1
     setRoundCount(1)
   }, [stopElapsedTicker])
@@ -333,6 +345,7 @@ export function useMetronome({
   return {
     isPlaying,
     currentBeat,
+    currentTickIndex,
     elapsedTime,
     roundCount,
     currentBpm: currentBpmDisplay,
@@ -342,22 +355,4 @@ export function useMetronome({
     pause,
     resume,
   }
-}
-
-function getBeatAtGlobalIndex(
-  globalIndex: number,
-  measures: Measure[],
-  beatsPerMeasure: number
-): { sound: BeatSoundId } | null {
-  let cursor = 0
-  for (let mi = 0; mi < measures.length; mi++) {
-    const m = measures[mi]
-    for (let bi = 0; bi < beatsPerMeasure; bi++) {
-      if (cursor === globalIndex) {
-        return { sound: m.beats[bi]?.sound ?? 'wood' }
-      }
-      cursor++
-    }
-  }
-  return null
 }
