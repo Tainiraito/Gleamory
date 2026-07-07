@@ -27,6 +27,7 @@ import SiteHeader from '@/components/SiteHeader'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import BackFooter from '@/components/BackFooter'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { getProjectById } from '@/utils/projectData'
 import {
   useSeparator,
   buildDefaultSelections,
@@ -57,6 +58,7 @@ const STEM_META: Record<StemKey, { label: string; accent: string }> = {
 
 const AudioSeparatorPage = () => {
   useDocumentTitle('音轨分离 | Gleamory 微光集')
+  const project = getProjectById('audio-separator')!
 
   const {
     state,
@@ -120,10 +122,10 @@ const AudioSeparatorPage = () => {
 
       <main className="px-4 sm:px-[15%] pt-20 sm:pt-24 pb-36 sm:pb-24">
         <ProjectPageHeader
-          name="音轨分离"
+          name={project.name}
           englishName="Audio Stem Separator"
-          description="浏览器内本地分离歌曲人声/伴奏，数据不离开设备"
-          version="0.5.0"
+          description={project.description}
+          version={project.version.replace(/^v/, '')}
         />
 
         {/* ① 顶部隐私/资源说明(可展开) */}
