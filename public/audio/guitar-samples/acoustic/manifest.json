@@ -1,0 +1,17 @@
+{
+  "sourceName": "University of Iowa Musical Instrument Samples - Guitar",
+  "sourceUrl": "https://theremin.music.uiowa.edu/MISguitar.html",
+  "downloadUrl": "https://theremin.music.uiowa.edu/sound%20files/MIS/Piano_Other/guitar/Guitar.mono.1644.1.zip",
+  "licenseSummary": "The source overview states that all recordings may be downloaded and used in any projects, without restrictions.",
+  "preparedAt": "2026-07-07",
+  "format": "ogg/vorbis",
+  "strategy": "Open-string mf mono samples, pitch-shifted at playback with Web Audio playbackRate.",
+  "samples": [
+    { "midiNumber": 40, "noteName": "E2", "file": "midi-40.ogg", "sourceFile": "1644mono/Guitar.mf.sulE.E2B2.aif" },
+    { "midiNumber": 45, "noteName": "A2", "file": "midi-45.ogg", "sourceFile": "1644mono/Guitar.mf.sulA.A2B2.aif" },
+    { "midiNumber": 50, "noteName": "D3", "file": "midi-50.ogg", "sourceFile": "1644mono/Guitar.mf.sulD.D3B3.aif" },
+    { "midiNumber": 55, "noteName": "G3", "file": "midi-55.ogg", "sourceFile": "1644mono/Guitar.mf.sulG.G3B3.aif" },
+    { "midiNumber": 59, "noteName": "B3", "file": "midi-59.ogg", "sourceFile": "1644mono/Guitar.mf.sulB.B3.aif" },
+    { "midiNumber": 64, "noteName": "E4", "file": "midi-64.ogg", "sourceFile": "1644mono/Guitar.mf.sul_E.E4B4.aif" }
+  ]
+}
