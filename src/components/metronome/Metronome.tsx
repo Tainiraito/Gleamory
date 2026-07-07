@@ -8,6 +8,9 @@ import {
   MAX_BPM,
   MIN_BEATS,
   MAX_BEATS,
+  SUBDIVISION_OPTIONS,
+  MAX_SUBDIVISIONS,
+  ticksPerMeasure,
   type MetronomeConfig,
   type TempoMode,
   type TempoChangeConfig,
@@ -22,6 +25,29 @@ function formatTime(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+/** Compute the uniform subdivision across all beats, or null if mixed */
+function getUniformSubdivision(config: MetronomeConfig): number | null {
+  let first: number | null = null
+  for (const m of config.measures) {
+    for (let i = 0; i < config.beatsPerMeasure && i < m.beats.length; i++) {
+      const subs = m.beats[i].subdivisions
+      if (first === null) first = subs
+      else if (subs !== first) return null
+    }
+  }
+  return first ?? 1
+}
+
+/** Check if any beat has subdivisions > 1 */
+function hasAnySubdivision(config: MetronomeConfig): boolean {
+  for (const m of config.measures) {
+    for (let i = 0; i < config.beatsPerMeasure && i < m.beats.length; i++) {
+      if (m.beats[i].subdivisions > 1) return true
+    }
+  }
+  return false
+}
+
 // ---- BeatButton ----
 interface BeatButtonProps {
   sound: BeatSoundId
@@ -29,7 +55,9 @@ interface BeatButtonProps {
   color: string
   measureIndex: number
   beatIndex: number
+  subdivisions: number
   onSoundChange: (mi: number, bi: number, sound: BeatSoundId) => void
+  onSubdivisionsChange: (mi: number, bi: number, subs: number) => void
   playBeat: (sound: BeatSoundId) => void
   activePopupId: string | null
   onOpenPopup: (id: string, btn: HTMLButtonElement, curSound: BeatSoundId) => void
@@ -37,8 +65,8 @@ interface BeatButtonProps {
 }
 
 function BeatButton({
-  sound, isActive, color, measureIndex, beatIndex,
-  onSoundChange, playBeat,
+  sound, isActive, color, measureIndex, beatIndex, subdivisions,
+  onSoundChange, onSubdivisionsChange, playBeat,
   activePopupId, onOpenPopup, onClosePopup,
 }: BeatButtonProps) {
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -103,6 +131,11 @@ function BeatButton({
     onClosePopup()
   }
 
+  const handleSubdivSelect = (subs: number) => {
+    onSubdivisionsChange(measureIndex, beatIndex, subs)
+    onClosePopup()
+  }
+
   return (
     <div className="relative">
       <button
@@ -142,7 +175,7 @@ function BeatButton({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.1 }}
-            className="fixed z-[999] rounded-xl py-1.5 min-w-[140px] shadow-lg"
+            className="fixed z-[999] rounded-xl py-1.5 min-w-[160px] shadow-lg"
             style={{
               top: (btnRef.current?.getBoundingClientRect().bottom ?? 0) + window.scrollY + 4,
               left: ((btnRef.current?.getBoundingClientRect().left ?? 0) + window.scrollX) + ((btnRef.current?.offsetWidth ?? 0) / 2),
@@ -151,6 +184,7 @@ function BeatButton({
               border: '0.5px solid var(--border-line)',
             }}
           >
+            {/* Sound options */}
             {BEAT_SOUNDS.map((s) => (
               <button
                 key={s.id}
@@ -178,6 +212,42 @@ function BeatButton({
                 {s.label}
               </button>
             ))}
+
+            {/* Divider */}
+            <div className="my-1 mx-2" style={{ height: 1, background: 'var(--border-line)' }} />
+
+            {/* Subdivision options */}
+            <div className="flex items-center gap-1 px-3 py-1.5">
+              <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-muted)' }}>细分</span>
+              {Array.from({ length: MAX_SUBDIVISIONS }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => handleSubdivSelect(n)}
+                  className="h-7 min-w-[28px] px-1.5 text-xs rounded transition-all cursor-pointer"
+                  style={{
+                    touchAction: 'manipulation',
+                    color: subdivisions === n ? 'var(--text-primary)' : 'var(--text-muted)',
+                    border: `0.5px solid ${subdivisions === n ? 'var(--accent-amber)' : 'var(--border-line)'}`,
+                    background: subdivisions === n ? 'var(--accent-glow)' : 'transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (subdivisions !== n) {
+                      e.currentTarget.style.background = 'var(--accent-glow)'
+                      e.currentTarget.style.color = 'var(--text-primary)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (subdivisions !== n) {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = 'var(--text-muted)'
+                    }
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -191,7 +261,7 @@ export function Metronome() {
   const [activePreset, setActivePreset] = useState<string | null>(null)
   const measureRefs = useRef<(HTMLDivElement | null)[]>([])
 
-  const { isPlaying, currentBeat, elapsedTime, roundCount, currentBpm, playBeatSound, start, stop, pause, resume } =
+  const { isPlaying, currentBeat, currentTickIndex, elapsedTime, roundCount, currentBpm, playBeatSound, start, stop, pause, resume } =
     useMetronome({ config, onBeat: undefined, onComplete: undefined })
 
   const isPausedRef = useRef(false)
@@ -252,7 +322,7 @@ export function Metronome() {
       const measures = prev.measures.map((m) => {
         const beats = [...m.beats]
         if (newBeatCount > beats.length) {
-          while (beats.length < newBeatCount) beats.push({ sound: 'wood' })
+          while (beats.length < newBeatCount) beats.push({ sound: 'wood', subdivisions: 1 })
         } else {
           beats.length = newBeatCount
         }
@@ -272,13 +342,43 @@ export function Metronome() {
     })
   }
 
+  const handleBeatSubdivisionsChange = (mi: number, bi: number, subs: number) => {
+    setConfig((prev) => {
+      const measures = prev.measures.map((m, mi_) => {
+        if (mi_ !== mi) return m
+        return { ...m, beats: m.beats.map((b, bi_) => (bi_ !== bi ? b : { ...b, subdivisions: subs })) }
+      })
+      return { ...prev, measures }
+    })
+  }
+
+  /** Set all beats in all measures to a given subdivision */
+  const handleGlobalSubdivisionsChange = (subs: number) => {
+    setConfig((prev) => {
+      const measures = prev.measures.map((m) => ({
+        ...m,
+        beats: m.beats.map((b) => ({ ...b, subdivisions: subs })),
+      }))
+      return { ...prev, measures }
+    })
+  }
+
   const applyMeasurePreset = (preset: MeasureSoundPreset) => {
     setActivePreset(preset.name)
     setConfig((prev) => {
       const sounds = Array.from({ length: prev.beatsPerMeasure }, (_, i) => ({
         sound: preset.sounds[i % preset.sounds.length],
       }))
-      return { ...prev, measures: prev.measures.map((m) => ({ ...m, beats: sounds.map((s) => ({ ...s })) })) }
+      return {
+        ...prev,
+        measures: prev.measures.map((m) => ({
+          ...m,
+          beats: sounds.map((s, i) => ({
+            ...s,
+            subdivisions: m.beats[i]?.subdivisions ?? 1,
+          })),
+        })),
+      }
     })
   }
 
@@ -287,7 +387,10 @@ export function Metronome() {
       const measures = [...prev.measures]
       const source = measures[measureIndex]
       if (!source) return prev
-      measures.splice(measureIndex + 1, 0, { id: generateMeasureId(), beats: source.beats.map((b) => ({ ...b })) })
+      measures.splice(measureIndex + 1, 0, {
+        id: generateMeasureId(),
+        beats: source.beats.map((b) => ({ ...b })),
+      })
       return { ...prev, measures }
     })
   }
@@ -326,6 +429,9 @@ export function Metronome() {
   const updateTempoChange = (patch: Partial<TempoChangeConfig>) => {
     setConfig((prev) => ({ ...prev, tempoChange: { ...prev.tempoChange, ...patch } }))
   }
+
+  const uniformSubdivision = getUniformSubdivision(config)
+  const showSubdivInfo = hasAnySubdivision(config)
 
   return (
     <div className="space-y-3">
@@ -393,24 +499,46 @@ export function Metronome() {
                   transition={{ duration: 0.2 }}
                 />
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   {measure.beats.slice(0, config.beatsPerMeasure).map((beat, beatIdx) => {
-                    const isActive = isCurrentMeasure && currentBeat?.beat === beatIdx
+                    const isBeatActive = isCurrentMeasure && currentBeat?.beat === beatIdx
+                    const isMainTick = isBeatActive && currentTickIndex === 0
                     const beatConfig = BEAT_SOUND_MAP[beat.sound]
+                    const subCount = Math.max(0, beat.subdivisions - 1)
                     return (
-                      <BeatButton
-                        key={beatIdx}
-                        sound={beat.sound}
-                        isActive={isActive}
-                        color={beatConfig.color}
-                        measureIndex={mi}
-                        beatIndex={beatIdx}
-                        onSoundChange={handleSoundChange}
-                        playBeat={playBeatSound}
-                        activePopupId={activePopupId}
-                        onOpenPopup={handleOpenPopup}
-                        onClosePopup={handleClosePopup}
-                      />
+                      <div key={beatIdx} className="flex items-center gap-1">
+                        <BeatButton
+                          sound={beat.sound}
+                          isActive={isMainTick}
+                          color={beatConfig.color}
+                          measureIndex={mi}
+                          beatIndex={beatIdx}
+                          subdivisions={beat.subdivisions}
+                          onSoundChange={handleSoundChange}
+                          onSubdivisionsChange={handleBeatSubdivisionsChange}
+                          playBeat={playBeatSound}
+                          activePopupId={activePopupId}
+                          onOpenPopup={handleOpenPopup}
+                          onClosePopup={handleClosePopup}
+                        />
+                        {/* Subdivision circles */}
+                        {Array.from({ length: subCount }, (_, si) => {
+                          const isSubActive = isBeatActive && currentTickIndex === si + 1
+                          return (
+                            <div
+                              key={`sub-${si}`}
+                              className="rounded-full flex-shrink-0 transition-all"
+                              style={{
+                                width: 20,
+                                height: 20,
+                                background: isSubActive ? `${beatConfig.color}cc` : 'var(--bg-card)',
+                                border: `0.5px solid ${isSubActive ? beatConfig.color : 'var(--border-line)'}`,
+                                boxShadow: isSubActive ? `0 0 0 2px ${beatConfig.color}33` : 'none',
+                              }}
+                            />
+                          )
+                        })}
+                      </div>
                     )
                   })}
                 </div>
@@ -452,11 +580,68 @@ export function Metronome() {
         </div>
       </div>
 
-      {/* ======= Card 1: Beat Count + Mode Tabs + BPM Config ======= */}
+      {/* ======= Card 1: Config (细分 → 节拍/模式 → BPM → 拍速信息) ======= */}
       <div
         className="rounded-xl px-4 py-3"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
       >
+        {/* Row: Global Subdivision Selector */}
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>细分</span>
+          {SUBDIVISION_OPTIONS.map((opt) => {
+            const isHighlighted = uniformSubdivision === opt.value
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => handleGlobalSubdivisionsChange(opt.value)}
+                title={opt.note}
+                className="h-9 px-2.5 text-sm rounded transition-all cursor-pointer"
+                style={{
+                  touchAction: 'manipulation',
+                  color: isHighlighted ? 'var(--text-primary)' : 'var(--text-muted)',
+                  border: `0.5px solid ${isHighlighted ? 'var(--accent-amber)' : 'var(--border-line)'}`,
+                  background: isHighlighted ? 'var(--accent-glow)' : 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isHighlighted) {
+                    e.currentTarget.style.background = 'var(--accent-glow)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isHighlighted) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-muted)'
+                  }
+                }}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+          {/* 自定义 indicator — display-only when subdivisions differ */}
+          {uniformSubdivision === null && (
+            <span
+              className="h-9 px-2.5 text-sm rounded flex items-center"
+              style={{
+                color: 'var(--accent-amber)',
+                border: '0.5px solid var(--accent-amber)',
+                background: 'var(--accent-glow)',
+              }}
+            >
+              自定义
+            </span>
+          )}
+          {showSubdivInfo && (
+            <span className="text-[0.65rem] font-mono ml-1" style={{ color: 'var(--text-muted)' }}>
+              每小节 {ticksPerMeasure(config.measures[0], config.beatsPerMeasure)} tick
+            </span>
+          )}
+        </div>
+
+        <div className="h-px mb-3" style={{ background: 'var(--border-line)' }} />
+
         {/* Row 1: Beat count | Mode tabs */}
         <div className="flex items-center justify-center gap-6 mb-3">
           {/* Beat count */}
@@ -647,8 +832,10 @@ export function Metronome() {
             </button>
           </div>
         )}
+
       </div>
-{/* ======= Card 4: Playback ======= */}
+
+      {/* ======= Card 4: Playback ======= */}
       <div
         className="rounded-xl px-4 py-4 flex items-center justify-center gap-5"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
