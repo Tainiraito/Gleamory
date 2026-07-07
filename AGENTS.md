@@ -138,6 +138,36 @@ UVR 候补模型来自 GitHub Release 时下载可能较慢。UI 必须允许取
 - 不要用字符串拼接解析复杂结构，优先使用结构化 API。
 - 注释只解释不明显的约束、算法或兼容性原因。
 
+## 新增项目 / 详情页流程
+
+所有项目卡片和详情页的数据（名称、描述、版本号、状态）以 `src/data/projects.json` 为唯一数据源。详情页通过 `src/utils/projectData.ts` 的 `getProjectById(id)` 自动读取，**不要在页面组件中硬编码版本号或项目名称**。
+
+### 添加新项目的步骤
+
+1. **`src/data/projects.json`** — 添加项目条目（id, name, description, status, tags, version, updatedAt）
+2. **`src/data/timeline.json`** — 添加上线动态条目
+3. **`src/pages/XxxPage.tsx`** — 新建详情页，使用 `getProjectById('xxx')` 获取数据：
+   ```tsx
+   import { getProjectById } from '@/utils/projectData'
+   const project = getProjectById('xxx')!
+   // 传给 ProjectPageHeader：name, description, version 自动从数据源读取
+   ```
+4. **`src/App.tsx`** — 添加 lazy import + Route
+5. **`CHANGELOG.md`** — 记录变更
+
+### 版本号管理
+
+- 唯一修改点：`src/data/projects.json` 中的 `version` 字段
+- 详情页通过 `getProjectById` 自动同步，无需手动改页面
+- `ProjectPageHeader` 会自动加 `v` 前缀显示（如 `⟐ v1.1.0`），传入时去掉 `v`
+
+### 组件复用
+
+- 详情页头部：`ProjectPageHeader`（name, englishName, description, version, children）
+- 页面底部：`BackFooter`
+- 页面标题：`useDocumentTitle('页面名 | Gleamory 微光集')`
+- 站点头部：`SiteHeader`
+
 ## 测试要求
 
 涉及音频分离逻辑时，优先补充以下测试：
