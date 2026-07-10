@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { generateFretboard } from './fretboard'
 import {
   judgeQuizAnswer,
+  makeConfiguredPracticeQuestion,
   makeFindNoteQuestion,
   makeIdentifyNoteQuestion,
   makeIntervalQuestion,
@@ -151,6 +152,50 @@ describe('guitar fretboard quiz', () => {
     expect(question.prompt).not.toBe('找出所有 F#')
     expect(question.scope).toEqual({ minFret: 0, maxFret: 12 })
     expect(question.expectedAnswers.every((position) => position.fretNumber <= 12)).toBe(true)
+  })
+
+  it('generates a configured interval question with the selected parameters', () => {
+    const question = makeConfiguredPracticeQuestion(fretboard, {
+      type: 'interval',
+      range: { minFret: 0, maxFret: 12 },
+      noteName: 'C',
+      interval: 'perfect-fifth',
+    })
+
+    expect(question.type).toBe('interval')
+    expect(question.prompt).toBe('找出 C 上方纯五度 G')
+    expect(question.scope).toEqual({ minFret: 0, maxFret: 12 })
+  })
+
+  it('preserves an explicitly selected target note when generating the next custom question', () => {
+    const question = makeConfiguredPracticeQuestion(fretboard, {
+      type: 'find-note',
+      range: { minFret: 0, maxFret: 12 },
+      noteName: 'C',
+      avoidNote: 'C',
+    })
+
+    expect(question.targetNote).toBe('C')
+    expect(question.prompt).toBe('找出所有 C')
+  })
+
+  it('lets random mixed practice generate all five question types', () => {
+    const questions = [0, 0.2, 0.4, 0.6, 0.8].map((typeRoll) => {
+      const rolls = [typeRoll, 0]
+      return makeConfiguredPracticeQuestion(fretboard, {
+        type: 'random',
+        range: { minFret: 0, maxFret: 12 },
+        random: () => rolls.shift() ?? 0,
+      })
+    })
+
+    expect(questions.map((question) => question.type)).toEqual([
+      'find-note',
+      'identify-note',
+      'octave',
+      'interval',
+      'scale-degree',
+    ])
   })
 
   it('summarizes saved practice sessions with weighted accuracy, response time, and weak areas', () => {

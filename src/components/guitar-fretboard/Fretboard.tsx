@@ -1,4 +1,4 @@
-import type { FretPosition, QuizAnswer } from '@/lib/guitarFretboard/types'
+import type { FretPosition, FretRange, FretboardMode, QuizAnswer } from '@/lib/guitarFretboard/types'
 import { getPositionKey } from '@/lib/guitarFretboard/fretboard'
 
 interface FretboardProps {
@@ -6,10 +6,19 @@ interface FretboardProps {
   frets: number[]
   positions: FretPosition[]
   selectedKeys: Set<string>
+  revealedKeys?: Set<string>
+  fadingKeys?: Set<string>
+  highlightedKeys?: Set<string>
+  rootKeys?: Set<string>
+  referenceKeys?: Set<string>
   answer?: QuizAnswer | null
-  mode: 'all' | 'natural' | 'target' | 'scale' | 'degree' | 'hidden'
+  mode: FretboardMode
   targetNote?: string
-  onTogglePosition: (position: FretPosition) => void
+  displayRange?: FretRange
+  disableOutsideRange?: boolean
+  selectionDisabled?: boolean
+  onActivatePosition: (position: FretPosition) => void
+  onClearPosition: (position: FretPosition) => void
 }
 
 const MARKER_FRETS = new Set([3, 5, 7, 9, 12, 15, 17, 19, 21, 24])
@@ -23,8 +32,29 @@ function stateForPosition(position: FretPosition, selectedKeys: Set<string>, ans
   return 'idle'
 }
 
-export function Fretboard({ strings, frets, positions, selectedKeys, answer, mode, targetNote, onTogglePosition }: FretboardProps) {
+export function Fretboard({
+  strings,
+  frets,
+  positions,
+  selectedKeys,
+  revealedKeys,
+  fadingKeys,
+  highlightedKeys,
+  rootKeys,
+  referenceKeys,
+  answer,
+  mode,
+  targetNote,
+  displayRange,
+  disableOutsideRange = false,
+  selectionDisabled = false,
+  onActivatePosition,
+  onClearPosition,
+}: FretboardProps) {
   const displayStrings = [...strings].sort((a, b) => a - b)
+  const firstString = displayStrings[0]
+  const lastString = displayStrings[displayStrings.length - 1]
+  const positionsByKey = new Map(positions.map((position) => [getPositionKey(position), position]))
 
   return (
     <div className="fretboard-frame" aria-label="吉他指板">
@@ -41,26 +71,55 @@ export function Fretboard({ strings, frets, positions, selectedKeys, answer, mod
             <div key={stringNumber} className="contents">
               <div className="fretboard-string-label">{positions.find((position) => position.stringNumber === stringNumber && position.fretNumber === 0)?.noteName}</div>
               {frets.map((fretNumber) => {
-                const position = positions.find((candidate) => candidate.stringNumber === stringNumber && candidate.fretNumber === fretNumber)
+                const position = positionsByKey.get(`${stringNumber}:${fretNumber}`)
                 if (!position) return <div key={`${stringNumber}:${fretNumber}`} />
 
+                const key = getPositionKey(position)
                 const positionState = stateForPosition(position, selectedKeys, answer)
                 const isNatural = !position.noteName.includes('#')
                 const isTarget = targetNote ? position.noteName === targetNote : false
-                const showNote = mode === 'all' || (mode === 'natural' && isNatural) || (mode === 'target' && isTarget)
+                const isInRange = displayRange ? fretNumber >= displayRange.minFret && fretNumber <= displayRange.maxFret : true
+                const isDisabled = selectionDisabled || (disableOutsideRange && !isInRange)
+                const isHighlighted = highlightedKeys?.has(key) ?? false
+                const isRoot = rootKeys?.has(key) ?? false
+                const isReference = referenceKeys?.has(key) ?? false
+                const answerRevealsNote = Boolean(answer && positionState !== 'idle')
+                const showNote =
+                  mode === 'all' ||
+                  (mode === 'natural' && isNatural) ||
+                  (mode === 'target' && isTarget) ||
+                  (revealedKeys?.has(key) ?? false) ||
+                  isHighlighted ||
+                  answerRevealsNote
 
                 return (
                   <button
-                    key={getPositionKey(position)}
+                    key={key}
                     type="button"
                     className="fretboard-position"
+                    disabled={isDisabled}
                     data-state={positionState}
                     data-muted={mode === 'target' && !isTarget ? 'true' : undefined}
-                    onClick={() => onTogglePosition(position)}
+                    data-in-scope={displayRange ? String(isInRange) : undefined}
+                    data-scope-top={displayRange && isInRange && stringNumber === firstString ? 'true' : undefined}
+                    data-scope-bottom={displayRange && isInRange && stringNumber === lastString ? 'true' : undefined}
+                    data-scope-left={displayRange && isInRange && fretNumber === displayRange.minFret ? 'true' : undefined}
+                    data-scope-right={displayRange && isInRange && fretNumber === displayRange.maxFret ? 'true' : undefined}
+                    data-highlight={isHighlighted ? 'true' : undefined}
+                    data-root={isRoot ? 'true' : undefined}
+                    data-reference={isReference ? 'true' : undefined}
+                    data-fading={fadingKeys?.has(key) ? 'true' : undefined}
+                    onClick={() => {
+                      if (!isDisabled) onActivatePosition(position)
+                    }}
+                    onContextMenu={(event) => {
+                      event.preventDefault()
+                      onClearPosition(position)
+                    }}
                     aria-label={`${position.stringNumber}弦 ${position.fretNumber}品 ${position.noteWithOctave}`}
                   >
                     <span className="fretboard-string-line" />
-                    <span className="fretboard-dot">{showNote || positionState !== 'idle' ? position.displayNoteName : ''}</span>
+                    <span className="fretboard-dot">{showNote ? position.displayNoteName : ''}</span>
                     {MARKER_FRETS.has(fretNumber) && <span className="fretboard-marker" />}
                   </button>
                 )

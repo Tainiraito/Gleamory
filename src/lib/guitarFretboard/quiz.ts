@@ -10,6 +10,7 @@ import type {
   PracticeSummary,
   QuizAnswer,
   QuizQuestion,
+  QuizType,
 } from './types'
 
 const NOTE_OPTIONS: PitchClass[] = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -33,9 +34,24 @@ export const MAJOR_SCALE_DEGREE_OPTIONS: Array<{ value: MajorScaleDegree; label:
   { value: 7, label: '7 级', semitones: 11 },
 ]
 
+const QUESTION_TYPES: QuizType[] = ['find-note', 'identify-note', 'octave', 'interval', 'scale-degree']
+
 interface RandomPracticeQuestionOptions {
   range: FretRange
   random?: () => number
+  avoidNote?: PitchClass
+}
+
+export interface ConfiguredPracticeQuestionOptions {
+  type: QuizType | 'random'
+  range: FretRange
+  noteName?: PitchClass
+  stringNumber?: FretPosition['stringNumber']
+  interval?: IntervalId
+  keyRoot?: PitchClass
+  degree?: MajorScaleDegree
+  random?: () => number
+  avoidType?: QuizType
   avoidNote?: PitchClass
 }
 
@@ -53,6 +69,11 @@ function getScopedRange(fretboard: FretboardModel, range: FretRange): FretRange 
 function getPitchClassAtOffset(root: PitchClass, semitones: number): PitchClass {
   const rootIndex = NOTE_OPTIONS.indexOf(root)
   return NOTE_OPTIONS[(rootIndex + semitones) % NOTE_OPTIONS.length]!
+}
+
+function pickRandom<T>(items: T[], random: () => number): T {
+  const index = Math.min(items.length - 1, Math.max(0, Math.floor(random() * items.length)))
+  return items[index]!
 }
 
 export function makeFindNoteQuestion(fretboard: FretboardModel, noteName: PitchClass, scope: FretRange): QuizQuestion {
@@ -187,6 +208,72 @@ export function makeScaleDegreeQuestion(
     ],
     createdAt: new Date().toISOString(),
   }
+}
+
+export function makeConfiguredPracticeQuestion(
+  fretboard: FretboardModel,
+  {
+    type,
+    range,
+    noteName = 'C',
+    stringNumber = 6,
+    interval = 'perfect-fifth',
+    keyRoot = 'C',
+    degree = 1,
+    random = Math.random,
+    avoidType,
+    avoidNote,
+  }: ConfiguredPracticeQuestionOptions,
+): QuizQuestion {
+  const scope = getScopedRange(fretboard, range)
+  const isRandom = type === 'random'
+  let questionType = isRandom ? pickRandom(QUESTION_TYPES, random) : type
+  if (isRandom && avoidType && questionType === avoidType) {
+    questionType = QUESTION_TYPES[(QUESTION_TYPES.indexOf(questionType) + 1) % QUESTION_TYPES.length]!
+  }
+
+  if (questionType === 'find-note') {
+    const initialNote = isRandom ? pickRandom(NOTE_OPTIONS, random) : noteName
+    const targetNote =
+      isRandom && avoidNote && initialNote === avoidNote
+        ? NOTE_OPTIONS[(NOTE_OPTIONS.indexOf(initialNote) + 1) % NOTE_OPTIONS.length]!
+        : initialNote
+    return makeFindNoteQuestion(fretboard, targetNote, scope)
+  }
+
+  if (questionType === 'identify-note') {
+    const candidates = fretboard.positions.filter(
+      (position) =>
+        (isRandom || position.stringNumber === stringNumber) &&
+        position.fretNumber >= scope.minFret &&
+        position.fretNumber <= scope.maxFret,
+    )
+    return makeIdentifyNoteQuestion(pickRandom(candidates, random), scope)
+  }
+
+  if (questionType === 'octave') {
+    const candidates = fretboard.positions.filter((position) => {
+      if ((!isRandom && position.noteName !== noteName) || position.fretNumber < scope.minFret || position.fretNumber > scope.maxFret) {
+        return false
+      }
+      return fretboard.positions.some((candidate) => {
+        if (candidate.fretNumber < scope.minFret || candidate.fretNumber > scope.maxFret) return false
+        const distance = Math.abs(candidate.midiNumber - position.midiNumber)
+        return distance > 0 && distance % 12 === 0
+      })
+    })
+    return makeOctaveQuestion(fretboard, pickRandom(candidates, random), scope)
+  }
+
+  if (questionType === 'interval') {
+    const root = isRandom ? pickRandom(NOTE_OPTIONS, random) : noteName
+    const selectedInterval = isRandom ? pickRandom(INTERVAL_OPTIONS, random).value : interval
+    return makeIntervalQuestion(fretboard, root, selectedInterval, scope)
+  }
+
+  const selectedKey = isRandom ? pickRandom(NOTE_OPTIONS, random) : keyRoot
+  const selectedDegree = isRandom ? pickRandom(MAJOR_SCALE_DEGREE_OPTIONS, random).value : degree
+  return makeScaleDegreeQuestion(fretboard, selectedKey, selectedDegree, scope)
 }
 
 export function judgeQuizAnswer(
