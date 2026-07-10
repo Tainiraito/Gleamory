@@ -39,7 +39,7 @@ const QUESTION_TYPES: QuizType[] = ['find-note', 'identify-note', 'octave', 'int
 
 export const DEFAULT_RANDOM_PRACTICE_SCOPE: RandomPracticeScope = {
   types: ['find-note', 'identify-note'],
-  notes: ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+  notes: ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
   strings: [1, 2, 3, 4, 5, 6],
   intervals: ['major-third', 'perfect-fourth', 'perfect-fifth'],
   keyRoots: ['C', 'G', 'D', 'F'],

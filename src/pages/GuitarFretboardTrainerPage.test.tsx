@@ -278,12 +278,11 @@ describe('GuitarFretboardTrainerPage', () => {
     expect(screen.queryByText('找出所有 C')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '中把位 5-12 品' }))
-    fireEvent.click(screen.getByRole('button', { name: '生成题目' }))
 
     expect(screen.getByText('可选范围 5-12 品')).toBeInTheDocument()
   })
 
-  it('lets users configure an interval question before explicitly generating it', () => {
+  it('applies custom question parameters immediately', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     render(
       <MemoryRouter>
@@ -291,17 +290,51 @@ describe('GuitarFretboardTrainerPage', () => {
       </MemoryRouter>,
     )
 
-    const initialPrompt = screen.getByText(/^找出所有 /).textContent
     fireEvent.click(screen.getByRole('button', { name: '自选题目' }))
     fireEvent.click(screen.getByRole('button', { name: '音程' }))
     fireEvent.click(screen.getByRole('button', { name: '根音 C' }))
     fireEvent.click(screen.getByRole('button', { name: '纯五度' }))
 
-    expect(screen.getByText(initialPrompt!)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: '生成题目' }))
-
     expect(screen.getByText('找出 C 上方纯五度 G')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '生成题目' })).not.toBeInTheDocument()
+  })
+
+  it('switches from a generated custom type back to the allowed random scope immediately', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    render(
+      <MemoryRouter>
+        <GuitarFretboardTrainerPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '自选题目' }))
+    fireEvent.click(screen.getByRole('button', { name: '音程' }))
+    expect(screen.getByText('找出 C 上方纯五度 G')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '随机混合' }))
+
+    expect(screen.getByText('找出所有 C')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '随机题型' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '找音' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '认音' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('group', { name: '随机音名' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '随机弦' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: '随机音程' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the final selected item in every random scope group', () => {
+    render(
+      <MemoryRouter>
+        <GuitarFretboardTrainerPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '认音' }))
+    const findNote = screen.getByRole('button', { name: '找音' })
+    fireEvent.click(findNote)
+
+    expect(findNote).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('status')).toHaveTextContent('至少保留一项')
   })
 
   it('answers a configured identify-note question with note buttons', () => {
@@ -315,7 +348,6 @@ describe('GuitarFretboardTrainerPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '自选题目' }))
     fireEvent.click(screen.getByRole('button', { name: '认音' }))
     fireEvent.click(screen.getByRole('button', { name: '4 弦' }))
-    fireEvent.click(screen.getByRole('button', { name: '生成题目' }))
 
     expect(screen.getByText('4 弦 0 品是什么音？')).toBeInTheDocument()
     const fretboard = screen.getByLabelText('吉他指板')

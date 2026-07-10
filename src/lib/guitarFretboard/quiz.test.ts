@@ -211,7 +211,7 @@ describe('guitar fretboard quiz', () => {
 
   it('defaults random practice to basic learned content', () => {
     expect(DEFAULT_RANDOM_PRACTICE_SCOPE.types).toEqual(['find-note', 'identify-note'])
-    expect(DEFAULT_RANDOM_PRACTICE_SCOPE.notes).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G'])
+    expect(DEFAULT_RANDOM_PRACTICE_SCOPE.notes).toEqual(['C', 'D', 'E', 'F', 'G', 'A', 'B'])
     expect(DEFAULT_RANDOM_PRACTICE_SCOPE.intervals).toEqual(['major-third', 'perfect-fourth', 'perfect-fifth'])
     expect(DEFAULT_RANDOM_PRACTICE_SCOPE.keyRoots).toEqual(['C', 'G', 'D', 'F'])
     expect(DEFAULT_RANDOM_PRACTICE_SCOPE.degrees).toEqual([1, 3, 5])

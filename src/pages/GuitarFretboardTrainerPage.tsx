@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Play } from 'lucide-react'
 import SiteHeader from '@/components/SiteHeader'
 import BackFooter from '@/components/BackFooter'
 import { Fretboard } from '@/components/guitar-fretboard/Fretboard'
@@ -10,6 +9,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useGuitarSampleAudio } from '@/hooks/useGuitarSampleAudio'
 import { generateFretboard, getPositionKey } from '@/lib/guitarFretboard/fretboard'
 import {
+  DEFAULT_RANDOM_PRACTICE_SCOPE,
   INTERVAL_OPTIONS,
   MAJOR_SCALE_DEGREE_OPTIONS,
   judgeQuizAnswer,
@@ -33,6 +33,7 @@ import type {
   QuizAnswer,
   QuizQuestion,
   QuizType,
+  RandomPracticeScope,
   TuningPreset,
 } from '@/lib/guitarFretboard/types'
 
@@ -52,6 +53,7 @@ interface PracticeConfig {
   interval: IntervalId
   keyRoot: PitchClass
   degree: MajorScaleDegree
+  randomScope: RandomPracticeScope
 }
 
 const pitchClasses: PitchClass[] = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -86,6 +88,15 @@ const defaultPracticeConfig: PracticeConfig = {
   interval: 'perfect-fifth',
   keyRoot: 'C',
   degree: 1,
+  randomScope: {
+    ...DEFAULT_RANDOM_PRACTICE_SCOPE,
+    types: [...DEFAULT_RANDOM_PRACTICE_SCOPE.types],
+    notes: [...DEFAULT_RANDOM_PRACTICE_SCOPE.notes],
+    strings: [...DEFAULT_RANDOM_PRACTICE_SCOPE.strings],
+    intervals: [...DEFAULT_RANDOM_PRACTICE_SCOPE.intervals],
+    keyRoots: [...DEFAULT_RANDOM_PRACTICE_SCOPE.keyRoots],
+    degrees: [...DEFAULT_RANDOM_PRACTICE_SCOPE.degrees],
+  },
 }
 const mapPatternOptions: Array<{ value: MapPattern; label: string; intervals: number[] | null }> = [
   { value: 'all', label: '全部音', intervals: null },
@@ -207,17 +218,66 @@ function ButtonGroup<T extends string | number>({ label, options, value, onChang
   )
 }
 
+interface MultiButtonGroupProps<T extends string | number> {
+  label: string
+  options: Array<{ value: T; label: string }>
+  values: T[]
+  onChange: (values: T[]) => void
+  onRejectLast: () => void
+}
+
+function MultiButtonGroup<T extends string | number>({ label, options, values, onChange, onRejectLast }: MultiButtonGroupProps<T>) {
+  const selectedValues = new Set(values)
+  return (
+    <div className="fretboard-button-group" role="group" aria-label={label}>
+      <span>{label}</span>
+      <div>
+        {options.map((option) => {
+          const isSelected = selectedValues.has(option.value)
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => {
+                if (isSelected && values.length === 1) {
+                  onRejectLast()
+                  return
+                }
+                onChange(isSelected ? values.filter((value) => value !== option.value) : [...values, option.value])
+              }}
+            >
+              {option.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 interface DailyPracticePanelProps {
   summary: PracticeSummaryModel
   config: PracticeConfig
-  onStart: () => void
   onConfigChange: (config: PracticeConfig) => void
 }
 
-function DailyPracticePanel({ summary, config, onStart, onConfigChange }: DailyPracticePanelProps) {
+function DailyPracticePanel({ summary, config, onConfigChange }: DailyPracticePanelProps) {
+  const [constraintMessage, setConstraintMessage] = useState('')
   const updateConfig = <K extends keyof PracticeConfig>(key: K, value: PracticeConfig[K]) => {
+    setConstraintMessage('')
     onConfigChange({ ...config, [key]: value })
   }
+  const updateRandomScope = <K extends keyof RandomPracticeScope>(key: K, value: RandomPracticeScope[K]) => {
+    setConstraintMessage('')
+    onConfigChange({ ...config, randomScope: { ...config.randomScope, [key]: value } })
+  }
+  const rejectLast = () => setConstraintMessage('至少保留一项')
+  const randomTypes = config.randomScope.types
+  const needsNotes = randomTypes.some((type) => type === 'find-note' || type === 'octave' || type === 'interval')
+  const needsStrings = randomTypes.includes('identify-note')
+  const needsIntervals = randomTypes.includes('interval')
+  const needsScaleDegrees = randomTypes.includes('scale-degree')
 
   return (
     <div className="fretboard-practice-card">
@@ -226,15 +286,65 @@ function DailyPracticePanel({ summary, config, onStart, onConfigChange }: DailyP
         title="五类题型短练习"
         body="随机混合可以直接开始；自选题目可指定题型、范围和目标参数。"
         badges={[`已完成 ${summary.totalQuestions} 题`, `正确率 ${Math.round(summary.accuracy * 100)}%`, `平均反应 ${formatResponseTime(summary.averageResponseMs)}`]}
-        action={
-          <button type="button" className="fretboard-button primary" onClick={onStart}>
-            <Play size={16} aria-hidden="true" />
-            生成题目
-          </button>
-        }
       />
       <div className="fretboard-practice-controls">
         <ButtonGroup label="出题方式" options={practiceModeOptions} value={config.mode} onChange={(value) => updateConfig('mode', value)} />
+        {config.mode === 'random' && (
+          <>
+            <MultiButtonGroup
+              label="随机题型"
+              options={practiceTypeOptions}
+              values={config.randomScope.types}
+              onChange={(values) => updateRandomScope('types', values)}
+              onRejectLast={rejectLast}
+            />
+            {needsNotes && (
+              <MultiButtonGroup
+                label="随机音名"
+                options={pitchClasses.map((noteName) => ({ value: noteName, label: noteName }))}
+                values={config.randomScope.notes}
+                onChange={(values) => updateRandomScope('notes', values)}
+                onRejectLast={rejectLast}
+              />
+            )}
+            {needsStrings && (
+              <MultiButtonGroup
+                label="随机弦"
+                options={stringOptions}
+                values={config.randomScope.strings}
+                onChange={(values) => updateRandomScope('strings', values)}
+                onRejectLast={rejectLast}
+              />
+            )}
+            {needsIntervals && (
+              <MultiButtonGroup
+                label="随机音程"
+                options={INTERVAL_OPTIONS.map(({ value, label }) => ({ value, label }))}
+                values={config.randomScope.intervals}
+                onChange={(values) => updateRandomScope('intervals', values)}
+                onRejectLast={rejectLast}
+              />
+            )}
+            {needsScaleDegrees && (
+              <>
+                <MultiButtonGroup
+                  label="随机调性"
+                  options={pitchClasses.map((noteName) => ({ value: noteName, label: `${noteName} 大调` }))}
+                  values={config.randomScope.keyRoots}
+                  onChange={(values) => updateRandomScope('keyRoots', values)}
+                  onRejectLast={rejectLast}
+                />
+                <MultiButtonGroup
+                  label="随机音级"
+                  options={MAJOR_SCALE_DEGREE_OPTIONS.map(({ value, label }) => ({ value, label }))}
+                  values={config.randomScope.degrees}
+                  onChange={(values) => updateRandomScope('degrees', values)}
+                  onRejectLast={rejectLast}
+                />
+              </>
+            )}
+          </>
+        )}
         {config.mode === 'custom' && (
           <>
             <ButtonGroup label="题型" options={practiceTypeOptions} value={config.type} onChange={(value) => updateConfig('type', value)} />
@@ -297,6 +407,7 @@ function DailyPracticePanel({ summary, config, onStart, onConfigChange }: DailyP
           value={config.rangeId}
           onChange={(value) => updateConfig('rangeId', value)}
         />
+        {constraintMessage && <p className="fretboard-config-message" role="status">{constraintMessage}</p>}
       </div>
     </div>
   )
@@ -450,8 +561,7 @@ const GuitarFretboardTrainerPage = () => {
   const [settings, setSettings] = useState(initialState.settings)
   const [sessions, setSessions] = useState(initialState.sessions)
   const [, setPracticeIndex] = useState(0)
-  const [draftPracticeConfig, setDraftPracticeConfig] = useState<PracticeConfig>(defaultPracticeConfig)
-  const [activePracticeConfig, setActivePracticeConfig] = useState<PracticeConfig>(defaultPracticeConfig)
+  const [practiceConfig, setPracticeConfig] = useState<PracticeConfig>(defaultPracticeConfig)
   const [questionNonce, setQuestionNonce] = useState(0)
   const [avoidPracticeNote, setAvoidPracticeNote] = useState<PitchClass | undefined>(undefined)
   const [avoidPracticeType, setAvoidPracticeType] = useState<QuizType | undefined>(undefined)
@@ -473,23 +583,24 @@ const GuitarFretboardTrainerPage = () => {
     () => generateFretboard({ tuning: settings.tuning, fretCount: settings.fretCount, accidental: settings.accidental }),
     [settings],
   )
-  const practiceRange = getPracticeRange(activePracticeConfig.rangeId)
+  const practiceRange = getPracticeRange(practiceConfig.rangeId)
   const currentQuestion = useMemo(
     () => {
       void questionNonce
       return makeConfiguredPracticeQuestion(fretboard, {
-        type: activePracticeConfig.mode === 'random' ? 'random' : activePracticeConfig.type,
+        type: practiceConfig.mode === 'random' ? 'random' : practiceConfig.type,
         range: practiceRange,
-        noteName: activePracticeConfig.targetNote,
-        stringNumber: activePracticeConfig.stringNumber,
-        interval: activePracticeConfig.interval,
-        keyRoot: activePracticeConfig.keyRoot,
-        degree: activePracticeConfig.degree,
+        noteName: practiceConfig.targetNote,
+        stringNumber: practiceConfig.stringNumber,
+        interval: practiceConfig.interval,
+        keyRoot: practiceConfig.keyRoot,
+        degree: practiceConfig.degree,
+        randomScope: practiceConfig.randomScope,
         avoidType: avoidPracticeType,
         avoidNote: avoidPracticeNote,
       })
     },
-    [activePracticeConfig, avoidPracticeNote, avoidPracticeType, fretboard, practiceRange, questionNonce],
+    [practiceConfig, avoidPracticeNote, avoidPracticeType, fretboard, practiceRange, questionNonce],
   )
   const currentTargetNote = currentQuestion.targetNote ?? getQuestionTargetNote(currentQuestion)
   const currentReferenceKeys = useMemo(
@@ -554,6 +665,16 @@ const GuitarFretboardTrainerPage = () => {
     setRevealedKeys(new Set())
     setFadingKeys(new Set())
     setSelectedOption(undefined)
+  }
+
+  const applyPracticeConfig = (nextConfig: PracticeConfig) => {
+    setPracticeConfig(nextConfig)
+    setAvoidPracticeNote(undefined)
+    setAvoidPracticeType(undefined)
+    clearSelectionState()
+    setQuestionNonce((previous) => previous + 1)
+    setPracticeIndex(0)
+    setQuestionStartedAt(Date.now())
   }
 
   const updateSettings = (nextSettings: typeof settings) => {
@@ -710,17 +831,6 @@ const GuitarFretboardTrainerPage = () => {
     queueNextQuestion()
   }
 
-  const handleStartPractice = () => {
-    setActiveTab('今日练习')
-    setPracticeIndex(0)
-    setAvoidPracticeNote(undefined)
-    setAvoidPracticeType(undefined)
-    setActivePracticeConfig({ ...draftPracticeConfig })
-    setQuestionNonce((previous) => previous + 1)
-    clearSelectionState()
-    setQuestionStartedAt(Date.now())
-  }
-
   const handleMapPatternChange = (pattern: MapPattern) => {
     setMapPattern(pattern)
     if (pattern === 'all') {
@@ -841,9 +951,8 @@ const GuitarFretboardTrainerPage = () => {
                 <div className="fretboard-stack">
                   <DailyPracticePanel
                     summary={latestSummary}
-                    config={draftPracticeConfig}
-                    onStart={handleStartPractice}
-                    onConfigChange={setDraftPracticeConfig}
+                    config={practiceConfig}
+                    onConfigChange={applyPracticeConfig}
                   />
                   <QuizPanel
                     question={currentQuestion}
