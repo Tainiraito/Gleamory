@@ -211,6 +211,70 @@ body {
   justify-content: center;
 }
 
+.glossary-term {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: rgba(var(--accent-amber-rgb), 0.72);
+  text-underline-offset: 0.22em;
+  cursor: help;
+  outline: none;
+}
+
+.glossary-term:focus-visible {
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px rgba(var(--accent-amber-rgb), 0.26);
+}
+
+.glossary-popover {
+  position: fixed;
+  z-index: 80;
+  border: 1px solid rgba(44, 42, 48, 0.14);
+  border-radius: 8px;
+  background: #fffdf9;
+  box-shadow: 0 14px 34px rgba(44, 42, 48, 0.18);
+  color: var(--text-primary);
+  padding: 0.85rem 0.9rem;
+  text-align: left;
+}
+
+.glossary-popover strong,
+.glossary-popover p,
+.glossary-popover small {
+  display: block;
+}
+
+.glossary-popover strong {
+  font-size: 0.9rem;
+}
+
+.glossary-popover p {
+  margin: 0.45rem 0;
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.glossary-popover small {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.glossary-related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.65rem;
+  align-items: center;
+  margin-top: 0.65rem;
+  border-top: 1px solid rgba(44, 42, 48, 0.09);
+  padding-top: 0.6rem;
+  font-size: 0.76rem;
+}
+
+.glossary-related > span:first-child {
+  color: var(--text-muted);
+}
+
 .fretboard-quiz-actions,
 .fretboard-feedback {
   display: flex;

@@ -63,7 +63,7 @@ describe('GuitarFretboardTrainerPage', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: '指板地图' }))
 
-    expect(screen.getByText('点位置、听音色、切换把位和音阶')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '点位置、听音色、切换把位和音阶' })).toBeInTheDocument()
     expect(screen.getByText('当前位置详情')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '提交答案' })).not.toBeInTheDocument()
   })
@@ -351,7 +351,7 @@ describe('GuitarFretboardTrainerPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '根音 C' }))
     fireEvent.click(screen.getByRole('button', { name: '纯五度' }))
 
-    expect(screen.getByText('找出 C 上方纯五度 G')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '找出 C 上方纯五度 G' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '生成题目' })).not.toBeInTheDocument()
   })
 
@@ -365,7 +365,7 @@ describe('GuitarFretboardTrainerPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '自选题目' }))
     fireEvent.click(screen.getByRole('button', { name: '音程' }))
-    expect(screen.getByText('找出 C 上方纯五度 G')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '找出 C 上方纯五度 G' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '随机混合' }))
 
@@ -405,7 +405,7 @@ describe('GuitarFretboardTrainerPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '认音' }))
     fireEvent.click(screen.getByRole('button', { name: '4 弦' }))
 
-    expect(screen.getByText('4 弦 0 品是什么音？')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '4 弦 0 品是什么音？' })).toBeInTheDocument()
     const fretboard = screen.getByLabelText('吉他指板')
     const referencePosition = within(fretboard).getByRole('button', { name: '4弦 0品 D3' })
     expect(referencePosition).toHaveAttribute('data-reference', 'true')

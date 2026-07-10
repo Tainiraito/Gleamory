@@ -4,6 +4,7 @@ import BackFooter from '@/components/BackFooter'
 import { Fretboard } from '@/components/guitar-fretboard/Fretboard'
 import { QuizPanel } from '@/components/guitar-fretboard/QuizPanel'
 import { TuningSettings } from '@/components/guitar-fretboard/TuningSettings'
+import { GlossaryText } from '@/components/ui/GlossaryTerm'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useGuitarSampleAudio } from '@/hooks/useGuitarSampleAudio'
 import { generateFretboard, getPositionKey } from '@/lib/guitarFretboard/fretboard'
@@ -171,8 +172,8 @@ function ViewIntro({ eyebrow, title, body, badges = [], action }: ViewIntroProps
     <section className="fretboard-view-intro">
       <div>
         <p>{eyebrow}</p>
-        <h2>{title}</h2>
-        <small>{body}</small>
+        <h2><GlossaryText text={title} /></h2>
+        <small><GlossaryText text={body} /></small>
         {badges.length > 0 && (
           <div className="fretboard-pill-row">
             {badges.map((badge) => (
@@ -198,7 +199,7 @@ interface ButtonGroupProps<T extends string | number> {
 function ButtonGroup<T extends string | number>({ label, options, value, onChange, disabled = false, hint }: ButtonGroupProps<T>) {
   return (
     <div className="fretboard-button-group" role="group" aria-label={label} data-disabled={disabled ? 'true' : undefined}>
-      <span>{label}</span>
+      <span><GlossaryText text={label} /></span>
       {hint && <small>{hint}</small>}
       <div>
         {options.map((option) => (
@@ -229,7 +230,7 @@ function MultiButtonGroup<T extends string | number>({ label, options, values, o
   const selectedValues = new Set(values)
   return (
     <div className="fretboard-button-group" role="group" aria-label={label}>
-      <span>{label}</span>
+      <span><GlossaryText text={label} /></span>
       <div>
         {options.map((option) => {
           const isSelected = selectedValues.has(option.value)

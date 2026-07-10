@@ -1,4 +1,5 @@
 import type { PitchClass, QuizAnswer, QuizQuestion } from '@/lib/guitarFretboard/types'
+import { GlossaryText } from '@/components/ui/GlossaryTerm'
 
 interface QuizPanelProps {
   question: QuizQuestion
@@ -31,7 +32,7 @@ export function QuizPanel({
     <div className="fretboard-quizbar">
       <div>
         <p>当前题目</p>
-        <h2>{question.prompt}</h2>
+        <h2 aria-label={question.prompt}><GlossaryText text={question.prompt} /></h2>
         <small>{rangeLabel}</small>
         {answer && (
           <div className="fretboard-answer-guidance">
