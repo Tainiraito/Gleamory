@@ -8,6 +8,7 @@ interface FretboardProps {
   selectedKeys: Set<string>
   revealedKeys?: Set<string>
   fadingKeys?: Set<string>
+  suppressedKeys?: Set<string>
   highlightedKeys?: Set<string>
   rootKeys?: Set<string>
   referenceKeys?: Set<string>
@@ -39,6 +40,7 @@ export function Fretboard({
   selectedKeys,
   revealedKeys,
   fadingKeys,
+  suppressedKeys,
   highlightedKeys,
   rootKeys,
   referenceKeys,
@@ -83,14 +85,16 @@ export function Fretboard({
                 const isHighlighted = highlightedKeys?.has(key) ?? false
                 const isRoot = rootKeys?.has(key) ?? false
                 const isReference = referenceKeys?.has(key) ?? false
+                const isSuppressed = suppressedKeys?.has(key) ?? false
                 const answerRevealsNote = Boolean(answer && positionState !== 'idle')
                 const showNote =
-                  mode === 'all' ||
-                  (mode === 'natural' && isNatural) ||
-                  (mode === 'target' && isTarget) ||
-                  (revealedKeys?.has(key) ?? false) ||
-                  isHighlighted ||
-                  answerRevealsNote
+                  !isSuppressed &&
+                  (mode === 'all' ||
+                    (mode === 'natural' && isNatural) ||
+                    (mode === 'target' && isTarget) ||
+                    (revealedKeys?.has(key) ?? false) ||
+                    isHighlighted ||
+                    answerRevealsNote)
 
                 return (
                   <button
@@ -109,6 +113,7 @@ export function Fretboard({
                     data-root={isRoot ? 'true' : undefined}
                     data-reference={isReference ? 'true' : undefined}
                     data-fading={fadingKeys?.has(key) ? 'true' : undefined}
+                    data-suppressed={isSuppressed ? 'true' : undefined}
                     onClick={() => {
                       if (!isDisabled) onActivatePosition(position)
                     }}

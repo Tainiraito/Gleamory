@@ -276,6 +276,52 @@ describe('GuitarFretboardTrainerPage', () => {
     expect(timedTarget).toHaveTextContent('')
   })
 
+  it('keeps clicked positions hidden after fading even when the base mode shows all notes', () => {
+    vi.useFakeTimers()
+    render(
+      <MemoryRouter>
+        <GuitarFretboardTrainerPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: '设置' }))
+    fireEvent.click(screen.getByRole('button', { name: '全部音名' }))
+    fireEvent.click(screen.getByRole('button', { name: '1 秒后淡出' }))
+    fireEvent.click(screen.getByRole('tab', { name: '今日练习' }))
+
+    const fretboard = screen.getByLabelText('吉他指板')
+    const clickedTarget = within(fretboard).getByRole('button', { name: '5弦 3品 C3' })
+    const untouchedTarget = within(fretboard).getByRole('button', { name: '2弦 1品 C4' })
+    expect(clickedTarget).toHaveTextContent('C')
+    expect(untouchedTarget).toHaveTextContent('C')
+
+    fireEvent.click(clickedTarget)
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    expect(clickedTarget).toHaveTextContent('')
+    expect(untouchedTarget).toHaveTextContent('C')
+  })
+
+  it('hides a clicked position immediately when click labels are disabled', () => {
+    render(
+      <MemoryRouter>
+        <GuitarFretboardTrainerPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: '设置' }))
+    fireEvent.click(screen.getByRole('button', { name: '全部音名' }))
+    fireEvent.click(screen.getByRole('button', { name: '不显示点击音名' }))
+    fireEvent.click(screen.getByRole('tab', { name: '今日练习' }))
+
+    const target = within(screen.getByLabelText('吉他指板')).getByRole('button', { name: '5弦 3品 C3' })
+    expect(target).toHaveTextContent('C')
+    fireEvent.click(target)
+    expect(target).toHaveTextContent('')
+  })
+
   it('lets users skip the current question and manually choose another practice range', () => {
     render(
       <MemoryRouter>

@@ -552,6 +552,7 @@ const GuitarFretboardTrainerPage = () => {
   const [selectedPositions, setSelectedPositions] = useState<FretPosition[]>([])
   const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set())
   const [fadingKeys, setFadingKeys] = useState<Set<string>>(new Set())
+  const [suppressedKeys, setSuppressedKeys] = useState<Set<string>>(new Set())
   const [selectedOption, setSelectedOption] = useState<PitchClass | undefined>(undefined)
   const [answer, setAnswer] = useState<QuizAnswer | null>(null)
   const [mapRoot, setMapRoot] = useState<PitchClass>('C')
@@ -646,6 +647,7 @@ const GuitarFretboardTrainerPage = () => {
     setSelectedPositions([])
     setRevealedKeys(new Set())
     setFadingKeys(new Set())
+    setSuppressedKeys(new Set())
     setSelectedOption(undefined)
   }
 
@@ -690,10 +692,18 @@ const GuitarFretboardTrainerPage = () => {
   }
 
   const revealPosition = (position: FretPosition) => {
-    if (settings.noteDisplayMs === 0) return
-
     const key = getPositionKey(position)
     clearRevealTimersForKey(key)
+    if (settings.noteDisplayMs === 0) {
+      setSuppressedKeys((previous) => new Set(previous).add(key))
+      return
+    }
+
+    setSuppressedKeys((previous) => {
+      const next = new Set(previous)
+      next.delete(key)
+      return next
+    })
     setRevealedKeys((previous) => new Set(previous).add(key))
     setFadingKeys((previous) => {
       const next = new Set(previous)
@@ -722,6 +732,7 @@ const GuitarFretboardTrainerPage = () => {
           next.delete(key)
           return next
         })
+        setSuppressedKeys((previous) => new Set(previous).add(key))
         revealTimersRef.current.delete(key)
       }, settings.noteDisplayMs),
     )
@@ -769,6 +780,11 @@ const GuitarFretboardTrainerPage = () => {
       return next
     })
     setFadingKeys((previous) => {
+      const next = new Set(previous)
+      next.delete(key)
+      return next
+    })
+    setSuppressedKeys((previous) => {
       const next = new Set(previous)
       next.delete(key)
       return next
@@ -869,6 +885,7 @@ const GuitarFretboardTrainerPage = () => {
       selectedKeys={selectedKeys}
       revealedKeys={revealedKeys}
       fadingKeys={fadingKeys}
+      suppressedKeys={suppressedKeys}
       highlightedKeys={highlightedKeys}
       rootKeys={rootKeys}
       referenceKeys={referenceKeys}
