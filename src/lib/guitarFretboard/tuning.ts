@@ -21,6 +21,7 @@ const NOTE_TO_INDEX: Record<string, number> = {
 }
 
 const STRING_NUMBERS = [6, 5, 4, 3, 2, 1] as const
+const FLAT_NOTE_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const
 
 export function midiFromNoteName(noteWithOctave: string): number {
   const match = /^([A-G](?:#|b)?)(-?\d+)$/.exec(noteWithOctave)
@@ -35,6 +36,16 @@ export function midiFromNoteName(noteWithOctave: string): number {
   }
 
   return (Number(octaveText) + 1) * 12 + noteIndex
+}
+
+function noteNameFromMidi(midiNumber: number): string {
+  const noteName = FLAT_NOTE_NAMES[((midiNumber % 12) + 12) % 12]
+  const octave = Math.floor(midiNumber / 12) - 1
+  return `${noteName}${octave}`
+}
+
+function stripOctave(noteWithOctave: string): string {
+  return noteWithOctave.replace(/-?\d+$/, '')
 }
 
 function makeStrings(openNotes: string[]): StringConfig[] {
@@ -91,4 +102,18 @@ export function createCustomTuning(name: string, openNotes: string[]): TuningPre
     name,
     strings: makeStrings(openNotes),
   }
+}
+
+function createTuningFromOpenNotes(openNotes: string[]): TuningPreset {
+  const matchingPreset = TUNING_PRESETS.find((preset) => preset.strings.map((string) => string.openNote).join('|') === openNotes.join('|'))
+  if (matchingPreset) return getTuningPreset(matchingPreset.id)
+  return createCustomTuning(`Custom ${openNotes.map(stripOctave).join(' ')}`, openNotes)
+}
+
+export function transposeTuning(tuning: TuningPreset, semitones: number): TuningPreset {
+  return createTuningFromOpenNotes(tuning.strings.map((string) => noteNameFromMidi(string.midiNumber + semitones)))
+}
+
+export function transposeString(tuning: TuningPreset, stringNumber: StringConfig['stringNumber'], semitones: number): TuningPreset {
+  return createTuningFromOpenNotes(tuning.strings.map((string) => noteNameFromMidi(string.midiNumber + (string.stringNumber === stringNumber ? semitones : 0))))
 }

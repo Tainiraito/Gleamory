@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createCustomTuning, getTuningPreset, TUNING_PRESETS } from './tuning'
+import { createCustomTuning, getTuningPreset, transposeString, transposeTuning, TUNING_PRESETS } from './tuning'
 
 describe('guitar fretboard tunings', () => {
   it('defines standard six-string tuning from low E to high E', () => {
@@ -38,5 +38,33 @@ describe('guitar fretboard tunings', () => {
       '2弦:B3:59',
       '1弦:D4:62',
     ])
+  })
+
+  it('transposes the whole tuning for quick map exploration', () => {
+    const transposed = transposeTuning(getTuningPreset('standard'), -1)
+
+    expect(transposed.id).toBe('half-step-down')
+    expect(transposed.name).toBe('Half Step Down')
+    expect(transposed.strings.map((string) => string.openNote)).toEqual(['Eb2', 'Ab2', 'Db3', 'Gb3', 'Bb3', 'Eb4'])
+    expect(transposed.strings.map((string) => string.midiNumber)).toEqual([39, 44, 49, 54, 58, 63])
+  })
+
+  it('transposes a single string without changing the other strings', () => {
+    const transposed = transposeString(getTuningPreset('standard'), 6, -2)
+
+    expect(transposed.id).toBe('drop-d')
+    expect(transposed.name).toBe('Drop D')
+    expect(transposed.strings.map((string) => string.openNote)).toEqual(['D2', 'A2', 'D3', 'G3', 'B3', 'E4'])
+    expect(transposed.strings.map((string) => string.midiNumber)).toEqual([38, 45, 50, 55, 59, 64])
+  })
+
+  it('keeps repeated quick-tuning labels bounded instead of appending every operation', () => {
+    const once = transposeString(getTuningPreset('standard'), 6, 1)
+    const twice = transposeString(once, 6, 1)
+    const repeatedWholeStep = transposeTuning(transposeTuning(twice, -1), 1)
+
+    expect(twice.name).not.toContain('6弦+1 6弦+1')
+    expect(repeatedWholeStep.name).not.toContain('+1 -1 +1')
+    expect(repeatedWholeStep.name.length).toBeLessThan(32)
   })
 })
