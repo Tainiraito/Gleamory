@@ -194,6 +194,23 @@ body {
   padding: 1.25rem;
 }
 
+.fretboard-question-panel {
+  border-bottom: 0.5px solid rgba(44, 42, 48, 0.11);
+  background: rgba(var(--accent-amber-rgb), 0.08);
+  padding: 1.15rem 1.25rem;
+}
+
+.fretboard-question-panel .fretboard-quizbar {
+  flex-direction: column;
+  text-align: center;
+}
+
+.fretboard-question-panel .fretboard-answer-options,
+.fretboard-question-panel .fretboard-quiz-actions,
+.fretboard-question-panel .fretboard-answer-guidance {
+  justify-content: center;
+}
+
 .fretboard-quiz-actions,
 .fretboard-feedback {
   display: flex;
@@ -248,8 +265,12 @@ body {
 
 .fretboard-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 34rem;
+}
+
+.fretboard-body[data-with-side='true'] {
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
 }
 
 .fretboard-main {

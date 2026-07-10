@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import SiteHeader from '@/components/SiteHeader'
 import BackFooter from '@/components/BackFooter'
 import { Fretboard } from '@/components/guitar-fretboard/Fretboard'
-import { PracticeSummary } from '@/components/guitar-fretboard/PracticeSummary'
 import { QuizPanel } from '@/components/guitar-fretboard/QuizPanel'
 import { TuningSettings } from '@/components/guitar-fretboard/TuningSettings'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -415,11 +414,9 @@ function DailyPracticePanel({ summary, config, onConfigChange }: DailyPracticePa
 
 interface MapExplorerSideProps {
   selectedPosition: FretPosition | null
-  sampleStatus: string
-  sampleMessage: string
 }
 
-function MapExplorerSide({ selectedPosition, sampleStatus, sampleMessage }: MapExplorerSideProps) {
+function MapExplorerSide({ selectedPosition }: MapExplorerSideProps) {
   return (
     <aside className="fretboard-side">
       <section className="fretboard-panel">
@@ -450,10 +447,6 @@ function MapExplorerSide({ selectedPosition, sampleStatus, sampleMessage }: MapE
         )}
       </section>
 
-      <section className="fretboard-panel">
-        <h2>采样音色</h2>
-        <p data-status={sampleStatus}>{sampleMessage}</p>
-      </section>
     </aside>
   )
 }
@@ -543,17 +536,6 @@ function MapControls({
   )
 }
 
-function SettingsSide() {
-  return (
-    <aside className="fretboard-side">
-      <section className="fretboard-panel">
-        <h2>设置说明</h2>
-        <p>调弦、升降号、显示模式和点击音名显示时间会保存到本地浏览器。指板地图可直接快速改弦和切换音阶、和弦。</p>
-      </section>
-    </aside>
-  )
-}
-
 const GuitarFretboardTrainerPage = () => {
   useDocumentTitle('指板音训练 | Gleamory 微光集')
   const initialState = useMemo(() => loadFretboardState(), [])
@@ -577,7 +559,7 @@ const GuitarFretboardTrainerPage = () => {
   const [mapRangeId, setMapRangeId] = useState<MapRangeId>('all')
   const [mapSelectedNotes, setMapSelectedNotes] = useState<Set<PitchClass>>(new Set())
   const revealTimersRef = useRef<Map<string, number[]>>(new Map())
-  const { status: sampleStatus, message: sampleMessage, playPosition } = useGuitarSampleAudio()
+  const { playPosition } = useGuitarSampleAudio()
 
   const fretboard = useMemo(
     () => generateFretboard({ tuning: settings.tuning, fretCount: settings.fretCount, accidental: settings.accidental }),
@@ -802,20 +784,28 @@ const GuitarFretboardTrainerPage = () => {
     setQuestionStartedAt(Date.now())
   }
 
-  const handleSubmit = () => {
+  const submitAnswer = (option = selectedOption) => {
     if (answer) return
 
     const nextAnswer = judgeQuizAnswer(
       currentQuestion,
       selectedPositions,
       Math.max(0, Date.now() - questionStartedAt),
-      selectedOption,
+      option,
     )
     const nextSession = sessionFromResult(currentQuestion, nextAnswer)
     const nextSessions = [nextSession, ...sessions].slice(0, 1000)
     setAnswer(nextAnswer)
     setSessions(nextSessions)
     saveFretboardState({ settings, sessions: nextSessions, skillStates: initialState.skillStates })
+  }
+
+  const handleSubmit = () => submitAnswer()
+
+  const handleSelectOption = (option: PitchClass) => {
+    if (answer) return
+    setSelectedOption(option)
+    submitAnswer(option)
   }
 
   const handleReset = () => {
@@ -937,6 +927,22 @@ const GuitarFretboardTrainerPage = () => {
         <section className="fretboard-tool">
           <div className="fretboard-board-panel">{renderCurrentFretboard()}</div>
 
+          {activeTab === '今日练习' && (
+            <div className="fretboard-question-panel">
+              <QuizPanel
+                question={currentQuestion}
+                selectedCount={selectedPositions.length}
+                selectedOption={selectedOption}
+                answer={answer}
+                onSelectOption={handleSelectOption}
+                onSubmit={handleSubmit}
+                onReset={handleReset}
+                onNext={handleNextQuestion}
+                onSkip={handleSkipQuestion}
+              />
+            </div>
+          )}
+
           <div className="fretboard-tabs" role="tablist" aria-label="指板音训练视图">
             {tabs.map((tab) => (
               <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => handleTabChange(tab)}>
@@ -945,7 +951,7 @@ const GuitarFretboardTrainerPage = () => {
             ))}
           </div>
 
-          <div className="fretboard-body">
+          <div className="fretboard-body" data-with-side={activeTab === '指板地图' ? 'true' : undefined}>
             <div className="fretboard-main">
               {activeTab === '今日练习' && (
                 <div className="fretboard-stack">
@@ -953,17 +959,6 @@ const GuitarFretboardTrainerPage = () => {
                     summary={latestSummary}
                     config={practiceConfig}
                     onConfigChange={applyPracticeConfig}
-                  />
-                  <QuizPanel
-                    question={currentQuestion}
-                    selectedCount={selectedPositions.length}
-                    selectedOption={selectedOption}
-                    answer={answer}
-                    onSelectOption={setSelectedOption}
-                    onSubmit={handleSubmit}
-                    onReset={handleReset}
-                    onNext={handleNextQuestion}
-                    onSkip={handleSkipQuestion}
                   />
                 </div>
               )}
@@ -1014,13 +1009,7 @@ const GuitarFretboardTrainerPage = () => {
               )}
             </div>
 
-            {activeTab === '指板地图' ? (
-              <MapExplorerSide selectedPosition={selectedPosition} sampleStatus={sampleStatus} sampleMessage={sampleMessage} />
-            ) : activeTab === '设置' ? (
-              <SettingsSide />
-            ) : (
-              <PracticeSummary summary={latestSummary} answer={answer} sampleStatus={sampleStatus} sampleMessage={sampleMessage} />
-            )}
+            {activeTab === '指板地图' && <MapExplorerSide selectedPosition={selectedPosition} />}
           </div>
         </section>
       </main>

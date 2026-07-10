@@ -75,11 +75,11 @@ export function QuizPanel({
           <button type="button" className="fretboard-button primary" onClick={onNext}>
             下一题
           </button>
-        ) : (
+        ) : !isIdentifyQuestion ? (
           <button type="button" className="fretboard-button primary" onClick={onSubmit}>
             提交答案
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   )

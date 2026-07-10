@@ -37,10 +37,13 @@ describe('GuitarFretboardTrainerPage', () => {
     expect(screen.getAllByLabelText('吉他指板')).toHaveLength(1)
 
     const boardPanel = container.querySelector('.fretboard-board-panel')
+    const questionPanel = container.querySelector('.fretboard-question-panel')
     const tabs = container.querySelector('.fretboard-tabs')
     expect(boardPanel).toBeInTheDocument()
+    expect(questionPanel).toBeInTheDocument()
     expect(tabs).toBeInTheDocument()
-    expect(Boolean(boardPanel!.compareDocumentPosition(tabs!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(Boolean(boardPanel!.compareDocumentPosition(questionPanel!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(Boolean(questionPanel!.compareDocumentPosition(tabs!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
 
     fireEvent.click(screen.getByRole('tab', { name: '设置' }))
 
@@ -78,7 +81,7 @@ describe('GuitarFretboardTrainerPage', () => {
     expect(screen.getByRole('button', { name: '跳过此题' })).toBeInTheDocument()
   })
 
-  it('removes the records tab while keeping summary metrics in the side panel', () => {
+  it('removes nonessential practice and settings side panels', () => {
     render(
       <MemoryRouter>
         <GuitarFretboardTrainerPage />
@@ -86,8 +89,16 @@ describe('GuitarFretboardTrainerPage', () => {
     )
 
     expect(screen.queryByRole('tab', { name: '记录' })).not.toBeInTheDocument()
-    expect(screen.getByText('实时反馈')).toBeInTheDocument()
-    expect(screen.getByText('薄弱区域')).toBeInTheDocument()
+    expect(screen.queryByText('实时反馈')).not.toBeInTheDocument()
+    expect(screen.queryByText('薄弱区域')).not.toBeInTheDocument()
+    expect(screen.queryByText('采样音色')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: '设置' }))
+    expect(screen.queryByText('设置说明')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: '指板地图' }))
+    expect(screen.getByText('当前位置详情')).toBeInTheDocument()
+    expect(screen.queryByText('采样音色')).not.toBeInTheDocument()
   })
 
   it('lets users select target notes and submit a find-note answer', () => {
@@ -103,9 +114,8 @@ describe('GuitarFretboardTrainerPage', () => {
     fireEvent.click(within(fretboard).getByRole('button', { name: '2弦 1品 C4' }))
     fireEvent.click(screen.getByRole('button', { name: '提交答案' }))
 
-    expect(screen.getByText('实时反馈')).toBeInTheDocument()
-    expect(screen.getByText('遗漏')).toBeInTheDocument()
-    expect(screen.getByText('薄弱区域')).toBeInTheDocument()
+    expect(screen.getByText('本题未通过')).toBeInTheDocument()
+    expect(screen.getByText(/遗漏 .* 个，误选 .* 个。/)).toBeInTheDocument()
   })
 
   it('disables positions outside the current quiz range and keeps the range visually marked', () => {
@@ -162,7 +172,7 @@ describe('GuitarFretboardTrainerPage', () => {
 
     expect(screen.getByText('本题未通过')).toBeInTheDocument()
     expect(screen.getByText('遗漏 6 个，误选 1 个。')).toBeInTheDocument()
-    expect(screen.getByText('薄弱区域')).toBeInTheDocument()
+    expect(screen.queryByText('薄弱区域')).not.toBeInTheDocument()
     expect(screen.getAllByText('C').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('button', { name: '下一题' }))
@@ -356,9 +366,10 @@ describe('GuitarFretboardTrainerPage', () => {
     expect(referencePosition).toBeDisabled()
     const answers = screen.getByRole('group', { name: '音名答案' })
     fireEvent.click(within(answers).getByRole('button', { name: 'D' }))
-    fireEvent.click(screen.getByRole('button', { name: '提交答案' }))
 
     expect(screen.getByText('本题通过')).toBeInTheDocument()
     expect(screen.getByText('你的答案 D，正确答案 D。')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '提交答案' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '下一题' })).toBeInTheDocument()
   })
 })
