@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { generateFretboard } from './fretboard'
 import {
+  DEFAULT_RANDOM_PRACTICE_SCOPE,
   judgeQuizAnswer,
   makeConfiguredPracticeQuestion,
   makeFindNoteQuestion,
@@ -14,8 +15,17 @@ import {
   summarizePracticeSessions,
 } from './quiz'
 import { getTuningPreset } from './tuning'
+import type { RandomPracticeScope } from './types'
 
 const fretboard = generateFretboard({ tuning: getTuningPreset('standard'), fretCount: 12, accidental: 'sharp' })
+const allRandomScope: RandomPracticeScope = {
+  types: ['find-note', 'identify-note', 'octave', 'interval', 'scale-degree'],
+  notes: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+  strings: [1, 2, 3, 4, 5, 6],
+  intervals: ['major-third', 'perfect-fourth', 'perfect-fifth', 'minor-seventh'],
+  keyRoots: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+  degrees: [1, 3, 5, 7],
+}
 
 describe('guitar fretboard quiz', () => {
   it('generates a find-note question with all expected target positions', () => {
@@ -185,6 +195,7 @@ describe('guitar fretboard quiz', () => {
       return makeConfiguredPracticeQuestion(fretboard, {
         type: 'random',
         range: { minFret: 0, maxFret: 12 },
+        randomScope: allRandomScope,
         random: () => rolls.shift() ?? 0,
       })
     })
@@ -196,6 +207,55 @@ describe('guitar fretboard quiz', () => {
       'interval',
       'scale-degree',
     ])
+  })
+
+  it('defaults random practice to basic learned content', () => {
+    expect(DEFAULT_RANDOM_PRACTICE_SCOPE.types).toEqual(['find-note', 'identify-note'])
+    expect(DEFAULT_RANDOM_PRACTICE_SCOPE.notes).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G'])
+    expect(DEFAULT_RANDOM_PRACTICE_SCOPE.intervals).toEqual(['major-third', 'perfect-fourth', 'perfect-fifth'])
+    expect(DEFAULT_RANDOM_PRACTICE_SCOPE.keyRoots).toEqual(['C', 'G', 'D', 'F'])
+    expect(DEFAULT_RANDOM_PRACTICE_SCOPE.degrees).toEqual([1, 3, 5])
+  })
+
+  it('only generates question types and targets from the allowed random scope', () => {
+    const randomScope: RandomPracticeScope = {
+      types: ['interval'],
+      notes: ['C'],
+      strings: [4],
+      intervals: ['perfect-fifth'],
+      keyRoots: ['G'],
+      degrees: [3],
+    }
+    const question = makeConfiguredPracticeQuestion(fretboard, {
+      type: 'random',
+      range: { minFret: 0, maxFret: 12 },
+      randomScope,
+      random: () => 0,
+    })
+
+    expect(question.type).toBe('interval')
+    expect(question.prompt).toBe('找出 C 上方纯五度 G')
+  })
+
+  it('does not leave the allowed scope when avoiding the previous random type', () => {
+    const randomScope: RandomPracticeScope = {
+      types: ['identify-note'],
+      notes: ['A'],
+      strings: [4],
+      intervals: ['major-third'],
+      keyRoots: ['C'],
+      degrees: [1],
+    }
+    const question = makeConfiguredPracticeQuestion(fretboard, {
+      type: 'random',
+      range: { minFret: 0, maxFret: 4 },
+      randomScope,
+      avoidType: 'identify-note',
+      random: () => 0,
+    })
+
+    expect(question.type).toBe('identify-note')
+    expect(question.expectedAnswers[0]?.stringNumber).toBe(4)
   })
 
   it('summarizes saved practice sessions with weighted accuracy, response time, and weak areas', () => {

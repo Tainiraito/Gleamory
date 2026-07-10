@@ -69,6 +69,15 @@ export type QuizType = 'find-note' | 'identify-note' | 'octave' | 'interval' | '
 export type IntervalId = 'major-third' | 'perfect-fourth' | 'perfect-fifth' | 'minor-seventh'
 export type MajorScaleDegree = 1 | 3 | 5 | 7
 
+export interface RandomPracticeScope {
+  types: QuizType[]
+  notes: PitchClass[]
+  strings: FretPosition['stringNumber'][]
+  intervals: IntervalId[]
+  keyRoots: PitchClass[]
+  degrees: MajorScaleDegree[]
+}
+
 export interface QuizQuestion {
   id: string
   type: QuizType
