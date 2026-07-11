@@ -19,7 +19,7 @@ import {
   makeConfiguredPracticeQuestion,
   summarizePractice,
 } from '@/lib/guitarFretboard/quiz'
-import { buildDailyRecords, getLocalDateKey, getRecentPracticeDays, summarizeSessionsForDate } from '@/lib/guitarFretboard/practiceHistory'
+import { addSessionToDailyRecords, getLocalDateKey, getRecentPracticeDays, summarizeSessionsForDate } from '@/lib/guitarFretboard/practiceHistory'
 import { loadFretboardState, saveFretboardState } from '@/lib/guitarFretboard/storage'
 import { getTuningPreset, transposeString, transposeTuning } from '@/lib/guitarFretboard/tuning'
 import type {
@@ -851,7 +851,7 @@ const GuitarFretboardTrainerPage = () => {
     )
     const nextSession = sessionFromResult(currentQuestion, nextAnswer)
     const nextSessions = [nextSession, ...sessions].slice(0, 5000)
-    const nextDailyRecords = buildDailyRecords(nextSessions)
+    const nextDailyRecords = addSessionToDailyRecords(dailyRecords, nextSession)
     setAnswer(nextAnswer)
     setSessions(nextSessions)
     setDailyRecords(nextDailyRecords)

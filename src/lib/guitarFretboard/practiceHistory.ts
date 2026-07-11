@@ -58,6 +58,26 @@ export function buildDailyRecords(sessions: PracticeSession[]): Record<string, D
   return records
 }
 
+export function addSessionToDailyRecords(
+  records: Record<string, DailyPracticeRecord>,
+  session: PracticeSession,
+): Record<string, DailyPracticeRecord> {
+  const date = getSessionDate(session)
+  if (!date) return records
+  const previous = records[date]
+  const record: DailyPracticeRecord = previous
+    ? { ...previous, byQuizType: { ...previous.byQuizType } }
+    : { date, ...emptyStats(), byQuizType: {} }
+  addSession(record, session)
+  if (session.quizType) {
+    const previousType = record.byQuizType[session.quizType]
+    const typeStats = previousType ? { ...previousType } : emptyStats()
+    addSession(typeStats, session)
+    record.byQuizType[session.quizType] = typeStats
+  }
+  return { ...records, [date]: record }
+}
+
 export function summarizeSessionsForDate(
   sessions: PracticeSession[],
   date: string,

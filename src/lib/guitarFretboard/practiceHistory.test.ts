@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PracticeSession } from './types'
 import {
   buildDailyRecords,
+  addSessionToDailyRecords,
   getLocalDateKey,
   getPracticeLevel,
   getRecentPracticeDays,
@@ -65,6 +66,18 @@ describe('practice history', () => {
 
     expect(records['2026-07-11']).toMatchObject({ totalQuestions: 2, correctQuestions: 1, totalResponseMs: 5000 })
     expect(records['2026-07-11']?.byQuizType.interval).toMatchObject({ totalQuestions: 1, correctQuestions: 0, totalResponseMs: 3000 })
+  })
+
+  it('increments one day without dropping existing historical aggregates', () => {
+    const existing = {
+      '2026-01-01': { date: '2026-01-01', totalQuestions: 3, correctQuestions: 2, totalResponseMs: 6000, byQuizType: {} },
+    }
+
+    const next = addSessionToDailyRecords(existing, makeSession())
+
+    expect(next['2026-01-01']?.totalQuestions).toBe(3)
+    expect(next['2026-07-11']).toMatchObject({ totalQuestions: 1, correctQuestions: 1, totalResponseMs: 2000 })
+    expect(next).not.toBe(existing)
   })
 
   it('returns a continuous recent-day series ending today', () => {
