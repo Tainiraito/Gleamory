@@ -206,11 +206,12 @@ function ButtonGroup<T extends string | number>({ label, options, value, onChang
           <button
             key={option.value}
             type="button"
+            aria-label={option.label}
             aria-pressed={value === option.value}
             disabled={disabled}
             onClick={() => onChange(option.value)}
           >
-            {option.label}
+            <GlossaryText text={option.label} interactive={false} />
           </button>
         ))}
       </div>
@@ -238,6 +239,7 @@ function MultiButtonGroup<T extends string | number>({ label, options, values, o
             <button
               key={option.value}
               type="button"
+              aria-label={option.label}
               aria-pressed={isSelected}
               onClick={() => {
                 if (isSelected && values.length === 1) {
@@ -247,7 +249,7 @@ function MultiButtonGroup<T extends string | number>({ label, options, values, o
                 onChange(isSelected ? values.filter((value) => value !== option.value) : [...values, option.value])
               }}
             >
-              {option.label}
+              <GlossaryText text={option.label} interactive={false} />
             </button>
           )
         })}

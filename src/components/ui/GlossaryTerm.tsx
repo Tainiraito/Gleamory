@@ -5,24 +5,34 @@ import { glossaryById, tokenizeGlossaryText } from '@/data/glossary'
 interface GlossaryTermProps {
   termId: string
   children?: ReactNode
-  depth?: number
   path?: string[]
+  interactive?: boolean
 }
 
 interface GlossaryTextProps {
   text: string
+  interactive?: boolean
 }
 
-const MAX_NESTING_DEPTH = 3
+const HOVER_OPEN_DELAY_MS = 500
 const CLOSE_DELAY_MS = 120
 
-export function GlossaryTerm({ termId, children, depth = 0, path = [] }: GlossaryTermProps) {
+export function GlossaryTerm({ termId, children, path = [], interactive = true }: GlossaryTermProps) {
   const entry = glossaryById.get(termId)
   const triggerRef = useRef<HTMLSpanElement>(null)
+  const openTimerRef = useRef<number | null>(null)
   const closeTimerRef = useRef<number | null>(null)
   const [isOpen, setIsOpen] = useState(false)
+  const [isHoverPending, setIsHoverPending] = useState(false)
   const [position, setPosition] = useState<CSSProperties>({})
-  const isBlocked = depth >= MAX_NESTING_DEPTH || path.includes(termId)
+  const isBlocked = path.includes(termId)
+
+  const clearOpenTimer = () => {
+    if (openTimerRef.current === null) return
+    window.clearTimeout(openTimerRef.current)
+    openTimerRef.current = null
+    setIsHoverPending(false)
+  }
 
   const clearCloseTimer = () => {
     if (closeTimerRef.current === null) return
@@ -30,12 +40,25 @@ export function GlossaryTerm({ termId, children, depth = 0, path = [] }: Glossar
     closeTimerRef.current = null
   }
 
-  const open = () => {
+  const openImmediately = () => {
+    clearOpenTimer()
     clearCloseTimer()
     setIsOpen(true)
   }
 
+  const scheduleOpen = () => {
+    clearCloseTimer()
+    if (isOpen || openTimerRef.current !== null) return
+    setIsHoverPending(true)
+    openTimerRef.current = window.setTimeout(() => {
+      openTimerRef.current = null
+      setIsHoverPending(false)
+      setIsOpen(true)
+    }, HOVER_OPEN_DELAY_MS)
+  }
+
   const scheduleClose = () => {
+    clearOpenTimer()
     clearCloseTimer()
     closeTimerRef.current = window.setTimeout(() => setIsOpen(false), CLOSE_DELAY_MS)
   }
@@ -60,7 +83,10 @@ export function GlossaryTerm({ termId, children, depth = 0, path = [] }: Glossar
     }
   }, [isOpen])
 
-  useEffect(() => () => clearCloseTimer(), [])
+  useEffect(() => () => {
+    if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current)
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+  }, [])
 
   if (!entry || isBlocked) return <>{children ?? entry?.label ?? termId}</>
 
@@ -69,21 +95,31 @@ export function GlossaryTerm({ termId, children, depth = 0, path = [] }: Glossar
       <span
         ref={triggerRef}
         className="glossary-term"
-        tabIndex={0}
+        tabIndex={interactive ? 0 : undefined}
         aria-expanded={isOpen}
-        onMouseEnter={open}
+        onMouseEnter={scheduleOpen}
         onMouseLeave={scheduleClose}
-        onFocus={open}
-        onBlur={scheduleClose}
-        onClick={() => setIsOpen((current) => !current)}
+        onFocus={interactive ? openImmediately : undefined}
+        onBlur={interactive ? scheduleClose : undefined}
+        onClick={interactive ? () => (isOpen ? setIsOpen(false) : openImmediately()) : undefined}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
+            clearOpenTimer()
             clearCloseTimer()
             setIsOpen(false)
+          } else if (interactive && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault()
+            openImmediately()
           }
         }}
       >
         {children ?? entry.label}
+        {isHoverPending && (
+          <svg className="glossary-hover-progress" data-testid="glossary-hover-progress" viewBox="0 0 16 16" aria-hidden="true">
+            <circle className="glossary-hover-track" cx="8" cy="8" r="6" />
+            <circle className="glossary-hover-value" cx="8" cy="8" r="6" />
+          </svg>
+        )}
       </span>
       {isOpen &&
         createPortal(
@@ -101,7 +137,7 @@ export function GlossaryTerm({ termId, children, depth = 0, path = [] }: Glossar
               <div className="glossary-related">
                 <span>相关词条</span>
                 {entry.relatedTerms.map((relatedId) => (
-                  <GlossaryTerm key={relatedId} termId={relatedId} depth={depth + 1} path={[...path, termId]} />
+                  <GlossaryTerm key={relatedId} termId={relatedId} path={[...path, termId]} />
                 ))}
               </div>
             )}
@@ -112,10 +148,10 @@ export function GlossaryTerm({ termId, children, depth = 0, path = [] }: Glossar
   )
 }
 
-export function GlossaryText({ text }: GlossaryTextProps) {
+export function GlossaryText({ text, interactive = true }: GlossaryTextProps) {
   return tokenizeGlossaryText(text).map((token, index) =>
     token.type === 'term' ? (
-      <GlossaryTerm key={`${token.termId}-${index}`} termId={token.termId}>
+      <GlossaryTerm key={`${token.termId}-${index}`} termId={token.termId} interactive={interactive}>
         {token.value}
       </GlossaryTerm>
     ) : (

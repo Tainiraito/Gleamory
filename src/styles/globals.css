@@ -212,6 +212,7 @@ body {
 }
 
 .glossary-term {
+  position: relative;
   color: inherit;
   text-decoration-line: underline;
   text-decoration-style: dashed;
@@ -219,6 +220,41 @@ body {
   text-underline-offset: 0.22em;
   cursor: help;
   outline: none;
+}
+
+.glossary-hover-progress {
+  position: absolute;
+  z-index: 1;
+  top: -0.75rem;
+  right: -0.65rem;
+  width: 1rem;
+  height: 1rem;
+  pointer-events: none;
+  transform: rotate(-90deg);
+}
+
+.glossary-hover-track,
+.glossary-hover-value {
+  fill: #fffdf9;
+  stroke-width: 2;
+}
+
+.glossary-hover-track {
+  stroke: rgba(44, 42, 48, 0.14);
+}
+
+.glossary-hover-value {
+  stroke: var(--accent-amber);
+  stroke-linecap: round;
+  stroke-dasharray: 37.7;
+  stroke-dashoffset: 37.7;
+  animation: glossary-hover-progress 500ms linear forwards;
+}
+
+@keyframes glossary-hover-progress {
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 .glossary-term:focus-visible {

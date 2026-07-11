@@ -200,6 +200,7 @@ describe('GuitarFretboardTrainerPage', () => {
     expect(screen.getByRole('button', { name: '根音 C' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '全部音' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: '全部把位' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '大调音阶' }).querySelector('.glossary-term')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '大调音阶' }))
     expect(rootGroup).not.toHaveAttribute('data-disabled', 'true')

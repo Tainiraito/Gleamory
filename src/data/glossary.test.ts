@@ -18,4 +18,18 @@ describe('tokenizeGlossaryText', () => {
       { type: 'term', value: '音级', termId: 'scale-degree' },
     ])
   })
+
+  it('recognizes the scale and chord names shown in the map', () => {
+    expect(tokenizeGlossaryText('自然小调 小五声音阶 大三和弦 小三和弦 属七和弦')).toEqual([
+      { type: 'term', value: '自然小调', termId: 'natural-minor-scale' },
+      { type: 'text', value: ' ' },
+      { type: 'term', value: '小五声音阶', termId: 'minor-pentatonic-scale' },
+      { type: 'text', value: ' ' },
+      { type: 'term', value: '大三和弦', termId: 'major-triad' },
+      { type: 'text', value: ' ' },
+      { type: 'term', value: '小三和弦', termId: 'minor-triad' },
+      { type: 'text', value: ' ' },
+      { type: 'term', value: '属七和弦', termId: 'dominant-seventh-chord' },
+    ])
+  })
 })
