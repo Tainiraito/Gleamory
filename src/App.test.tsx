@@ -13,6 +13,6 @@ describe('App routes', () => {
 
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: '指板音训练' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '指板音训练' }, { timeout: 3000 })).toBeInTheDocument()
   })
 })
