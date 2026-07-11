@@ -114,8 +114,26 @@ export interface PracticeSession extends PracticeSummary {
   id: string
   startedAt: string
   endedAt: string
+  localDate?: string
+  quizType?: QuizType
+  isCorrect?: boolean
   questionPrompt?: string
   responseMs?: number
+}
+
+export interface DailyQuizTypeStats {
+  totalQuestions: number
+  correctQuestions: number
+  totalResponseMs: number
+}
+
+export interface DailyPracticeRecord extends DailyQuizTypeStats {
+  date: string
+  byQuizType: Partial<Record<QuizType, DailyQuizTypeStats>>
+}
+
+export interface PracticeDay extends DailyPracticeRecord {
+  level: 0 | 1 | 2 | 3 | 4
 }
 
 export interface SkillState {
@@ -133,6 +151,7 @@ export interface SkillState {
 export interface StoredFretboardState {
   settings: FretboardSettings
   sessions: PracticeSession[]
+  dailyRecords: Record<string, DailyPracticeRecord>
   skillStates: Record<string, SkillState>
 }
 
