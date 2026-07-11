@@ -46,13 +46,17 @@ describe('GlossaryTerm', () => {
     render(<GlossaryTerm termId="interval" />)
 
     fireEvent.focus(screen.getByText('音程'))
-    const first = screen.getAllByRole('tooltip').at(-1)!
+    const firstTooltips = screen.getAllByRole('tooltip')
+    const first = firstTooltips[firstTooltips.length - 1]!
     fireEvent.focus(within(first).getByText('纯五度'))
-    const second = screen.getAllByRole('tooltip').at(-1)!
+    const secondTooltips = screen.getAllByRole('tooltip')
+    const second = secondTooltips[secondTooltips.length - 1]!
     fireEvent.focus(within(second).getByText('根音'))
-    const third = screen.getAllByRole('tooltip').at(-1)!
+    const thirdTooltips = screen.getAllByRole('tooltip')
+    const third = thirdTooltips[thirdTooltips.length - 1]!
     fireEvent.focus(within(third).getByText('大调'))
-    const fourth = screen.getAllByRole('tooltip').at(-1)!
+    const fourthTooltips = screen.getAllByRole('tooltip')
+    const fourth = fourthTooltips[fourthTooltips.length - 1]!
     fireEvent.focus(within(fourth).getByText('音阶'))
 
     expect(screen.getAllByRole('tooltip')).toHaveLength(5)

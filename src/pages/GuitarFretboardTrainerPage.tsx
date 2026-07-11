@@ -4,6 +4,9 @@ import BackFooter from '@/components/BackFooter'
 import { Fretboard } from '@/components/guitar-fretboard/Fretboard'
 import { QuizPanel } from '@/components/guitar-fretboard/QuizPanel'
 import { TuningSettings } from '@/components/guitar-fretboard/TuningSettings'
+import { PracticeStats } from '@/components/guitar-fretboard/PracticeStats'
+import { PracticeDetailDialog } from '@/components/guitar-fretboard/PracticeDetailDialog'
+import { PracticeHeatmap } from '@/components/guitar-fretboard/PracticeHeatmap'
 import { GlossaryText } from '@/components/ui/GlossaryTerm'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useGuitarSampleAudio } from '@/hooks/useGuitarSampleAudio'
@@ -15,8 +18,8 @@ import {
   judgeQuizAnswer,
   makeConfiguredPracticeQuestion,
   summarizePractice,
-  summarizePracticeSessions,
 } from '@/lib/guitarFretboard/quiz'
+import { buildDailyRecords, getLocalDateKey, getRecentPracticeDays, summarizeSessionsForDate } from '@/lib/guitarFretboard/practiceHistory'
 import { loadFretboardState, saveFretboardState } from '@/lib/guitarFretboard/storage'
 import { getTuningPreset, transposeString, transposeTuning } from '@/lib/guitarFretboard/tuning'
 import type {
@@ -29,6 +32,7 @@ import type {
   NoteDisplayDurationMs,
   PitchClass,
   PracticeSession,
+  PracticeDay,
   PracticeSummary as PracticeSummaryModel,
   QuizAnswer,
   QuizQuestion,
@@ -149,14 +153,13 @@ function sessionFromResult(question: QuizQuestion, answer: QuizAnswer): Practice
     id: `session-${answer.answeredAt}`,
     startedAt: question.createdAt,
     endedAt: answer.answeredAt,
+    localDate: getLocalDateKey(new Date(answer.answeredAt)),
+    quizType: question.type,
+    isCorrect: answer.isCorrect,
     questionPrompt: question.prompt,
     responseMs: answer.responseMs,
     ...summary,
   }
-}
-
-function formatResponseTime(ms: number): string {
-  return ms > 0 ? `${(ms / 1000).toFixed(2)} 秒` : '--'
 }
 
 interface ViewIntroProps {
@@ -260,11 +263,14 @@ function MultiButtonGroup<T extends string | number>({ label, options, values, o
 
 interface DailyPracticePanelProps {
   summary: PracticeSummaryModel
+  days: PracticeDay[]
   config: PracticeConfig
   onConfigChange: (config: PracticeConfig) => void
+  onOpenDetails: () => void
+  onSelectDate: (date: string) => void
 }
 
-function DailyPracticePanel({ summary, config, onConfigChange }: DailyPracticePanelProps) {
+function DailyPracticePanel({ summary, days, config, onConfigChange, onOpenDetails, onSelectDate }: DailyPracticePanelProps) {
   const [constraintMessage, setConstraintMessage] = useState('')
   const updateConfig = <K extends keyof PracticeConfig>(key: K, value: PracticeConfig[K]) => {
     setConstraintMessage('')
@@ -287,8 +293,8 @@ function DailyPracticePanel({ summary, config, onConfigChange }: DailyPracticePa
         eyebrow="今日训练计划"
         title="五类题型短练习"
         body="随机混合可以直接开始；自选题目可指定题型、范围和目标参数。"
-        badges={[`已完成 ${summary.totalQuestions} 题`, `正确率 ${Math.round(summary.accuracy * 100)}%`, `平均反应 ${formatResponseTime(summary.averageResponseMs)}`]}
       />
+      <PracticeStats summary={summary} onOpen={onOpenDetails} />
       <div className="fretboard-practice-controls">
         <ButtonGroup label="出题方式" options={practiceModeOptions} value={config.mode} onChange={(value) => updateConfig('mode', value)} />
         {config.mode === 'random' && (
@@ -411,6 +417,7 @@ function DailyPracticePanel({ summary, config, onConfigChange }: DailyPracticePa
         />
         {constraintMessage && <p className="fretboard-config-message" role="status">{constraintMessage}</p>}
       </div>
+      <PracticeHeatmap days={days} onSelectDate={onSelectDate} />
     </div>
   )
 }
@@ -545,7 +552,9 @@ const GuitarFretboardTrainerPage = () => {
   const [activeTab, setActiveTab] = useState<TrainerTab>('今日练习')
   const [settings, setSettings] = useState(initialState.settings)
   const [sessions, setSessions] = useState(initialState.sessions)
-  const [dailyRecords] = useState(initialState.dailyRecords)
+  const [dailyRecords, setDailyRecords] = useState(initialState.dailyRecords)
+  const [todayDateKey, setTodayDateKey] = useState(() => getLocalDateKey(new Date()))
+  const [detailDate, setDetailDate] = useState<string | null>(null)
   const [, setPracticeIndex] = useState(0)
   const [practiceConfig, setPracticeConfig] = useState<PracticeConfig>(defaultPracticeConfig)
   const [questionNonce, setQuestionNonce] = useState(0)
@@ -594,7 +603,11 @@ const GuitarFretboardTrainerPage = () => {
     () => new Set((currentQuestion.referencePositions ?? []).map(getPositionKey)),
     [currentQuestion.referencePositions],
   )
-  const latestSummary = useMemo(() => summarizePracticeSessions(sessions), [sessions])
+  const latestSummary = useMemo(() => summarizeSessionsForDate(sessions, todayDateKey), [sessions, todayDateKey])
+  const practiceDays = useMemo(() => {
+    const [year, month, day] = todayDateKey.split('-').map(Number)
+    return getRecentPracticeDays(dailyRecords, new Date(year!, month! - 1, day!), 365)
+  }, [dailyRecords, todayDateKey])
   const mapRange = getMapRange(mapRangeId)
   const mapPitchClasses = getMapPitchClasses(mapRoot, mapPattern)
   const mapSelectedPitchClasses = useMemo(
@@ -628,6 +641,11 @@ const GuitarFretboardTrainerPage = () => {
       timers.forEach((ids) => ids.forEach(window.clearTimeout))
       timers.clear()
     }
+  }, [])
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTodayDateKey(getLocalDateKey(new Date())), 60_000)
+    return () => window.clearInterval(id)
   }, [])
 
   const persistSettings = (nextSettings: typeof settings, nextSessions = sessions) => {
@@ -832,10 +850,12 @@ const GuitarFretboardTrainerPage = () => {
       option,
     )
     const nextSession = sessionFromResult(currentQuestion, nextAnswer)
-    const nextSessions = [nextSession, ...sessions].slice(0, 1000)
+    const nextSessions = [nextSession, ...sessions].slice(0, 5000)
+    const nextDailyRecords = buildDailyRecords(nextSessions)
     setAnswer(nextAnswer)
     setSessions(nextSessions)
-    saveFretboardState({ settings, sessions: nextSessions, dailyRecords, skillStates: initialState.skillStates })
+    setDailyRecords(nextDailyRecords)
+    saveFretboardState({ settings, sessions: nextSessions, dailyRecords: nextDailyRecords, skillStates: initialState.skillStates })
   }
 
   const handleSubmit = () => submitAnswer()
@@ -996,8 +1016,11 @@ const GuitarFretboardTrainerPage = () => {
                 <div className="fretboard-stack">
                   <DailyPracticePanel
                     summary={latestSummary}
+                    days={practiceDays}
                     config={practiceConfig}
                     onConfigChange={applyPracticeConfig}
+                    onOpenDetails={() => setDetailDate(todayDateKey)}
+                    onSelectDate={setDetailDate}
                   />
                 </div>
               )}
@@ -1052,6 +1075,8 @@ const GuitarFretboardTrainerPage = () => {
           </div>
         </section>
       </main>
+
+      {detailDate && <PracticeDetailDialog date={detailDate} sessions={sessions} onClose={() => setDetailDate(null)} />}
 
       <BackFooter />
     </div>

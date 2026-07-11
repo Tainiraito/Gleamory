@@ -72,7 +72,7 @@ describe('practice history', () => {
 
     expect(days).toHaveLength(365)
     expect(days[0]?.date).toBe('2025-07-12')
-    expect(days.at(-1)?.date).toBe('2026-07-11')
+    expect(days[days.length - 1]?.date).toBe('2026-07-11')
     expect(days.every((day) => day.level === 0)).toBe(true)
   })
 })

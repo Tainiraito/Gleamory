@@ -81,6 +81,33 @@ describe('GuitarFretboardTrainerPage', () => {
     expect(screen.getByRole('button', { name: '跳过此题' })).toBeInTheDocument()
   })
 
+  it('shows local-today stats, opens type details, and renders 365 history days', () => {
+    localStorage.setItem('gleamory:guitar-fretboard-trainer:state', JSON.stringify({
+      settings: { tuning: { id: 'standard' }, fretCount: 24, accidental: 'sharp', mode: 'hidden', noteDisplayMs: null },
+      sessions: [{
+        id: 'old-session', startedAt: '1999-01-01T00:00:00.000Z', endedAt: '1999-01-01T00:00:02.000Z', localDate: '1999-01-01',
+        quizType: 'find-note', isCorrect: true, questionPrompt: '找出所有 C', responseMs: 2000,
+        totalQuestions: 1, correctQuestions: 1, accuracy: 1, averageResponseMs: 2000, weakNotes: [],
+      }],
+      skillStates: {},
+    }))
+    render(
+      <MemoryRouter>
+        <GuitarFretboardTrainerPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('button', { name: '已完成 0 题' })).toBeInTheDocument()
+    const heatmap = screen.getByLabelText('每日练习热力图')
+    expect(within(heatmap).getAllByRole('button')).toHaveLength(365)
+
+    fireEvent.click(screen.getByRole('button', { name: '提交答案' }))
+    fireEvent.click(screen.getByRole('button', { name: '已完成 1 题' }))
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '题型筛选' })).toBeInTheDocument()
+  })
+
   it('removes nonessential practice and settings side panels', () => {
     render(
       <MemoryRouter>

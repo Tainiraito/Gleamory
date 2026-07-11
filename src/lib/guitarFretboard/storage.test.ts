@@ -68,7 +68,7 @@ describe('guitar fretboard local storage', () => {
     expect(state.settings.noteDisplayMs).toBe(3000)
     expect(state.sessions).toHaveLength(5000)
     expect(state.sessions[0]?.id).toBe('session-0')
-    expect(state.sessions.at(-1)?.id).toBe('session-4999')
+    expect(state.sessions[state.sessions.length - 1]?.id).toBe('session-4999')
     expect(state.skillStates['note:C']?.wrong).toBe(1)
   })
 
