@@ -253,7 +253,7 @@ describe('GuitarFretboardTrainerPage', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: '设置' }))
     fireEvent.click(screen.getByRole('button', { name: '不显示点击音名' }))
-    fireEvent.click(screen.getByRole('tab', { name: '今日练习' }))
+    fireEvent.click(screen.getByRole('tab', { name: '指板地图' }))
 
     const hiddenFretboard = screen.getByLabelText('吉他指板')
     const hiddenTarget = within(hiddenFretboard).getByRole('button', { name: '5弦 3品 C3' })
@@ -262,7 +262,7 @@ describe('GuitarFretboardTrainerPage', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: '设置' }))
     fireEvent.click(screen.getByRole('button', { name: '1 秒后淡出' }))
-    fireEvent.click(screen.getByRole('tab', { name: '今日练习' }))
+    fireEvent.click(screen.getByRole('tab', { name: '指板地图' }))
 
     const timedFretboard = screen.getByLabelText('吉他指板')
     const timedTarget = within(timedFretboard).getByRole('button', { name: '5弦 3品 C3' })
@@ -287,7 +287,7 @@ describe('GuitarFretboardTrainerPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: '设置' }))
     fireEvent.click(screen.getByRole('button', { name: '全部音名' }))
     fireEvent.click(screen.getByRole('button', { name: '1 秒后淡出' }))
-    fireEvent.click(screen.getByRole('tab', { name: '今日练习' }))
+    fireEvent.click(screen.getByRole('tab', { name: '指板地图' }))
 
     const fretboard = screen.getByLabelText('吉他指板')
     const clickedTarget = within(fretboard).getByRole('button', { name: '5弦 3品 C3' })
@@ -314,12 +314,53 @@ describe('GuitarFretboardTrainerPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: '设置' }))
     fireEvent.click(screen.getByRole('button', { name: '全部音名' }))
     fireEvent.click(screen.getByRole('button', { name: '不显示点击音名' }))
-    fireEvent.click(screen.getByRole('tab', { name: '今日练习' }))
+    fireEvent.click(screen.getByRole('tab', { name: '指板地图' }))
 
     const target = within(screen.getByLabelText('吉他指板')).getByRole('button', { name: '5弦 3品 C3' })
     expect(target).toHaveTextContent('C')
     fireEvent.click(target)
     expect(target).toHaveTextContent('')
+  })
+
+  it('removes explorer selection and its note when the display timer ends', () => {
+    vi.useFakeTimers()
+    render(
+      <MemoryRouter>
+        <GuitarFretboardTrainerPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: '设置' }))
+    fireEvent.click(screen.getByRole('button', { name: '1 秒后淡出' }))
+    fireEvent.click(screen.getByRole('tab', { name: '指板地图' }))
+    const target = within(screen.getByLabelText('吉他指板')).getByRole('button', { name: '5弦 3品 C3' })
+
+    fireEvent.click(target)
+    expect(target).toHaveAttribute('data-state', 'selected')
+    act(() => vi.advanceTimersByTime(1000))
+
+    expect(target).toHaveAttribute('data-state', 'idle')
+    expect(target).toHaveTextContent('')
+  })
+
+  it('never fades selected answers in daily practice', () => {
+    vi.useFakeTimers()
+    render(
+      <MemoryRouter>
+        <GuitarFretboardTrainerPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: '设置' }))
+    fireEvent.click(screen.getByRole('button', { name: '1 秒后淡出' }))
+    fireEvent.click(screen.getByRole('tab', { name: '今日练习' }))
+    const target = within(screen.getByLabelText('吉他指板')).getByRole('button', { name: '5弦 3品 C3' })
+
+    fireEvent.click(target)
+    act(() => vi.advanceTimersByTime(5000))
+
+    expect(target).toHaveAttribute('data-state', 'selected')
+    expect(target).toHaveTextContent('C')
   })
 
   it('lets users skip the current question and manually choose another practice range', () => {

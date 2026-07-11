@@ -543,6 +543,7 @@ const GuitarFretboardTrainerPage = () => {
   const [activeTab, setActiveTab] = useState<TrainerTab>('今日练习')
   const [settings, setSettings] = useState(initialState.settings)
   const [sessions, setSessions] = useState(initialState.sessions)
+  const [dailyRecords] = useState(initialState.dailyRecords)
   const [, setPracticeIndex] = useState(0)
   const [practiceConfig, setPracticeConfig] = useState<PracticeConfig>(defaultPracticeConfig)
   const [questionNonce, setQuestionNonce] = useState(0)
@@ -628,7 +629,7 @@ const GuitarFretboardTrainerPage = () => {
   }, [])
 
   const persistSettings = (nextSettings: typeof settings, nextSessions = sessions) => {
-    saveFretboardState({ settings: nextSettings, sessions: nextSessions, skillStates: initialState.skillStates })
+    saveFretboardState({ settings: nextSettings, sessions: nextSessions, dailyRecords, skillStates: initialState.skillStates })
   }
 
   const clearRevealTimersForKey = (key: string) => {
@@ -734,6 +735,12 @@ const GuitarFretboardTrainerPage = () => {
           return next
         })
         setSuppressedKeys((previous) => new Set(previous).add(key))
+        setSelectedKeys((previous) => {
+          const next = new Set(previous)
+          next.delete(key)
+          return next
+        })
+        setSelectedPositions((previous) => previous.filter((candidate) => getPositionKey(candidate) !== key))
         revealTimersRef.current.delete(key)
       }, settings.noteDisplayMs),
     )
@@ -749,11 +756,23 @@ const GuitarFretboardTrainerPage = () => {
     if (isPracticeSurface && currentQuestion.type === 'identify-note') return
 
     void playPosition(position)
-    revealPosition(position)
+
+    const key = getPositionKey(position)
+    if (isPracticeSurface) {
+      clearRevealTimersForKey(key)
+      setSuppressedKeys((previous) => {
+        const next = new Set(previous)
+        next.delete(key)
+        return next
+      })
+      setRevealedKeys((previous) => new Set(previous).add(key))
+    } else {
+      revealPosition(position)
+      if (settings.noteDisplayMs === 0) return
+    }
 
     if (answer) return
 
-    const key = getPositionKey(position)
     setSelectedKeys((previous) => {
       if (previous.has(key)) return previous
       const next = new Set(previous)
@@ -814,7 +833,7 @@ const GuitarFretboardTrainerPage = () => {
     const nextSessions = [nextSession, ...sessions].slice(0, 1000)
     setAnswer(nextAnswer)
     setSessions(nextSessions)
-    saveFretboardState({ settings, sessions: nextSessions, skillStates: initialState.skillStates })
+    saveFretboardState({ settings, sessions: nextSessions, dailyRecords, skillStates: initialState.skillStates })
   }
 
   const handleSubmit = () => submitAnswer()
