@@ -64,6 +64,21 @@
       "updatedAt": "2026-07-07"
     },
     {
+      "id": "guitar-fretboard-trainer",
+      "name": "指板音训练",
+      "description": "用测验、指板地图和采样音色练熟吉他弦位与音名",
+      "url": "#/guitar-fretboard-trainer",
+      "status": "开发中",
+      "tags": [
+        "小工具",
+        "音乐",
+        "练习"
+      ],
+      "cover": "",
+      "version": "v0.2.0",
+      "updatedAt": "2026-07-13"
+    },
+    {
       "id": "netease-cover",
       "name": "网易云封面提取",
       "description": "从网易云音乐网页版提取专辑封面，一键下载高清原图",

@@ -18,6 +18,7 @@
 - `#/gacha-simulator`：翻牌抽卡
 - `#/piano`：Web Audio 极简钢琴
 - `#/metronome`：支持小节编辑和变速模式的节拍器
+- `#/guitar-fretboard-trainer`：通过五类测验、可交互指板地图和本地练习记录熟悉吉他弦位与音名
 - `#/audio-separator`：浏览器本地音轨分离，支持 HT-Demucs 高质量四分轨
 
 ### 插件说明页
