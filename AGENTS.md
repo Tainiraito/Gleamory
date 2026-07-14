@@ -1,185 +1,249 @@
-# AGENTS.md - Gleamory
+# AGENTS.md - Gleamory 项目协作指南
 
-本文件用于指导 Codex 和其他 LLM 在本项目中工作。除非用户另有明确要求，所有分析、回复、文档和说明都使用中文。
+本文件适用于仓库根目录及其全部子目录。若更深目录存在 `AGENTS.md`，以更深层文件的局部规则为准；用户的明确要求始终优先。
 
-## 项目定位
+除非用户另有要求，分析、回复、文档和 UI 文案使用中文，代码标识符使用英文。
 
-Gleamory 是一个个人微光工具站，当前重点包含浏览器本地运行的小工具，其中 `audio-source-separator` 是音频分离功能。项目是纯前端 React 单页应用，目标是在浏览器内完成处理，尽量不引入后端服务。
+## 项目目标与边界
 
-核心原则：
+Gleamory（微光集）是个人微产品入口站，也是多个浏览器本地工具的 React 单页应用。项目使用统一的暖纸杂志风格展示项目，并通过 Hash 路由承载抽卡、钢琴、节拍器、指板音训练、音轨分离和浏览器插件说明页。
 
-- 用户音频文件不得上传到远端服务。
-- 音频分离优先保持“浏览器本地推理、模型本地缓存”。
-- 不为了短期功能引入 Python 后端或桌面端依赖，除非用户明确改变产品方向。
-- UI 文案使用中文，代码标识符使用英文。
-- 优先做小而可验证的改动，避免 unrelated refactor。
-- 该功能后续要合并回 Gleamory 主项目，通过普通工具卡片进入，交互形态应与 Gleamory 其他卡片项目保持一致。
+必须保持以下边界：
 
-## 技术栈
+- 项目保持纯前端、静态部署；不要擅自引入后端、账号系统、数据库或云同步。
+- 用户选择的音频、图片和其他本地文件默认不得上传到远端服务。
+- 浏览器本地能力优先，包括 Web Audio、Web Worker、IndexedDB、`localStorage` 和 `sessionStorage`。
+- 不为临时功能引入桌面端或 Python 运行时，除非用户明确改变产品方向。
+- 优先做小而完整、可验证的改动，避免与目标无关的重写。
+- 需求或文档与当前实现冲突时，不要静默猜测；核对代码、数据源、CI 和最近变更，并在结论中说明差异。
 
-| 类别 | 技术 |
-| --- | --- |
-| 框架 | React |
-| 语言 | TypeScript |
-| 构建 | Vite |
-| 样式 | Tailwind CSS |
-| 测试 | Vitest |
-| 音频推理 | onnxruntime-web |
-| 存储 | IndexedDB 模型缓存 |
+## 技术栈与运行环境
 
-## 常用命令
+| 类别     | 当前实现                               |
+| -------- | -------------------------------------- |
+| 框架     | React 19、TypeScript 5.7               |
+| 构建     | Vite 6                                 |
+| 路由     | React Router 7、`HashRouter`           |
+| 样式     | Tailwind CSS 4、CSS 自定义属性         |
+| 动画     | Framer Motion 12                       |
+| 测试     | Vitest 4、Testing Library、jsdom       |
+| 音频推理 | Web Audio、Web Worker、onnxruntime-web |
+| 部署     | GitHub Pages、GitHub Actions           |
+
+CI 使用 Node.js 20 和 npm。仓库暂未通过 `engines` 固定本地 Node 版本，不要自行声称其他版本已受支持。
+
+首次安装或需要与锁文件严格一致时运行：
+
+```bash
+npm ci --legacy-peer-deps
+```
+
+只有在用户允许更新依赖或确实需要修改 `package-lock.json` 时，才运行：
 
 ```bash
 npm install --legacy-peer-deps
-npm run dev
-npm test
-npm run lint
-npm run build
 ```
 
-本地验证默认地址：
+常用命令：
+
+```bash
+npm run dev       # 本地开发，默认 http://localhost:5173
+npm test          # 全量 Vitest
+npm run lint      # ESLint
+npm run build     # TypeScript 构建检查 + Vite 生产构建
+npm run preview   # 预览 dist
+npm run format    # 写入式格式化，仅在任务允许修改格式时使用
+```
+
+在 WSL 中若 Vitest 因 Windows 临时目录出现 `ENOENT .../Temp/.../client`，可仅对当前命令使用：
+
+```bash
+TMPDIR=/tmp TMP=/tmp TEMP=/tmp npm test
+```
+
+不要为了规避本机环境问题修改项目测试配置。
+
+## 关键目录与事实来源
+
+| 路径                           | 职责                                         |
+| ------------------------------ | -------------------------------------------- |
+| `src/App.tsx`                  | 首页组合、懒加载页面和 Hash 路由入口         |
+| `src/pages/`                   | 工具页与插件说明页                           |
+| `src/components/`              | 首页、页面骨架和功能组件                     |
+| `src/components/ui/`           | 可复用基础 UI 组件                           |
+| `src/hooks/`                   | 浏览器生命周期、音频和交互状态               |
+| `src/lib/`                     | 可独立测试的业务逻辑与算法                   |
+| `src/workers/`                 | Worker 协议、推理调度和错误封装              |
+| `src/data/projects.json`       | 项目名称、描述、状态、版本和入口的唯一数据源 |
+| `src/data/timeline.json`       | 项目更新时间线数据源                         |
+| `src/styles/globals.css`       | 全站主题变量、字体和共享样式                 |
+| `src/types/index.ts`           | 项目与时间线等共享数据类型                   |
+| `.github/workflows/deploy.yml` | 生产部署和 CI 质量门槛                       |
+| `docs/requirements.md`         | 产品需求、验收规则和当前非目标               |
+
+判断当前行为时优先检查实际代码、配置和数据源；判断期望行为时同时检查 `docs/requirements.md`。README 或需求文档可能晚于代码更新，发现漂移应报告并仅在任务范围内修正。
+
+## 修改前检查
+
+开始改动前执行以下最小流程：
+
+1. 使用 `git status --short --branch` 确认当前分支和已有改动。
+2. 阅读目标文件、相邻实现、相关测试和适用的专项指南。
+3. 使用 `rg` 搜索相同组件、Hook、函数、数据字段和交互，先确认是否已有实现。
+4. 明确修改会读取或写入哪些浏览器状态、数据文件和外部资源。
+5. 选择最小验证集合；涉及运行时代码时，完成前还要通过完整质量门槛。
+
+不要清理、覆盖或回滚用户及其他代理的无关改动。
+
+## 代码组织规范
+
+### React 与 TypeScript
+
+- 保持 TypeScript 严格类型，不使用 `any` 逃避建模；未知外部数据先以 `unknown` 接收并校验。
+- 页面组件负责页面组合和交互状态；算法、持久化、解析和业务规则放入 `src/lib/`、Hook 或 Worker。
+- 可复用浏览器生命周期逻辑放入 Hook，并在卸载时清理事件、计时器、音频节点、Worker 和请求。
+- 非首页路由继续使用 `React.lazy`，避免首页加载未访问工具的业务代码。
+- 使用 `@/` 别名导入 `src` 内模块，避免层级过深的相对路径。
+- 注释只解释非显然的约束、算法、兼容性或权衡，不复述代码。
+- 新行为和缺陷修复应优先补充对应测试；纯展示文案或静态数据改动可按风险决定。
+
+### 复用优先，避免重复开发
+
+新建组件、Hook、工具函数或数据结构前，必须先搜索：
+
+- `src/components/`
+- `src/components/ui/`
+- `src/hooks/`
+- `src/lib/`
+- `src/utils/`
+- 相邻页面和测试
+
+复用判断顺序：
 
 ```text
-http://localhost:5173/#/audio-separator
+直接复用 → 组合复用 → 小幅扩展现有接口 → 提取稳定公共逻辑 → 新建独立实现
 ```
 
-## 代码结构重点
+具体规则：
 
-音频分离相关模块主要位于：
+- 现有实现能通过少量 props、配置或 children 满足需求时，扩展现有实现并补回归测试。
+- 不创建仅改变文案、颜色、图标或单个间距的平行组件。
+- 只有职责、状态模型、生命周期或无障碍语义明显不同时，才创建独立组件。
+- 只有重复逻辑已稳定、至少有两个调用方且抽象后接口更清晰时，才提取公共层。
+- 不把业务含义不同的组件强行合并成参数众多的“万能组件”。
+- 提取共享实现后，应迁移原调用点并删除被替代的重复实现，不能长期保留新旧两套。
+- 当前任务之外的重复代码只记录风险，不顺手做大范围重构。
 
-- `src/pages/AudioSeparatorPage.tsx`：音频分离页面和交互状态。
-- `src/workers/separator.worker.ts`：音频分离 worker、模型分发和日志。
-- `src/lib/onnx/modelRegistry.ts`：模型注册表、下载源、family/quality/输出 stem 配置。
-- `src/lib/onnx/indexedDBCache.ts`：模型下载、缓存、校验和存储配额。
-- `src/lib/audio/`：音频重采样、编码、分块、推理后处理。
+优先复用的现有入口：
 
-新增音频模型时，优先扩展 registry 和 engine，不要把模型逻辑硬编码在页面组件里。
+- 页面骨架：`SiteHeader`、`ProjectPageHeader`、`BackFooter`。
+- 页面标题：`useDocumentTitle`。
+- 插件说明页：配置驱动的 `PluginDetailPage`。
+- 基础控件：`src/components/ui/`。
+- 有范围限制的数字输入：`ClampedNumberInput`。
+- 术语解释：`GlossaryTerm`、`GlossaryText` 和 `src/data/glossary.ts`。
 
-## 音频分离规则
+## 样式与交互规范
 
-### 模型 family
+### 设计语言
 
-当前模型路线：
+- 保持暖纸、琥珀、墨黑、细边框和杂志式留白的全站视觉语言。
+- 颜色、字体、背景、边框和阴影优先使用 `src/styles/globals.css` 中的 CSS 自定义属性。
+- 布局和响应式优先使用 Tailwind 工具类；只有跨页面复用或复杂状态需要时才添加共享 CSS 类。
+- 不在多个组件重复硬编码同一颜色、阴影、圆角、间距组合或大段内联 `style`。
+- 需要新设计值时，先判断是否应成为全局 token；局部特例必须保持局部，不污染通用主题。
+- 不因新增页面而引入与现有站点割裂的第二套设计系统。
 
-- `spleeter`：快速模式，质量一般，保留为轻量兜底。
-- `htdemucs`：高质量模式，已实测效果较好，是当前主线。
-- `uvr-mdx`：候补路线，用于适配 UVR / MDX-Net ONNX 模型。
-- `uvr-mdxc`：候补路线，暂不默认暴露为可运行模型，除非完成浏览器 ONNX 兼容验证。
+### 页面与状态
 
-worker 协议应以 `jobs: { stem, modelId }[]` 为中心，由 `model.family` 分发到对应 engine。
+- 新工具页默认复用站点头部、项目页头、返回页脚和文档标题 Hook。
+- 主操作必须明确，次要设置使用渐进披露，避免同时展示大量技术细节。
+- 定义并处理加载、空、成功、错误、禁用、取消和重试状态。
+- 错误信息说明用户可以采取的下一步；不要只显示异常编号或裸对象。
+- 异步任务必须提供可见反馈，耗时下载或处理应支持取消时不得省略取消能力。
+- 破坏性操作应有确认或可恢复机制，不能静默删除用户数据。
 
-### HT-Demucs
+### 响应式与无障碍
 
-HT-Demucs 是当前高质量主线。实现要求：
+- 桌面和移动端都必须可用，窄屏不得出现关键操作被裁切或只能悬停访问。
+- 使用语义化元素；按钮用 `button`，导航用链接，不用仅绑定点击的无语义容器代替。
+- 保持清晰的 `:focus-visible`，键盘可以访问弹窗、标签、工具提示和主要操作。
+- 图标按钮必须有可访问名称；图片提供符合用途的 `alt`。
+- 动画尊重 `prefers-reduced-motion`，不要让动画成为理解状态的唯一方式。
+- 新增弹窗或菜单时定义焦点进入、Escape 关闭、焦点恢复和背景交互规则。
 
-- 输入统一为 44100Hz stereo。
-- 单声道输入复制成左右声道。
-- 推理使用 chunk + overlap-add，避免长音频 OOM。
-- 输出统一为 stereo WAV。
-- 日志必须包含模型加载、session 创建、chunk 进度和失败上下文。
-- 错误信息要包含 `modelId`、chunk index、输入输出 tensor name，不能只抛裸数字。
+## 数据、路由与新增项目
 
-如果新增 drums/bass：
+### 数据规则
 
-- 使用同一套 `htdemucs` engine。
-- 配置正确的 `targetOutputIndex`。
-- 输出行顺序固定为 `[drums, bass, other, vocals]`。
+- 项目名称、描述、状态、版本和更新时间只在 `src/data/projects.json` 维护。
+- 页面通过 `getProjectById(id)` 读取项目数据，不在页面硬编码名称或版本。
+- 状态必须符合 `ProjectStatus`：`开发中`、`已发布`、`已下线`、`在线`。
+- 项目 ID 必须唯一；时间线 `projectId` 必须引用存在的项目。
+- 日期使用有效 ISO 日期；未知日期沿用项目既有的 `-` 约定。
+- 读取 `localStorage`、`sessionStorage` 或外部 JSON 时，必须校验结构并为旧版、损坏或缺失数据提供回退。
 
-### UVR / MDX
+### 项目卡片、内容开发与更新闭环
 
-UVR / MDX 候补模型必须先满足以下条件，才能在 UI 中作为可选模型暴露：
+项目卡片不是独立交付物。新增项目、为已有卡片开发内容、更新版本或改变发布状态时，必须按同一闭环核对数据、入口、页面、说明和验收，不能只修改当前最显眼的文件。
 
-- 模型文件是真实 ONNX，不是 HTML 错误页或 Git LFS pointer。
-- `onnxruntime-web` 能创建 session。
-- 已确认输入输出 tensor 名和 shape。
-- 已实现必要的 STFT / normalization / inverse STFT 后处理。
-- 在浏览器中能完成一段短音频推理。
+| 变更类型 | 必须同步 |
+| --- | --- |
+| 新增项目卡片 | `projects.json`、`timeline.json`、页面或有效外链、`App.tsx` 路由、README 当前内容、CHANGELOG、数据与路由测试 |
+| 为已有卡片补充站内内容 | 页面实现、共享页面骨架、懒加载路由、`projects.json` 状态/版本/日期、`timeline.json`、README、CHANGELOG、核心交互测试 |
+| 功能或版本更新 | 实现与测试、`projects.json` 版本/日期、面向用户的 CHANGELOG；若能力清单或使用方式变化，同步 README 和需求文档 |
+| 开发中转发布/上线 | `projects.json` 状态/版本/日期、`timeline.json` 发布动态、README、CHANGELOG、生产构建与目标路由手工验证 |
+| 下线、改名或迁移入口 | `projects.json`、路由或外链、README、CHANGELOG、相关时间线说明和兼容/跳转策略 |
 
-GitHub release 直链在浏览器 `fetch` 下可能受 CORS 或重定向影响。开发环境中优先使用 Vite 同源代理，例如：
+新增站内工具的标准顺序：
 
-```text
-/model-proxy/uvr/<model-file>.onnx
+1. 在 `src/data/projects.json` 添加项目元数据，确定唯一 ID、入口、状态、版本和日期。
+2. 在 `src/data/timeline.json` 添加对应动态；仅有开发草稿且不希望首页展示时，明确记录延期原因。
+3. 新建页面，并通过 `getProjectById('<id>')` 获取名称、描述和版本。
+4. 复用 `ProjectPageHeader`、`SiteHeader`、`BackFooter` 和 `useDocumentTitle`。
+5. 在 `src/App.tsx` 使用 `React.lazy` 添加页面和 Hash 路由，确保卡片入口可实际到达。
+6. 更新或添加数据引用、路由、核心交互、异常状态和移动端关键操作测试。
+7. 在 `README.md` 的当前内容中增加或更新用户可见入口与能力简介。
+8. 在 `CHANGELOG.md` 的 `Unreleased` 中记录用户可感知的新增、修复或变化。
+9. 若实际范围改变，更新 `docs/requirements.md` 或对应的当前规格，并把延期项与已实现项分开。
+
+完成前必须执行一次跨文件一致性检查：项目 ID、名称、状态、版本、日期、Hash 路由和功能描述在数据源、页面、README、时间线与 CHANGELOG 中不得互相矛盾。不要只添加可点击卡片而遗漏内容或路由，也不要只完成页面而遗漏元数据和发布记录。
+
+除非用户明确将工作限定为草稿或局部实验，缺少上述适用项时不得宣称“项目已接入”“功能已发布”或“版本更新完成”。若某项不适用，最终报告中说明原因。
+
+## 浏览器能力与资源安全
+
+- Web Audio 上下文只能由用户交互触发；页面卸载时停止声音、断开节点、清理计时器并关闭或释放上下文。
+- Worker 消息使用结构化类型；失败信息包含任务、模型或输入上下文；页面卸载或任务取消时终止不再使用的 Worker。
+- 外部请求应考虑超时、取消、响应校验和可理解的失败回退。
+- 存储写入应控制体积、兼容旧数据并捕获配额或不可用错误；不得自动删除与当前操作无关的数据。
+- 本地文件处理默认留在设备内。若需求确实需要上传，必须先取得用户明确确认并说明数据流向。
+- 不把密钥、令牌、个人路径或隐私数据写入仓库、日志、测试夹具和最终回复。
+- 不提交 ONNX 大模型、完整字体、未优化媒体或无用途的静态资源。
+- 音频样本和图片使用浏览器友好格式；批量生成的资源必须有可重复的来源或脚本说明。
+
+涉及音轨分离、模型缓存或 ONNX 推理时，必须先阅读 `docs/agent-guides/audio-separator.md`。
+
+## 测试与验证
+
+优先运行最接近改动的检查，再运行与风险相称的完整检查。
+
+| 改动类型                         | 最小验证                                                          |
+| -------------------------------- | ----------------------------------------------------------------- |
+| 纯 Markdown 文档                 | `git diff --check`，核对路径、命令和链接                          |
+| 静态数据、时间线、项目卡片       | 相关数据/路由测试，`npm run lint`，`npm run build`                |
+| React 组件、页面、Hook           | 目标 Vitest，`npm run lint`，`npm run build`                      |
+| 业务逻辑、存储、音频算法、Worker | 目标 Vitest + `npm test` + `npm run lint` + `npm run build`       |
+| 依赖、Vite、TypeScript、CI 配置  | `npm test` + `npm run lint` + `npm run build`，并核对生产部署差异 |
+
+目标测试示例：
+
+```bash
+npm test -- src/lib/guitarFretboard/storage.test.ts
+npm test -- src/pages/GuitarFretboardTrainerPage.test.tsx
 ```
 
-不要因为下载失败就放宽模型校验。下载内容如果是 HTML、过小文件或 Git LFS pointer，应视为失败并清理缓存。
-
-UVR 候补模型来自 GitHub Release 时下载可能较慢。UI 必须允许取消下载，且不能让慢下载阻塞 HT-Demucs 主线测试。若 UVR 路线效果确认值得保留，再考虑迁移到更稳定的模型托管源。
-
-## IndexedDB 模型缓存
-
-模型缓存相关改动必须遵守：
-
-- 下载完成后校验模型内容。
-- 已缓存模型在使用前仍要校验可用性。
-- 删除缓存后，如果该模型正被选中，应取消选中。
-- 同时下载多个模型时，各模型进度必须互相独立。
-- 下载中的单个模型必须允许取消，取消只影响该模型，不影响其他并发下载。
-- 存储配额不足时给出明确错误，不自动删除用户已有模型。
-
-## UI / UX 规则
-
-音频分离页面应保持清晰、低认知负担：
-
-- 下载进度、处理进度、处理日志应分区展示。
-- 处理日志自动滚动到最新输出。
-- 上传音频区域不显示模型下载进度。
-- 未下载模型不可选中，不可开始处理。
-- 选中某个 stem 的模型即表示输出该 stem；取消选中即不输出。
-- 处理失败后必须保留可读日志，重试按钮必须重新触发处理。
-- 处理完成后进度不应继续显示“处理中”或转圈。
-- 结果区除了下载 WAV，还应支持直接播放预览。
-
-## 编码规范
-
-- 使用 TypeScript 明确类型，避免 `any`。
-- 页面组件只处理 UI 状态和交互，业务逻辑优先放入 `src/lib/` 或 worker。
-- 复杂音频算法要有单元测试或 mock 推理测试。
-- 不要把大模型文件提交进仓库。
-- 不要用字符串拼接解析复杂结构，优先使用结构化 API。
-- 注释只解释不明显的约束、算法或兼容性原因。
-
-## 新增项目 / 详情页流程
-
-所有项目卡片和详情页的数据（名称、描述、版本号、状态）以 `src/data/projects.json` 为唯一数据源。详情页通过 `src/utils/projectData.ts` 的 `getProjectById(id)` 自动读取，**不要在页面组件中硬编码版本号或项目名称**。
-
-### 添加新项目的步骤
-
-1. **`src/data/projects.json`** — 添加项目条目（id, name, description, status, tags, version, updatedAt）
-2. **`src/data/timeline.json`** — 添加上线动态条目
-3. **`src/pages/XxxPage.tsx`** — 新建详情页，使用 `getProjectById('xxx')` 获取数据：
-   ```tsx
-   import { getProjectById } from '@/utils/projectData'
-   const project = getProjectById('xxx')!
-   // 传给 ProjectPageHeader：name, description, version 自动从数据源读取
-   ```
-4. **`src/App.tsx`** — 添加 lazy import + Route
-5. **`CHANGELOG.md`** — 记录变更
-
-### 版本号管理
-
-- 唯一修改点：`src/data/projects.json` 中的 `version` 字段
-- 详情页通过 `getProjectById` 自动同步，无需手动改页面
-- `ProjectPageHeader` 会自动加 `v` 前缀显示（如 `⟐ v1.1.0`），传入时去掉 `v`
-
-### 组件复用
-
-- 详情页头部：`ProjectPageHeader`（name, englishName, description, version, children）
-- 页面底部：`BackFooter`
-- 页面标题：`useDocumentTitle('页面名 | Gleamory 微光集')`
-- 站点头部：`SiteHeader`
-
-## 测试要求
-
-涉及音频分离逻辑时，优先补充以下测试：
-
-- chunk 切分和尾段 padding。
-- overlap-add 聚合。
-- stereo WAV 编码。
-- worker family dispatch。
-- 模型缓存校验。
-- UVR / MDX fake session 推理流程。
-
-完成改动后尽量运行：
+运行时代码交付前的完整质量门槛与 CI 一致：
 
 ```bash
 npm test
@@ -187,20 +251,95 @@ npm run lint
 npm run build
 ```
 
-如果因为本地环境限制无法运行，最终回复必须明确说明未验证项。
+手工验证应覆盖相关 Hash 路由、主要交互、错误状态、返回导航、页面标题和窄屏布局。不要声称未实际运行的检查已通过。
 
-## Git 和协作
+## 依赖、生成文件与变更控制
 
-- 不要回滚用户或其他 LLM 的改动，除非用户明确要求。
-- 修改前先理解现有实现，保持改动聚焦。
-- 如果工作树已有无关变更，忽略即可，不要清理。
-- 提交或开 PR 前说明改动范围、验证结果和剩余风险。
+- 添加生产依赖、改变公共数据结构、修改路由兼容性或进行大范围架构调整前，先取得用户确认。
+- 优先使用现有依赖和 Web 平台能力；不要为简单功能引入新库。
+- `dist/`、`node_modules/`、`*.tsbuildinfo`、覆盖率目录和临时文件是生成产物，不手工编辑或提交。
+- `public/models/` 下的大模型不得提交；模型应在运行时下载或由明确的资源流程提供。
+- 不编辑与任务无关的格式，不批量重排文件，不因为局部修改顺手升级依赖。
+- `npm run format` 会写入文件，只在格式化范围已确认时运行；检查差异后再保留结果。
 
-## 当前产品判断
+## Git 与协作
 
-截至当前阶段：
+- 修改前和完成后都检查 `git status` 与目标文件差异。
+- 保留工作树已有改动；遇到重叠修改时先理解来源，不覆盖他人工作。
+- 不使用 `git reset --hard`、强制推送或其他破坏性命令，除非用户明确要求并确认风险。
+- 未经用户要求，不提交、推送、创建分支或打开 PR。
+- 提交时只暂存本任务文件，提交说明应准确描述实际范围。
+- 最终报告必须区分：已修改、已验证、未验证、假设和剩余风险。
 
-- HT-Demucs 高质量模式已由用户实测认为效果不错，应作为主要完成方向。
-- UVR / MDX 是候补增强路线，优先目标是“可下载、可创建 session、可短音频推理”，再谈效果优化。
-- Spleeter 保留为快速模式，不再作为质量优化主线。
-- “适配中”“候选模型”“路线调研”等开发信息应写进项目文档，不放在用户界面中；界面只展示当前可下载、可选择、可尝试的模型。
+### 分支模型与命名
+
+- 使用轻量 GitHub Flow：`main` 是唯一长期稳定分支，功能、修复和文档工作都在短生命周期主题分支完成，并通过 PR 合并。
+- 一个分支只承载一组相关变更；不同目标使用不同分支或 worktree，不把多个无关功能捆绑进同一个 PR。
+- 新分支统一使用小写英文和短横线：`feat/<slug>`、`fix/<slug>`、`docs/<slug>`、`refactor/<slug>`、`chore/<slug>`、`hotfix/<slug>`。
+- 新功能统一使用 `feat/`，不再新增 `feature/`；已有进行中分支不为统一命名而中途重命名。
+- `main` 不直接开发、不提交临时修改，也不作为多个任务共享的脏工作区。
+
+### 创建分支
+
+创建分支前必须执行：
+
+```bash
+git status --short --branch
+git fetch origin --prune
+git rev-list --left-right --count origin/main...main
+```
+
+- 先确认工作区干净，并解释本地 `main` 与 `origin/main` 的超前或落后提交；差异未处理前不要盲目从本地 `main` 创建分支。
+- 常规流程使用 `git switch main`、`git pull --ff-only`、`git switch -c <type>/<slug>`。
+- `git pull --ff-only` 失败时停止并报告分叉，不自动创建 merge commit，也不擅自 rebase 或重置 `main`。
+- 当前工作区已有其他任务改动，或需要同时推进多个分支时，优先使用独立 worktree：`git worktree add -b <type>/<slug> <path> main`。
+- 未经用户明确授权，不创建分支或 worktree；创建前说明基线、目标目录和分支名。
+
+### 切换分支与保护工作区
+
+- 切换前检查已修改、已暂存和未跟踪文件，不携带与目标分支无关的改动切换。
+- 不自动执行 `git stash`，不自动丢弃、覆盖或搬运用户修改；确需 stash 时先说明内容和恢复方式并取得确认。
+- 不使用 `git switch --discard-changes`、`git checkout -f` 或等价破坏性选项。
+- 分支已被其他 worktree 使用时，不强制改绑；进入对应 worktree 工作或报告冲突。
+- 临时查看历史可以使用 detached HEAD，但不得在未命名状态交付有效修改。
+
+### 提交与推送
+
+- 提交保持单一逻辑目的，测试与对应实现放在同一提交或相邻可审查提交中。
+- 提交说明采用 Conventional Commits 风格，例如 `feat(guitar-fretboard): add daily summary fallback`、`fix(audio): release context on unmount`、`docs: define branch workflow`。
+- 提交前核对 `git diff --cached --check` 和暂存文件清单；禁止使用 `git add .`、`git add -A` 将不相关改动一并暂存。
+- 第一次推送主题分支使用 `git push -u origin <branch>`；后续只推送当前分支，不向 `main` 直接推送。
+- 未经用户明确要求，不提交或推送；不得把令牌、密钥、个人路径、构建产物或大型模型带入提交。
+
+### 同步 main 与解决冲突
+
+- 开发期间需要更新基线时，先 `git fetch origin`，默认在主题分支执行 `git merge --no-edit origin/main`。
+- 默认不用 rebase 更新已经推送或多人共享的分支，避免改写历史和触发强推。
+- 只有分支明确由单人独占、用户授权改写历史且已说明风险时，才可 rebase；推送仍优先使用 `--force-with-lease`，禁止裸 `--force`。
+- 合并冲突时逐文件理解两侧意图，保留双方有效改动；解决后重新运行受影响测试和完整质量门槛。
+- 不使用 `ours`、`theirs` 或批量脚本无差别覆盖冲突，除非用户明确选择该策略。
+
+### Pull Request 与合并门槛
+
+- 主题分支通过 PR 合并到 `main`；需要提前讨论时创建 Draft PR，准备合并时再转为 Ready for review。
+- PR 必须说明目标、主要改动、验证命令及结果、截图或手工验证、未解决风险和关联文档。
+- 合并前必须满足：与最新 `origin/main` 无未处理冲突、所有 PR 对话已解决、适用文档与元数据已同步，并通过 `npm test`、`npm run lint`、`npm run build`、`git diff --check`。
+- 仓库统一使用 Squash and merge；Squash 提交标题遵循 Conventional Commits，并准确概括整个 PR。
+- 不使用本地 `git merge` 直接把主题分支合入 `main`，不绕过 GitHub 分支保护或必需检查。
+- 未经用户明确要求，不创建、批准、合并或关闭 PR。
+
+### 合并后清理
+
+- 确认 PR 已合并且远程 `main` 已包含结果后，再同步本地：`git switch main`、`git pull --ff-only`、`git fetch origin --prune`。
+- 远程主题分支由 GitHub 在 PR 合并后自动删除；仍被其他 PR 或 worktree 使用的分支不得删除。
+- Squash merge 后本地主题分支可能需要强制删除。`git branch -D <branch>` 和 `git worktree remove <path>` 都属于清理性破坏操作，必须先确认没有未提交修改并取得用户明确授权。
+- 删除前记录 PR 或合并提交，确保后续可以定位、恢复或回滚。
+
+## 相关文档
+
+- `README.md`：面向使用者和开发者的项目概览。
+- `docs/requirements.md`：产品需求、验收标准和当前非目标。
+- `docs/agent-guides/audio-separator.md`：音轨分离、模型、缓存与推理专项规则。
+- `CHANGELOG.md`：用户可见变更记录。
+
+只加载与当前任务有关的专项资料，避免把过时计划或无关功能约束带入当前修改。

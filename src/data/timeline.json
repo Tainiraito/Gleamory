@@ -65,6 +65,12 @@
       "projectId": "audio-separator",
       "content": "新增项目:音轨分离 v0.3.0 — 引入 lucide-react 统一图标 + 缓存管理面板 + 整卡点击切换 + 折叠动画 + 下拉美化",
       "date": "2026-06-04"
+    },
+    {
+      "id": "11",
+      "projectId": "guitar-fretboard-trainer",
+      "content": "指板音训练 v0.2.0 — 完成五类测验、指板地图、吉他采样音色与 365 天本地练习记录",
+      "date": "2026-07-13"
     }
   ]
 }
