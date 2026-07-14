@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadFretboardState, saveFretboardState } from './storage'
 import { getTuningPreset } from './tuning'
 
@@ -9,14 +9,44 @@ describe('guitar fretboard local storage', () => {
     vi.setSystemTime(new Date('2026-07-07T12:00:00.000Z'))
   })
 
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
   it('returns default settings when storage is empty', () => {
     const state = loadFretboardState()
 
     expect(state.settings.tuning.id).toBe('standard')
     expect(state.settings.fretCount).toBe(24)
     expect(state.settings.noteDisplayMs).toBeNull()
-    expect(state.sessions).toEqual([])
-    expect(state.dailyRecords).toEqual({})
+    expect(state.settings.appearance).toBe('rosewood')
+    expect(Object.keys(state)).toEqual(['settings'])
+  })
+
+  it('falls back to defaults when local storage cannot be read', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+
+    expect(loadFretboardState().settings.tuning.id).toBe('standard')
+  })
+
+  it('reports a failed write instead of throwing when local storage is unavailable', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota exceeded', 'QuotaExceededError')
+    })
+
+    expect(saveFretboardState({
+      settings: {
+        tuning: getTuningPreset('standard'),
+        fretCount: 24,
+        accidental: 'sharp',
+        mode: 'hidden',
+        noteDisplayMs: null,
+        appearance: 'rosewood',
+      },
+    })).toBe(false)
   })
 
   it('falls back to a complete preset when stored tuning data is incomplete', () => {
@@ -40,43 +70,36 @@ describe('guitar fretboard local storage', () => {
     expect(state.settings.tuning.strings).toHaveLength(6)
     expect(state.settings.tuning.strings[0]?.openNote).toBe('E2')
     expect(state.settings.noteDisplayMs).toBeNull()
+    expect(state.settings.appearance).toBe('rosewood')
   })
 
-  it('persists settings and caps newest-first practice sessions', () => {
-    const sessions = Array.from({ length: 5005 }, (_, index) => ({
-      id: `session-${index}`,
-      startedAt: '2026-07-07T12:00:00.000Z',
-      endedAt: '2026-07-07T12:05:00.000Z',
-      totalQuestions: 1,
-      correctQuestions: index % 2,
-      accuracy: index % 2,
-      averageResponseMs: 1000 + index,
-      weakNotes: index % 2 ? [] : ['C'],
-    }))
-
+  it('persists only settings without practice history', () => {
     saveFretboardState({
-      settings: { tuning: getTuningPreset('drop-d'), fretCount: 12, accidental: 'flat', mode: 'hidden', noteDisplayMs: 3000 },
-      sessions,
-      dailyRecords: {},
-      skillStates: { 'note:C': { skillId: 'note:C', attempts: 2, correct: 1, wrong: 1, accuracy: 0.5, avgResponseMs: 1500, lastPracticedAt: '2026-07-07T12:00:00.000Z', strength: 0.35, dueAt: '2026-07-08T12:00:00.000Z' } },
+      settings: {
+        tuning: getTuningPreset('drop-d'),
+        fretCount: 12,
+        accidental: 'flat',
+        mode: 'hidden',
+        noteDisplayMs: 3000,
+        appearance: 'ebony',
+      },
     })
 
     const state = loadFretboardState()
+    const stored = JSON.parse(localStorage.getItem('gleamory:guitar-fretboard-trainer:state')!)
 
     expect(state.settings.tuning.id).toBe('drop-d')
     expect(state.settings.fretCount).toBe(12)
     expect(state.settings.noteDisplayMs).toBe(3000)
-    expect(state.sessions).toHaveLength(5000)
-    expect(state.sessions[0]?.id).toBe('session-0')
-    expect(state.sessions[state.sessions.length - 1]?.id).toBe('session-4999')
-    expect(state.skillStates['note:C']?.wrong).toBe(1)
+    expect(state.settings.appearance).toBe('ebony')
+    expect(Object.keys(stored)).toEqual(['settings'])
   })
 
-  it('migrates legacy sessions into local daily records', () => {
+  it('loads settings from legacy state without exposing practice history', () => {
     localStorage.setItem(
       'gleamory:guitar-fretboard-trainer:state',
       JSON.stringify({
-        settings: { tuning: { id: 'standard' }, fretCount: 24, accidental: 'sharp', mode: 'hidden' },
+        settings: { tuning: { id: 'drop-d' }, fretCount: 12, accidental: 'flat', mode: 'hidden', noteDisplayMs: 1000 },
         sessions: [{
           id: 'legacy',
           startedAt: '2026-07-07T12:00:00.000Z',
@@ -87,32 +110,33 @@ describe('guitar fretboard local storage', () => {
           averageResponseMs: 2000,
           weakNotes: [],
         }],
-        skillStates: {},
+        dailyRecords: { '2026-07-07': { totalQuestions: 1 } },
+        skillStates: { 'note:C': { attempts: 1 } },
       }),
     )
 
     const state = loadFretboardState()
-    const date = state.sessions[0]?.localDate
 
-    expect(date).toMatch(/^2026-07-0[78]$/)
-    expect(state.dailyRecords[date!]).toMatchObject({ totalQuestions: 1, correctQuestions: 1, totalResponseMs: 2000 })
+    expect(state.settings).toMatchObject({ fretCount: 12, accidental: 'flat', noteDisplayMs: 1000 })
+    expect(state.settings.tuning.id).toBe('drop-d')
+    expect(Object.keys(state)).toEqual(['settings'])
   })
 
-  it('keeps only the newest 400 daily aggregates', () => {
-    const dailyRecords = Object.fromEntries(
-      Array.from({ length: 405 }, (_, index) => {
-        const date = `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String((index % 28) + 1).padStart(2, '0')}`
-        return [date, { date, totalQuestions: 1, correctQuestions: 1, totalResponseMs: 1000, byQuizType: {} }]
+  it('falls back to rosewood when the stored appearance is unknown', () => {
+    localStorage.setItem(
+      'gleamory:guitar-fretboard-trainer:state',
+      JSON.stringify({
+        settings: {
+          tuning: { id: 'standard' },
+          fretCount: 24,
+          accidental: 'sharp',
+          mode: 'hidden',
+          noteDisplayMs: null,
+          appearance: 'neon',
+        },
       }),
     )
 
-    saveFretboardState({
-      settings: { tuning: getTuningPreset('standard'), fretCount: 24, accidental: 'sharp', mode: 'hidden', noteDisplayMs: null },
-      sessions: [],
-      dailyRecords,
-      skillStates: {},
-    })
-
-    expect(Object.keys(loadFretboardState().dailyRecords)).toHaveLength(400)
+    expect(loadFretboardState().settings.appearance).toBe('rosewood')
   })
 })

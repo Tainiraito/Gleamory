@@ -21,6 +21,7 @@ export type PitchClass = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#'
 export type AccidentalPreference = 'sharp' | 'flat'
 export type FretboardMode = 'all' | 'natural' | 'target' | 'scale' | 'degree' | 'hidden'
 export type NoteDisplayDurationMs = 0 | 1000 | 3000 | 5000 | null
+export type FretboardAppearanceId = 'rosewood' | 'maple' | 'ebony' | 'practice'
 
 export interface StringConfig {
   stringNumber: 1 | 2 | 3 | 4 | 5 | 6
@@ -51,6 +52,7 @@ export interface FretboardSettings {
   accidental: AccidentalPreference
   mode: FretboardMode
   noteDisplayMs: NoteDisplayDurationMs
+  appearance: FretboardAppearanceId
 }
 
 export interface FretboardModel {
@@ -102,57 +104,8 @@ export interface QuizAnswer {
   answeredAt: string
 }
 
-export interface PracticeSummary {
-  totalQuestions: number
-  correctQuestions: number
-  accuracy: number
-  averageResponseMs: number
-  weakNotes: string[]
-}
-
-export interface PracticeSession extends PracticeSummary {
-  id: string
-  startedAt: string
-  endedAt: string
-  localDate?: string
-  quizType?: QuizType
-  isCorrect?: boolean
-  questionPrompt?: string
-  responseMs?: number
-}
-
-export interface DailyQuizTypeStats {
-  totalQuestions: number
-  correctQuestions: number
-  totalResponseMs: number
-}
-
-export interface DailyPracticeRecord extends DailyQuizTypeStats {
-  date: string
-  byQuizType: Partial<Record<QuizType, DailyQuizTypeStats>>
-}
-
-export interface PracticeDay extends DailyPracticeRecord {
-  level: 0 | 1 | 2 | 3 | 4
-}
-
-export interface SkillState {
-  skillId: string
-  attempts: number
-  correct: number
-  wrong: number
-  accuracy: number
-  avgResponseMs: number
-  lastPracticedAt: string
-  strength: number
-  dueAt: string
-}
-
 export interface StoredFretboardState {
   settings: FretboardSettings
-  sessions: PracticeSession[]
-  dailyRecords: Record<string, DailyPracticeRecord>
-  skillStates: Record<string, SkillState>
 }
 
 export interface GuitarSample {

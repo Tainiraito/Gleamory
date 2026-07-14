@@ -3,6 +3,10 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import GuitarFretboardTrainerPage from './GuitarFretboardTrainerPage'
 
+function generateQuestion() {
+  fireEvent.click(screen.getByRole('button', { name: '生成题目' }))
+}
+
 describe('GuitarFretboardTrainerPage', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -23,7 +27,7 @@ describe('GuitarFretboardTrainerPage', () => {
     )
 
     expect(screen.getByRole('heading', { name: '指板音训练' })).toBeInTheDocument()
-    expect(screen.getByText('今日训练计划')).toBeInTheDocument()
+    expect(screen.getByText('练习配置')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: '今日练习' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: '指板地图' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: '设置' })).toBeInTheDocument()
@@ -42,6 +46,7 @@ describe('GuitarFretboardTrainerPage', () => {
     expect(boardPanel).toBeInTheDocument()
     expect(questionPanel).toBeInTheDocument()
     expect(tabs).toBeInTheDocument()
+    expect(tabs).toHaveClass('justify-center')
     expect(Boolean(boardPanel!.compareDocumentPosition(questionPanel!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
     expect(Boolean(questionPanel!.compareDocumentPosition(tabs!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
 
@@ -55,7 +60,7 @@ describe('GuitarFretboardTrainerPage', () => {
   })
 
   it('shows a read-only map explorer without quiz submit controls', () => {
-    render(
+    const { container } = render(
       <MemoryRouter>
         <GuitarFretboardTrainerPage />
       </MemoryRouter>,
@@ -66,6 +71,34 @@ describe('GuitarFretboardTrainerPage', () => {
     expect(screen.getByRole('heading', { name: '点位置、听音色、切换把位和音阶' })).toBeInTheDocument()
     expect(screen.getByText('当前位置详情')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '提交答案' })).not.toBeInTheDocument()
+    const boardPanel = container.querySelector('.fretboard-board-panel')!
+    const detailPanel = container.querySelector('.fretboard-question-panel')!
+    const tabs = container.querySelector('.fretboard-tabs')!
+    expect(Boolean(boardPanel.compareDocumentPosition(detailPanel) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(Boolean(detailPanel.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(container.querySelector('.fretboard-side')).not.toBeInTheDocument()
+  })
+
+  it('switches and persists fretboard appearance without clearing the selected position', () => {
+    render(
+      <MemoryRouter>
+        <GuitarFretboardTrainerPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: '设置' }))
+    const fretboard = screen.getByLabelText('吉他指板')
+    const position = within(fretboard).getByRole('button', { name: '5弦 3品 C3' })
+
+    expect(fretboard).toHaveAttribute('data-appearance', 'rosewood')
+    fireEvent.click(position)
+    expect(position).toHaveAttribute('data-state', 'selected')
+
+    fireEvent.click(screen.getByRole('button', { name: /乌木舞台/ }))
+
+    expect(fretboard).toHaveAttribute('data-appearance', 'ebony')
+    expect(position).toHaveAttribute('data-state', 'selected')
+    expect(JSON.parse(localStorage.getItem('gleamory:guitar-fretboard-trainer:state')!).settings.appearance).toBe('ebony')
   })
 
   it('keeps the quiz workflow in daily practice without a duplicate quiz tab', () => {
@@ -76,12 +109,18 @@ describe('GuitarFretboardTrainerPage', () => {
     )
 
     expect(screen.queryByRole('tab', { name: '测验' })).not.toBeInTheDocument()
+    expect(screen.getByText('尚未生成题目')).toBeInTheDocument()
+    expect(screen.queryByText(/^找出所有 /)).not.toBeInTheDocument()
+    expect(within(screen.getByLabelText('吉他指板')).getByRole('button', { name: '5弦 3品 C3' })).toBeDisabled()
+
+    generateQuestion()
+
     expect(screen.getByText(/^找出所有 /)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '提交答案' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '跳过此题' })).toBeInTheDocument()
   })
 
-  it('shows local-today stats, opens type details, and renders 365 history days', () => {
+  it('ignores legacy history and removes every daily-record surface', () => {
     localStorage.setItem('gleamory:guitar-fretboard-trainer:state', JSON.stringify({
       settings: { tuning: { id: 'standard' }, fretCount: 24, accidental: 'sharp', mode: 'hidden', noteDisplayMs: null },
       sessions: [{
@@ -97,15 +136,34 @@ describe('GuitarFretboardTrainerPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('button', { name: '已完成 0 题' })).toBeInTheDocument()
-    const heatmap = screen.getByLabelText('每日练习热力图')
-    expect(within(heatmap).getAllByRole('button')).toHaveLength(365)
+    expect(screen.queryByText(/已完成 \d+ 题/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('每日练习热力图')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('用时 --')).toBeInTheDocument()
+    expect(screen.getByText('准确率 --')).toBeInTheDocument()
+  })
+
+  it('times silently during the question and shows the frozen duration after submission', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T12:00:00.000Z'))
+    render(
+      <MemoryRouter>
+        <GuitarFretboardTrainerPage />
+      </MemoryRouter>,
+    )
+
+    generateQuestion()
+    act(() => vi.advanceTimersByTime(1000))
+    expect(screen.getByText('用时 --')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '重置' }))
+    act(() => vi.advanceTimersByTime(500))
+    expect(screen.getByText('用时 --')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '提交答案' }))
-    fireEvent.click(screen.getByRole('button', { name: '已完成 1 题' }))
-
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: '题型筛选' })).toBeInTheDocument()
+    expect(screen.getByText('准确率 0%')).toBeInTheDocument()
+    act(() => vi.advanceTimersByTime(1000))
+    expect(screen.getByText('用时 1.5 秒')).toBeInTheDocument()
   })
 
   it('removes nonessential practice and settings side panels', () => {
@@ -135,6 +193,7 @@ describe('GuitarFretboardTrainerPage', () => {
       </MemoryRouter>,
     )
 
+    generateQuestion()
     expect(screen.getAllByLabelText('吉他指板')).toHaveLength(1)
     const fretboard = screen.getByLabelText('吉他指板')
     fireEvent.click(within(fretboard).getByRole('button', { name: '5弦 3品 C3' }))
@@ -143,6 +202,7 @@ describe('GuitarFretboardTrainerPage', () => {
 
     expect(screen.getByText('本题未通过')).toBeInTheDocument()
     expect(screen.getByText(/遗漏 .* 个，误选 .* 个。/)).toBeInTheDocument()
+    expect(screen.getByText('准确率 33%')).toBeInTheDocument()
   })
 
   it('disables positions outside the current quiz range and keeps the range visually marked', () => {
@@ -152,6 +212,7 @@ describe('GuitarFretboardTrainerPage', () => {
       </MemoryRouter>,
     )
 
+    generateQuestion()
     const fretboard = screen.getByLabelText('吉他指板')
     const inside = within(fretboard).getByRole('button', { name: '5弦 3品 C3' })
     const outside = within(fretboard).getByRole('button', { name: '6弦 13品 F3' })
@@ -173,6 +234,7 @@ describe('GuitarFretboardTrainerPage', () => {
       </MemoryRouter>,
     )
 
+    generateQuestion()
     const fretboard = screen.getByLabelText('吉他指板')
     const target = within(fretboard).getByRole('button', { name: '5弦 3品 C3' })
 
@@ -193,6 +255,7 @@ describe('GuitarFretboardTrainerPage', () => {
       </MemoryRouter>,
     )
 
+    generateQuestion()
     const fretboard = screen.getByLabelText('吉他指板')
     fireEvent.click(within(fretboard).getByRole('button', { name: '6弦 0品 E2' }))
     fireEvent.click(screen.getByRole('button', { name: '提交答案' }))
@@ -267,7 +330,7 @@ describe('GuitarFretboardTrainerPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: '今日练习' }))
 
     const practiceFretboard = screen.getByLabelText('吉他指板')
-    expect(screen.getByText('已选 0')).toBeInTheDocument()
+    expect(screen.getByText('尚未生成题目')).toBeInTheDocument()
     expect(within(practiceFretboard).getByRole('button', { name: '5弦 3品 C3' })).toHaveAttribute('data-state', 'idle')
   })
 
@@ -365,10 +428,20 @@ describe('GuitarFretboardTrainerPage', () => {
 
     fireEvent.click(target)
     expect(target).toHaveAttribute('data-state', 'selected')
+    const detailPanel = document.querySelector('.fretboard-question-panel') as HTMLElement
+    expect(within(detailPanel).getByText('5弦 3品')).toBeInTheDocument()
+    expect(within(detailPanel).getByText('C3')).toBeInTheDocument()
     act(() => vi.advanceTimersByTime(1000))
 
     expect(target).toHaveAttribute('data-state', 'idle')
     expect(target).toHaveTextContent('')
+    expect(within(detailPanel).getByText('5弦 3品')).toBeInTheDocument()
+    expect(within(detailPanel).getByText('C3')).toBeInTheDocument()
+
+    fireEvent.click(within(screen.getByLabelText('吉他指板')).getByRole('button', { name: '6弦 0品 E2' }))
+    expect(within(detailPanel).getByText('6弦 0品')).toBeInTheDocument()
+    expect(within(detailPanel).getByText('E2')).toBeInTheDocument()
+    expect(within(detailPanel).queryByText('5弦 3品')).not.toBeInTheDocument()
   })
 
   it('never fades selected answers in daily practice', () => {
@@ -382,6 +455,7 @@ describe('GuitarFretboardTrainerPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: '设置' }))
     fireEvent.click(screen.getByRole('button', { name: '1 秒后淡出' }))
     fireEvent.click(screen.getByRole('tab', { name: '今日练习' }))
+    generateQuestion()
     const target = within(screen.getByLabelText('吉他指板')).getByRole('button', { name: '5弦 3品 C3' })
 
     fireEvent.click(target)
@@ -398,16 +472,19 @@ describe('GuitarFretboardTrainerPage', () => {
       </MemoryRouter>,
     )
 
+    generateQuestion()
     expect(screen.getByText('找出所有 C')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '跳过此题' }))
     expect(screen.queryByText('找出所有 C')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '中把位 5-12 品' }))
 
+    expect(screen.getByText('尚未生成题目')).toBeInTheDocument()
+    generateQuestion()
     expect(screen.getByText('可选范围 5-12 品')).toBeInTheDocument()
   })
 
-  it('applies custom question parameters immediately', () => {
+  it('applies custom question parameters when explicitly generating a question', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     render(
       <MemoryRouter>
@@ -420,11 +497,13 @@ describe('GuitarFretboardTrainerPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '根音 C' }))
     fireEvent.click(screen.getByRole('button', { name: '纯五度' }))
 
+    expect(screen.getByText('尚未生成题目')).toBeInTheDocument()
+    generateQuestion()
     expect(screen.getByRole('heading', { name: '找出 C 上方纯五度 G' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '生成题目' })).not.toBeInTheDocument()
   })
 
-  it('switches from a generated custom type back to the allowed random scope immediately', () => {
+  it('switches from a custom type back to the allowed random scope on generation', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     render(
       <MemoryRouter>
@@ -434,10 +513,13 @@ describe('GuitarFretboardTrainerPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '自选题目' }))
     fireEvent.click(screen.getByRole('button', { name: '音程' }))
+    generateQuestion()
     expect(screen.getByRole('heading', { name: '找出 C 上方纯五度 G' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '随机混合' }))
 
+    expect(screen.getByText('尚未生成题目')).toBeInTheDocument()
+    generateQuestion()
     expect(screen.getByText('找出所有 C')).toBeInTheDocument()
     expect(screen.getByRole('group', { name: '随机题型' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '找音' })).toHaveAttribute('aria-pressed', 'true')
@@ -474,6 +556,7 @@ describe('GuitarFretboardTrainerPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '认音' }))
     fireEvent.click(screen.getByRole('button', { name: '4 弦' }))
 
+    generateQuestion()
     expect(screen.getByRole('heading', { name: '4 弦 0 品是什么音？' })).toBeInTheDocument()
     const fretboard = screen.getByLabelText('吉他指板')
     const referencePosition = within(fretboard).getByRole('button', { name: '4弦 0品 D3' })

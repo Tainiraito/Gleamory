@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { glossaryById, tokenizeGlossaryText } from '@/data/glossary'
 
@@ -7,6 +7,7 @@ interface GlossaryTermProps {
   children?: ReactNode
   path?: string[]
   interactive?: boolean
+  keepAncestorsOpen?: () => void
 }
 
 interface GlossaryTextProps {
@@ -17,7 +18,7 @@ interface GlossaryTextProps {
 const HOVER_OPEN_DELAY_MS = 500
 const CLOSE_DELAY_MS = 120
 
-export function GlossaryTerm({ termId, children, path = [], interactive = true }: GlossaryTermProps) {
+export function GlossaryTerm({ termId, children, path = [], interactive = true, keepAncestorsOpen }: GlossaryTermProps) {
   const entry = glossaryById.get(termId)
   const triggerRef = useRef<HTMLSpanElement>(null)
   const openTimerRef = useRef<number | null>(null)
@@ -25,6 +26,7 @@ export function GlossaryTerm({ termId, children, path = [], interactive = true }
   const [isOpen, setIsOpen] = useState(false)
   const [isHoverPending, setIsHoverPending] = useState(false)
   const [position, setPosition] = useState<CSSProperties>({})
+  const popoverId = useId()
   const isBlocked = path.includes(termId)
 
   const clearOpenTimer = () => {
@@ -44,6 +46,7 @@ export function GlossaryTerm({ termId, children, path = [], interactive = true }
     clearOpenTimer()
     clearCloseTimer()
     setIsOpen(true)
+    keepAncestorsOpen?.()
   }
 
   const scheduleOpen = () => {
@@ -97,6 +100,8 @@ export function GlossaryTerm({ termId, children, path = [], interactive = true }
         className="glossary-term"
         tabIndex={interactive ? 0 : undefined}
         aria-expanded={isOpen}
+        aria-haspopup="dialog"
+        aria-controls={isOpen ? popoverId : undefined}
         onMouseEnter={scheduleOpen}
         onMouseLeave={scheduleClose}
         onFocus={interactive ? openImmediately : undefined}
@@ -124,11 +129,17 @@ export function GlossaryTerm({ termId, children, path = [], interactive = true }
       {isOpen &&
         createPortal(
           <div
+            id={popoverId}
             className="glossary-popover"
-            role="tooltip"
+            role="dialog"
+            aria-label={`${entry.label}释义`}
             style={position}
             onMouseEnter={clearCloseTimer}
             onMouseLeave={scheduleClose}
+            onFocusCapture={() => {
+              clearCloseTimer()
+              keepAncestorsOpen?.()
+            }}
           >
             <strong>{entry.label}</strong>
             <p>{entry.summary}</p>
@@ -137,7 +148,15 @@ export function GlossaryTerm({ termId, children, path = [], interactive = true }
               <div className="glossary-related">
                 <span>相关词条</span>
                 {entry.relatedTerms.map((relatedId) => (
-                  <GlossaryTerm key={relatedId} termId={relatedId} path={[...path, termId]} />
+                  <GlossaryTerm
+                    key={relatedId}
+                    termId={relatedId}
+                    path={[...path, termId]}
+                    keepAncestorsOpen={() => {
+                      clearCloseTimer()
+                      keepAncestorsOpen?.()
+                    }}
+                  />
                 ))}
               </div>
             )}

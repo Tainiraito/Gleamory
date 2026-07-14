@@ -1,12 +1,21 @@
-import type { AccidentalPreference, FretboardMode, NoteDisplayDurationMs, TuningPreset } from '@/lib/guitarFretboard/types'
+import type {
+  AccidentalPreference,
+  FretboardAppearanceId,
+  FretboardMode,
+  NoteDisplayDurationMs,
+  TuningPreset,
+} from '@/lib/guitarFretboard/types'
+import { FretboardAppearanceSettings } from './FretboardAppearanceSettings'
 import { TUNING_PRESETS } from '@/lib/guitarFretboard/tuning'
 
 interface TuningSettingsProps {
   tuningId: TuningPreset['id']
+  appearance: FretboardAppearanceId
   accidental: AccidentalPreference
   mode: FretboardMode
   noteDisplayMs: NoteDisplayDurationMs
   onTuningChange: (id: TuningPreset['id']) => void
+  onAppearanceChange: (appearance: FretboardAppearanceId) => void
   onAccidentalChange: (accidental: AccidentalPreference) => void
   onModeChange: (mode: FretboardMode) => void
   onNoteDisplayChange: (duration: NoteDisplayDurationMs) => void
@@ -52,10 +61,12 @@ function durationFromValue(value: string): NoteDisplayDurationMs {
 
 export function TuningSettings({
   tuningId,
+  appearance,
   accidental,
   mode,
   noteDisplayMs,
   onTuningChange,
+  onAppearanceChange,
   onAccidentalChange,
   onModeChange,
   onNoteDisplayChange,
@@ -68,6 +79,7 @@ export function TuningSettings({
         value={tuningId}
         onChange={(id) => onTuningChange(id as TuningPreset['id'])}
       />
+      <FretboardAppearanceSettings value={appearance} onChange={onAppearanceChange} />
       <SettingButtonGroup
         label="升降号"
         options={[

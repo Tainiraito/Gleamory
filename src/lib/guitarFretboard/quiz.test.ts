@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { generateFretboard } from './fretboard'
 import {
+  calculateQuestionAccuracy,
   DEFAULT_RANDOM_PRACTICE_SCOPE,
   judgeQuizAnswer,
   makeConfiguredPracticeQuestion,
@@ -11,8 +12,6 @@ import {
   makePracticeQuestion,
   makeRandomPracticeQuestion,
   makeScaleDegreeQuestion,
-  summarizePractice,
-  summarizePracticeSessions,
 } from './quiz'
 import { getTuningPreset } from './tuning'
 import type { RandomPracticeScope } from './types'
@@ -61,6 +60,21 @@ describe('guitar fretboard quiz', () => {
     expect(answer.responseMs).toBe(1420)
   })
 
+  it('calculates partial accuracy for missed and extra fretboard selections', () => {
+    const question = makeFindNoteQuestion(fretboard, 'C', { minFret: 0, maxFret: 12 })
+    const fiveCorrect = judgeQuizAnswer(question, question.expectedAnswers.slice(0, 5), 1000)
+    const fourCorrectAndOneWrong = judgeQuizAnswer(
+      question,
+      [...question.expectedAnswers.slice(0, 4), fretboard.positions[0]!],
+      1000,
+    )
+    const empty = judgeQuizAnswer(question, [], 1000)
+
+    expect(calculateQuestionAccuracy(question, fiveCorrect)).toBe(5 / 6)
+    expect(calculateQuestionAccuracy(question, fourCorrectAndOneWrong)).toBe(4 / 7)
+    expect(calculateQuestionAccuracy(question, empty)).toBe(0)
+  })
+
   it('generates identify-note questions with note options and checks the selected note', () => {
     const position = fretboard.positions.find((candidate) => candidate.stringNumber === 4 && candidate.fretNumber === 7)!
     const question = makeIdentifyNoteQuestion(position)
@@ -69,6 +83,14 @@ describe('guitar fretboard quiz', () => {
     expect(question.expectedAnswers[0]).toMatchObject({ noteName: 'A', noteWithOctave: 'A3' })
     expect(judgeQuizAnswer(question, [], 920, 'A').isCorrect).toBe(true)
     expect(judgeQuizAnswer(question, [], 920, 'B').isCorrect).toBe(false)
+  })
+
+  it('uses binary accuracy for identify-note questions', () => {
+    const position = fretboard.positions.find((candidate) => candidate.stringNumber === 4 && candidate.fretNumber === 7)!
+    const question = makeIdentifyNoteQuestion(position)
+
+    expect(calculateQuestionAccuracy(question, judgeQuizAnswer(question, [], 920, 'A'))).toBe(1)
+    expect(calculateQuestionAccuracy(question, judgeQuizAnswer(question, [], 920, 'B'))).toBe(0)
   })
 
   it('generates octave answers that exclude the source and same-pitch unisons', () => {
@@ -123,22 +145,6 @@ describe('guitar fretboard quiz', () => {
       expect(judgeQuizAnswer(question, question.expectedAnswers, 1000).isCorrect).toBe(true)
       expect(judgeQuizAnswer(question, question.expectedAnswers.slice(1), 1000).isCorrect).toBe(false)
     }
-  })
-
-  it('summarizes practice results into accuracy and weak areas', () => {
-    const question = makeFindNoteQuestion(fretboard, 'C', { minFret: 0, maxFret: 12 })
-    const perfect = judgeQuizAnswer(question, question.expectedAnswers, 1000)
-    const miss = judgeQuizAnswer(question, [question.expectedAnswers[0]!], 2000)
-    const summary = summarizePractice([
-      { question, answer: perfect },
-      { question, answer: miss },
-    ])
-
-    expect(summary.totalQuestions).toBe(2)
-    expect(summary.correctQuestions).toBe(1)
-    expect(summary.accuracy).toBe(0.5)
-    expect(summary.averageResponseMs).toBe(1500)
-    expect(summary.weakNotes).toEqual(['C'])
   })
 
   it('rotates practice questions through notes while preserving a bounded selectable range', () => {
@@ -258,34 +264,4 @@ describe('guitar fretboard quiz', () => {
     expect(question.expectedAnswers[0]?.stringNumber).toBe(4)
   })
 
-  it('summarizes saved practice sessions with weighted accuracy, response time, and weak areas', () => {
-    const summary = summarizePracticeSessions([
-      {
-        id: 'session-1',
-        startedAt: '2026-07-07T12:00:00.000Z',
-        endedAt: '2026-07-07T12:00:02.000Z',
-        totalQuestions: 1,
-        correctQuestions: 0,
-        accuracy: 0,
-        averageResponseMs: 2000,
-        weakNotes: ['C'],
-      },
-      {
-        id: 'session-2',
-        startedAt: '2026-07-07T12:00:03.000Z',
-        endedAt: '2026-07-07T12:00:09.000Z',
-        totalQuestions: 3,
-        correctQuestions: 2,
-        accuracy: 2 / 3,
-        averageResponseMs: 1000,
-        weakNotes: ['C#', 'C'],
-      },
-    ])
-
-    expect(summary.totalQuestions).toBe(4)
-    expect(summary.correctQuestions).toBe(2)
-    expect(summary.accuracy).toBe(0.5)
-    expect(summary.averageResponseMs).toBe(1250)
-    expect(summary.weakNotes).toEqual(['C', 'C#'])
-  })
 })

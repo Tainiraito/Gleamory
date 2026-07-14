@@ -1,4 +1,5 @@
-import type { FretPosition, FretRange, FretboardMode, QuizAnswer } from '@/lib/guitarFretboard/types'
+import type { FretPosition, FretRange, FretboardAppearanceId, FretboardMode, QuizAnswer } from '@/lib/guitarFretboard/types'
+import { getFretGridLayout } from '@/lib/guitarFretboard/appearance'
 import { getPositionKey } from '@/lib/guitarFretboard/fretboard'
 
 interface FretboardProps {
@@ -14,6 +15,7 @@ interface FretboardProps {
   referenceKeys?: Set<string>
   answer?: QuizAnswer | null
   mode: FretboardMode
+  appearance: FretboardAppearanceId
   targetNote?: string
   displayRange?: FretRange
   disableOutsideRange?: boolean
@@ -23,6 +25,14 @@ interface FretboardProps {
 }
 
 const MARKER_FRETS = new Set([3, 5, 7, 9, 12, 15, 17, 19, 21, 24])
+const SINGLE_MARKER_FRETS = new Set([3, 5, 7, 9, 15, 17, 19, 21])
+const DOUBLE_MARKER_FRETS = new Set([12, 24])
+
+function markerTypeForPosition(stringNumber: number, fretNumber: number): 'single' | 'double' | null {
+  if (SINGLE_MARKER_FRETS.has(fretNumber) && stringNumber === 3) return 'single'
+  if (DOUBLE_MARKER_FRETS.has(fretNumber) && (stringNumber === 2 || stringNumber === 4)) return 'double'
+  return null
+}
 
 function stateForPosition(position: FretPosition, selectedKeys: Set<string>, answer?: QuizAnswer | null): 'selected' | 'correct' | 'wrong' | 'missed' | 'idle' {
   const key = getPositionKey(position)
@@ -46,6 +56,7 @@ export function Fretboard({
   referenceKeys,
   answer,
   mode,
+  appearance,
   targetNote,
   displayRange,
   disableOutsideRange = false,
@@ -57,11 +68,12 @@ export function Fretboard({
   const firstString = displayStrings[0]
   const lastString = displayStrings[displayStrings.length - 1]
   const positionsByKey = new Map(positions.map((position) => [getPositionKey(position), position]))
+  const gridLayout = getFretGridLayout(frets)
 
   return (
-    <div className="fretboard-frame" aria-label="吉他指板">
+    <div className="fretboard-frame" data-appearance={appearance} aria-label="吉他指板">
       <div className="fretboard-scroll">
-        <div className="fretboard-grid" style={{ gridTemplateColumns: `2.5rem repeat(${frets.length}, minmax(2.4rem, 1fr))` }}>
+        <div className="fretboard-grid" style={gridLayout}>
           <div />
           {frets.map((fret) => (
             <div key={fret} className="fretboard-fret-label">
@@ -86,6 +98,7 @@ export function Fretboard({
                 const isRoot = rootKeys?.has(key) ?? false
                 const isReference = referenceKeys?.has(key) ?? false
                 const isSuppressed = suppressedKeys?.has(key) ?? false
+                const markerType = markerTypeForPosition(stringNumber, fretNumber)
                 const answerRevealsNote = Boolean(answer && positionState !== 'idle')
                 const showNote =
                   !isSuppressed &&
@@ -114,6 +127,8 @@ export function Fretboard({
                     data-reference={isReference ? 'true' : undefined}
                     data-fading={fadingKeys?.has(key) ? 'true' : undefined}
                     data-suppressed={isSuppressed ? 'true' : undefined}
+                    data-string-number={stringNumber}
+                    data-fret-number={fretNumber}
                     onClick={() => {
                       if (!isDisabled) onActivatePosition(position)
                     }}
@@ -125,7 +140,7 @@ export function Fretboard({
                   >
                     <span className="fretboard-string-line" />
                     <span className="fretboard-dot">{showNote ? position.displayNoteName : ''}</span>
-                    {MARKER_FRETS.has(fretNumber) && <span className="fretboard-marker" />}
+                    {markerType && <span className="fretboard-marker" data-marker-type={markerType} aria-hidden="true" />}
                   </button>
                 )
               })}

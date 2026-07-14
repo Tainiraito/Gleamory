@@ -6,8 +6,6 @@ import type {
   IntervalId,
   MajorScaleDegree,
   PitchClass,
-  PracticeSession,
-  PracticeSummary,
   QuizAnswer,
   QuizQuestion,
   QuizType,
@@ -326,41 +324,10 @@ export function judgeQuizAnswer(
   }
 }
 
-export function summarizePractice(results: Array<{ question: QuizQuestion; answer: QuizAnswer }>): PracticeSummary {
-  const totalQuestions = results.length
-  const correctQuestions = results.filter((result) => result.answer.isCorrect).length
-  const averageResponseMs =
-    totalQuestions === 0 ? 0 : Math.round(results.reduce((sum, result) => sum + result.answer.responseMs, 0) / totalQuestions)
-  const weakNotes = [
-    ...new Set(
-      results
-        .filter((result) => !result.answer.isCorrect)
-        .flatMap((result) => result.question.skillTags)
-        .filter((tag) => tag.startsWith('note:'))
-        .map((tag) => tag.replace('note:', '')),
-    ),
-  ]
+export function calculateQuestionAccuracy(question: QuizQuestion, answer: QuizAnswer): number {
+  if (question.type === 'identify-note') return answer.isCorrect ? 1 : 0
 
-  return {
-    totalQuestions,
-    correctQuestions,
-    accuracy: totalQuestions === 0 ? 0 : correctQuestions / totalQuestions,
-    averageResponseMs,
-    weakNotes,
-  }
-}
-
-export function summarizePracticeSessions(sessions: PracticeSession[]): PracticeSummary {
-  const totalQuestions = sessions.reduce((sum, session) => sum + session.totalQuestions, 0)
-  const correctQuestions = sessions.reduce((sum, session) => sum + session.correctQuestions, 0)
-  const totalResponseMs = sessions.reduce((sum, session) => sum + session.averageResponseMs * session.totalQuestions, 0)
-  const weakNotes = [...new Set(sessions.flatMap((session) => session.weakNotes))]
-
-  return {
-    totalQuestions,
-    correctQuestions,
-    accuracy: totalQuestions === 0 ? 0 : correctQuestions / totalQuestions,
-    averageResponseMs: totalQuestions === 0 ? 0 : Math.round(totalResponseMs / totalQuestions),
-    weakNotes,
-  }
+  const correctSelected = Math.max(0, question.expectedAnswers.length - answer.missedPositions.length)
+  const unionSize = question.expectedAnswers.length + answer.wrongPositions.length
+  return unionSize === 0 ? 0 : Math.min(1, correctSelected / unionSize)
 }

@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import SiteHeader from '@/components/SiteHeader'
 import BackFooter from '@/components/BackFooter'
+import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import { Fretboard } from '@/components/guitar-fretboard/Fretboard'
 import { QuizPanel } from '@/components/guitar-fretboard/QuizPanel'
 import { TuningSettings } from '@/components/guitar-fretboard/TuningSettings'
-import { PracticeStats } from '@/components/guitar-fretboard/PracticeStats'
-import { PracticeDetailDialog } from '@/components/guitar-fretboard/PracticeDetailDialog'
-import { PracticeHeatmap } from '@/components/guitar-fretboard/PracticeHeatmap'
 import { GlossaryText } from '@/components/ui/GlossaryTerm'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useGuitarSampleAudio } from '@/hooks/useGuitarSampleAudio'
@@ -17,13 +15,13 @@ import {
   MAJOR_SCALE_DEGREE_OPTIONS,
   judgeQuizAnswer,
   makeConfiguredPracticeQuestion,
-  summarizePractice,
 } from '@/lib/guitarFretboard/quiz'
-import { addSessionToDailyRecords, getLocalDateKey, getRecentPracticeDays, summarizeSessionsForDate } from '@/lib/guitarFretboard/practiceHistory'
 import { loadFretboardState, saveFretboardState } from '@/lib/guitarFretboard/storage'
 import { getTuningPreset, transposeString, transposeTuning } from '@/lib/guitarFretboard/tuning'
+import { getProjectById } from '@/utils/projectData'
 import type {
   AccidentalPreference,
+  FretboardAppearanceId,
   FretRange,
   FretPosition,
   FretboardMode,
@@ -31,9 +29,6 @@ import type {
   MajorScaleDegree,
   NoteDisplayDurationMs,
   PitchClass,
-  PracticeSession,
-  PracticeDay,
-  PracticeSummary as PracticeSummaryModel,
   QuizAnswer,
   QuizQuestion,
   QuizType,
@@ -147,21 +142,6 @@ function formatMapSelection(pattern: MapPattern, selectedNotes: Set<PitchClass>)
   return mapPatternOptions.find((option) => option.value === pattern)?.label ?? '全部音'
 }
 
-function sessionFromResult(question: QuizQuestion, answer: QuizAnswer): PracticeSession {
-  const summary = summarizePractice([{ question, answer }])
-  return {
-    id: `session-${answer.answeredAt}`,
-    startedAt: question.createdAt,
-    endedAt: answer.answeredAt,
-    localDate: getLocalDateKey(new Date(answer.answeredAt)),
-    quizType: question.type,
-    isCorrect: answer.isCorrect,
-    questionPrompt: question.prompt,
-    responseMs: answer.responseMs,
-    ...summary,
-  }
-}
-
 interface ViewIntroProps {
   eyebrow: string
   title: string
@@ -262,15 +242,11 @@ function MultiButtonGroup<T extends string | number>({ label, options, values, o
 }
 
 interface DailyPracticePanelProps {
-  summary: PracticeSummaryModel
-  days: PracticeDay[]
   config: PracticeConfig
   onConfigChange: (config: PracticeConfig) => void
-  onOpenDetails: () => void
-  onSelectDate: (date: string) => void
 }
 
-function DailyPracticePanel({ summary, days, config, onConfigChange, onOpenDetails, onSelectDate }: DailyPracticePanelProps) {
+function DailyPracticePanel({ config, onConfigChange }: DailyPracticePanelProps) {
   const [constraintMessage, setConstraintMessage] = useState('')
   const updateConfig = <K extends keyof PracticeConfig>(key: K, value: PracticeConfig[K]) => {
     setConstraintMessage('')
@@ -290,11 +266,10 @@ function DailyPracticePanel({ summary, days, config, onConfigChange, onOpenDetai
   return (
     <div className="fretboard-practice-card">
       <ViewIntro
-        eyebrow="今日训练计划"
-        title="五类题型短练习"
-        body="随机混合可以直接开始；自选题目可指定题型、范围和目标参数。"
+        eyebrow="练习配置"
+        title="选择题型和范围后生成题目"
+        body="随机混合会在选定范围内出题；自选题目可指定题型和目标参数。"
       />
-      <PracticeStats summary={summary} onOpen={onOpenDetails} />
       <div className="fretboard-practice-controls">
         <ButtonGroup label="出题方式" options={practiceModeOptions} value={config.mode} onChange={(value) => updateConfig('mode', value)} />
         {config.mode === 'random' && (
@@ -417,47 +392,44 @@ function DailyPracticePanel({ summary, days, config, onConfigChange, onOpenDetai
         />
         {constraintMessage && <p className="fretboard-config-message" role="status">{constraintMessage}</p>}
       </div>
-      <PracticeHeatmap days={days} onSelectDate={onSelectDate} />
     </div>
   )
 }
 
-interface MapExplorerSideProps {
+interface MapPositionDetailsProps {
   selectedPosition: FretPosition | null
 }
 
-function MapExplorerSide({ selectedPosition }: MapExplorerSideProps) {
+function MapPositionDetails({ selectedPosition }: MapPositionDetailsProps) {
   return (
-    <aside className="fretboard-side">
-      <section className="fretboard-panel">
+    <section className="fretboard-map-details">
+      <div>
+        <p>指板位置</p>
         <h2>当前位置详情</h2>
-        {selectedPosition ? (
-          <dl>
-            <div>
-              <dt>位置</dt>
-              <dd>
-                {selectedPosition.stringNumber}弦 {selectedPosition.fretNumber}品
-              </dd>
-            </div>
-            <div>
-              <dt>音名</dt>
-              <dd>{selectedPosition.displayNoteName}</dd>
-            </div>
-            <div>
-              <dt>音高</dt>
-              <dd>{selectedPosition.noteWithOctave}</dd>
-            </div>
-            <div>
-              <dt>频率</dt>
-              <dd>{selectedPosition.frequency.toFixed(1)} Hz</dd>
-            </div>
-          </dl>
-        ) : (
-          <p className="fretboard-empty-state">点击任意品位，查看音名、八度和采样播放状态。</p>
-        )}
-      </section>
-
-    </aside>
+      </div>
+      {selectedPosition ? (
+        <dl>
+          <div>
+            <dt>位置</dt>
+            <dd>{selectedPosition.stringNumber}弦 {selectedPosition.fretNumber}品</dd>
+          </div>
+          <div>
+            <dt>音名</dt>
+            <dd>{selectedPosition.displayNoteName}</dd>
+          </div>
+          <div>
+            <dt>音高</dt>
+            <dd>{selectedPosition.noteWithOctave}</dd>
+          </div>
+          <div>
+            <dt>频率</dt>
+            <dd>{selectedPosition.frequency.toFixed(1)} Hz</dd>
+          </div>
+        </dl>
+      ) : (
+        <p className="fretboard-empty-state">点击任意品位，查看音名、八度和采样播放状态。</p>
+      )}
+    </section>
   )
 }
 
@@ -548,19 +520,16 @@ function MapControls({
 
 const GuitarFretboardTrainerPage = () => {
   useDocumentTitle('指板音训练 | Gleamory 微光集')
+  const project = getProjectById('guitar-fretboard-trainer')!
   const initialState = useMemo(() => loadFretboardState(), [])
   const [activeTab, setActiveTab] = useState<TrainerTab>('今日练习')
   const [settings, setSettings] = useState(initialState.settings)
-  const [sessions, setSessions] = useState(initialState.sessions)
-  const [dailyRecords, setDailyRecords] = useState(initialState.dailyRecords)
-  const [todayDateKey, setTodayDateKey] = useState(() => getLocalDateKey(new Date()))
-  const [detailDate, setDetailDate] = useState<string | null>(null)
-  const [, setPracticeIndex] = useState(0)
+  const [persistenceError, setPersistenceError] = useState(false)
   const [practiceConfig, setPracticeConfig] = useState<PracticeConfig>(defaultPracticeConfig)
-  const [questionNonce, setQuestionNonce] = useState(0)
   const [avoidPracticeNote, setAvoidPracticeNote] = useState<PitchClass | undefined>(undefined)
   const [avoidPracticeType, setAvoidPracticeType] = useState<QuizType | undefined>(undefined)
-  const [questionStartedAt, setQuestionStartedAt] = useState(() => Date.now())
+  const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null)
+  const [questionStartedAt, setQuestionStartedAt] = useState<number | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [selectedPositions, setSelectedPositions] = useState<FretPosition[]>([])
   const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set())
@@ -572,6 +541,7 @@ const GuitarFretboardTrainerPage = () => {
   const [mapPattern, setMapPattern] = useState<MapPattern>('all')
   const [mapRangeId, setMapRangeId] = useState<MapRangeId>('all')
   const [mapSelectedNotes, setMapSelectedNotes] = useState<Set<PitchClass>>(new Set())
+  const [mapDetailKey, setMapDetailKey] = useState<string | null>(null)
   const revealTimersRef = useRef<Map<string, number[]>>(new Map())
   const { playPosition } = useGuitarSampleAudio()
 
@@ -579,35 +549,13 @@ const GuitarFretboardTrainerPage = () => {
     () => generateFretboard({ tuning: settings.tuning, fretCount: settings.fretCount, accidental: settings.accidental }),
     [settings],
   )
-  const practiceRange = getPracticeRange(practiceConfig.rangeId)
-  const currentQuestion = useMemo(
-    () => {
-      void questionNonce
-      return makeConfiguredPracticeQuestion(fretboard, {
-        type: practiceConfig.mode === 'random' ? 'random' : practiceConfig.type,
-        range: practiceRange,
-        noteName: practiceConfig.targetNote,
-        stringNumber: practiceConfig.stringNumber,
-        interval: practiceConfig.interval,
-        keyRoot: practiceConfig.keyRoot,
-        degree: practiceConfig.degree,
-        randomScope: practiceConfig.randomScope,
-        avoidType: avoidPracticeType,
-        avoidNote: avoidPracticeNote,
-      })
-    },
-    [practiceConfig, avoidPracticeNote, avoidPracticeType, fretboard, practiceRange, questionNonce],
-  )
-  const currentTargetNote = currentQuestion.targetNote ?? getQuestionTargetNote(currentQuestion)
+  const currentTargetNote = currentQuestion
+    ? currentQuestion.targetNote ?? getQuestionTargetNote(currentQuestion)
+    : undefined
   const currentReferenceKeys = useMemo(
-    () => new Set((currentQuestion.referencePositions ?? []).map(getPositionKey)),
-    [currentQuestion.referencePositions],
+    () => new Set((currentQuestion?.referencePositions ?? []).map(getPositionKey)),
+    [currentQuestion],
   )
-  const latestSummary = useMemo(() => summarizeSessionsForDate(sessions, todayDateKey), [sessions, todayDateKey])
-  const practiceDays = useMemo(() => {
-    const [year, month, day] = todayDateKey.split('-').map(Number)
-    return getRecentPracticeDays(dailyRecords, new Date(year!, month! - 1, day!), 365)
-  }, [dailyRecords, todayDateKey])
   const mapRange = getMapRange(mapRangeId)
   const mapPitchClasses = getMapPitchClasses(mapRoot, mapPattern)
   const mapSelectedPitchClasses = useMemo(
@@ -634,6 +582,10 @@ const GuitarFretboardTrainerPage = () => {
       ),
     [fretboard.positions, mapRange, mapRoot],
   )
+  const mapDetailPosition = useMemo(
+    () => fretboard.positions.find((position) => getPositionKey(position) === mapDetailKey) ?? null,
+    [fretboard.positions, mapDetailKey],
+  )
 
   useEffect(() => {
     const timers = revealTimersRef.current
@@ -643,13 +595,8 @@ const GuitarFretboardTrainerPage = () => {
     }
   }, [])
 
-  useEffect(() => {
-    const id = window.setInterval(() => setTodayDateKey(getLocalDateKey(new Date())), 60_000)
-    return () => window.clearInterval(id)
-  }, [])
-
-  const persistSettings = (nextSettings: typeof settings, nextSessions = sessions) => {
-    saveFretboardState({ settings: nextSettings, sessions: nextSessions, dailyRecords, skillStates: initialState.skillStates })
+  const persistSettings = (nextSettings: typeof settings) => {
+    setPersistenceError(!saveFretboardState({ settings: nextSettings }))
   }
 
   const clearRevealTimersForKey = (key: string) => {
@@ -678,9 +625,8 @@ const GuitarFretboardTrainerPage = () => {
     setAvoidPracticeNote(undefined)
     setAvoidPracticeType(undefined)
     clearSelectionState()
-    setQuestionNonce((previous) => previous + 1)
-    setPracticeIndex(0)
-    setQuestionStartedAt(Date.now())
+    setCurrentQuestion(null)
+    setQuestionStartedAt(null)
   }
 
   const updateSettings = (nextSettings: typeof settings) => {
@@ -688,21 +634,28 @@ const GuitarFretboardTrainerPage = () => {
     clearSelectionState()
     setAvoidPracticeNote(undefined)
     setAvoidPracticeType(undefined)
-    setQuestionNonce((previous) => previous + 1)
-    setQuestionStartedAt(Date.now())
+    setCurrentQuestion(null)
+    setQuestionStartedAt(null)
     persistSettings(nextSettings)
   }
 
   const handleTabChange = (tab: TrainerTab) => {
     if (tab === activeTab) return
     clearSelectionState()
+    setCurrentQuestion(null)
+    setQuestionStartedAt(null)
     setActiveTab(tab)
-    setQuestionStartedAt(Date.now())
   }
 
   const handleTuningChange = (id: TuningPreset['id']) => {
     if (id === 'custom') return
     updateSettings({ ...settings, tuning: getTuningPreset(id) })
+  }
+
+  const handleAppearanceChange = (appearance: FretboardAppearanceId) => {
+    const nextSettings = { ...settings, appearance }
+    setSettings(nextSettings)
+    persistSettings(nextSettings)
   }
 
   const handleTransposeTuning = (semitones: number) => {
@@ -769,15 +722,21 @@ const GuitarFretboardTrainerPage = () => {
 
   const isPracticeSurface = activeTab === '今日练习'
   const isInCurrentQuestionRange = (position: FretPosition) =>
-    position.fretNumber >= currentQuestion.scope.minFret && position.fretNumber <= currentQuestion.scope.maxFret
+    Boolean(
+      currentQuestion &&
+      position.fretNumber >= currentQuestion.scope.minFret &&
+      position.fretNumber <= currentQuestion.scope.maxFret,
+    )
 
   const handlePositionActivate = (position: FretPosition) => {
+    if (isPracticeSurface && !currentQuestion) return
     if (isPracticeSurface && !isInCurrentQuestionRange(position)) return
-    if (isPracticeSurface && currentQuestion.type === 'identify-note') return
+    if (isPracticeSurface && currentQuestion?.type === 'identify-note') return
 
     void playPosition(position)
 
     const key = getPositionKey(position)
+    if (activeTab === '指板地图') setMapDetailKey(key)
     if (isPracticeSurface) {
       clearRevealTimersForKey(key)
       setSuppressedKeys((previous) => {
@@ -831,17 +790,29 @@ const GuitarFretboardTrainerPage = () => {
     })
   }
 
-  const queueNextQuestion = (avoidNote = currentTargetNote, avoidType = currentQuestion.type) => {
+  const generateQuestion = () => {
+    const nextQuestion = makeConfiguredPracticeQuestion(fretboard, {
+      type: practiceConfig.mode === 'random' ? 'random' : practiceConfig.type,
+      range: getPracticeRange(practiceConfig.rangeId),
+      noteName: practiceConfig.targetNote,
+      stringNumber: practiceConfig.stringNumber,
+      interval: practiceConfig.interval,
+      keyRoot: practiceConfig.keyRoot,
+      degree: practiceConfig.degree,
+      randomScope: practiceConfig.randomScope,
+      avoidType: avoidPracticeType,
+      avoidNote: avoidPracticeNote,
+    })
+
     clearSelectionState()
-    setAvoidPracticeNote(avoidNote)
-    setAvoidPracticeType(avoidType)
-    setQuestionNonce((previous) => previous + 1)
-    setPracticeIndex((previous) => previous + 1)
+    setCurrentQuestion(nextQuestion)
+    setAvoidPracticeNote(nextQuestion.targetNote ?? getQuestionTargetNote(nextQuestion))
+    setAvoidPracticeType(nextQuestion.type)
     setQuestionStartedAt(Date.now())
   }
 
   const submitAnswer = (option = selectedOption) => {
-    if (answer) return
+    if (!currentQuestion || answer || questionStartedAt === null) return
 
     const nextAnswer = judgeQuizAnswer(
       currentQuestion,
@@ -849,13 +820,7 @@ const GuitarFretboardTrainerPage = () => {
       Math.max(0, Date.now() - questionStartedAt),
       option,
     )
-    const nextSession = sessionFromResult(currentQuestion, nextAnswer)
-    const nextSessions = [nextSession, ...sessions].slice(0, 5000)
-    const nextDailyRecords = addSessionToDailyRecords(dailyRecords, nextSession)
     setAnswer(nextAnswer)
-    setSessions(nextSessions)
-    setDailyRecords(nextDailyRecords)
-    saveFretboardState({ settings, sessions: nextSessions, dailyRecords: nextDailyRecords, skillStates: initialState.skillStates })
   }
 
   const handleSubmit = () => submitAnswer()
@@ -867,16 +832,16 @@ const GuitarFretboardTrainerPage = () => {
   }
 
   const handleReset = () => {
+    if (answer) return
     clearSelectionState()
-    setQuestionStartedAt(Date.now())
   }
 
   const handleNextQuestion = () => {
-    queueNextQuestion()
+    generateQuestion()
   }
 
   const handleSkipQuestion = () => {
-    queueNextQuestion()
+    generateQuestion()
   }
 
   const handleMapPatternChange = (pattern: MapPattern) => {
@@ -898,7 +863,6 @@ const GuitarFretboardTrainerPage = () => {
     })
   }
 
-  const selectedPosition = selectedPositions.length > 0 ? selectedPositions[selectedPositions.length - 1] : null
   const renderFretboard = ({
     mode,
     answerState,
@@ -933,6 +897,7 @@ const GuitarFretboardTrainerPage = () => {
       referenceKeys={referenceKeys}
       answer={answerState}
       mode={mode}
+      appearance={settings.appearance}
       targetNote={targetNote}
       displayRange={displayRange}
       disableOutsideRange={disableOutsideRange}
@@ -957,10 +922,10 @@ const GuitarFretboardTrainerPage = () => {
         mode: settings.mode,
         answerState: answer,
         targetNote: currentTargetNote,
-        displayRange: currentQuestion.scope,
-        disableOutsideRange: true,
+        displayRange: currentQuestion?.scope,
+        disableOutsideRange: Boolean(currentQuestion),
         referenceKeys: currentReferenceKeys,
-        selectionDisabled: currentQuestion.type === 'identify-note',
+        selectionDisabled: !currentQuestion || currentQuestion.type === 'identify-note',
       })
     }
 
@@ -972,16 +937,18 @@ const GuitarFretboardTrainerPage = () => {
       <SiteHeader />
 
       <main className="px-4 sm:px-[8%] pt-20 sm:pt-24 pb-36 sm:pb-24">
-        <div className="fretboard-page-header">
-          <div className="fretboard-page-rule" aria-hidden="true">
-            <span />
-            <i />
-            <span />
-          </div>
-          <h1>指板音训练</h1>
-          <p>Guitar Fretboard Trainer</p>
-          <small>把弦、品、音名和手感放在同一个短练习里。</small>
-        </div>
+        <ProjectPageHeader
+          name={project.name}
+          englishName="Guitar Fretboard Trainer"
+          description={project.description}
+          version={project.version.replace(/^v/, '')}
+        />
+
+        {persistenceError && (
+          <p className="fretboard-persistence-error" role="status">
+            当前设置仍可继续使用，但浏览器未能保存。请检查隐私设置或可用存储空间。
+          </p>
+        )}
 
         <section className="fretboard-tool">
           <div className="fretboard-board-panel">{renderCurrentFretboard()}</div>
@@ -993,6 +960,7 @@ const GuitarFretboardTrainerPage = () => {
                 selectedCount={selectedPositions.length}
                 selectedOption={selectedOption}
                 answer={answer}
+                onGenerate={generateQuestion}
                 onSelectOption={handleSelectOption}
                 onSubmit={handleSubmit}
                 onReset={handleReset}
@@ -1002,25 +970,51 @@ const GuitarFretboardTrainerPage = () => {
             </div>
           )}
 
-          <div className="fretboard-tabs" role="tablist" aria-label="指板音训练视图">
+          {activeTab === '指板地图' && (
+            <div className="fretboard-question-panel">
+              <MapPositionDetails selectedPosition={mapDetailPosition} />
+            </div>
+          )}
+
+          <div className="fretboard-tabs justify-center" role="tablist" aria-label="指板音训练视图">
             {tabs.map((tab) => (
-              <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => handleTabChange(tab)}>
+              <button
+                key={tab}
+                id={`fretboard-tab-${tabs.indexOf(tab)}`}
+                type="button"
+                role="tab"
+                tabIndex={activeTab === tab ? 0 : -1}
+                aria-selected={activeTab === tab}
+                aria-controls={`fretboard-panel-${tabs.indexOf(tab)}`}
+                onClick={() => handleTabChange(tab)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+                  event.preventDefault()
+                  const currentIndex = tabs.indexOf(tab)
+                  const offset = event.key === 'ArrowRight' ? 1 : -1
+                  const nextIndex = (currentIndex + offset + tabs.length) % tabs.length
+                  const nextTab = tabs[nextIndex]!
+                  handleTabChange(nextTab)
+                  document.getElementById(`fretboard-tab-${nextIndex}`)?.focus()
+                }}
+              >
                 {tab}
               </button>
             ))}
           </div>
 
-          <div className="fretboard-body" data-with-side={activeTab === '指板地图' ? 'true' : undefined}>
+          <div
+            id={`fretboard-panel-${tabs.indexOf(activeTab)}`}
+            className="fretboard-body"
+            role="tabpanel"
+            aria-labelledby={`fretboard-tab-${tabs.indexOf(activeTab)}`}
+          >
             <div className="fretboard-main">
               {activeTab === '今日练习' && (
                 <div className="fretboard-stack">
                   <DailyPracticePanel
-                    summary={latestSummary}
-                    days={practiceDays}
                     config={practiceConfig}
                     onConfigChange={applyPracticeConfig}
-                    onOpenDetails={() => setDetailDate(todayDateKey)}
-                    onSelectDate={setDetailDate}
                   />
                 </div>
               )}
@@ -1059,10 +1053,12 @@ const GuitarFretboardTrainerPage = () => {
                   />
                   <TuningSettings
                     tuningId={settings.tuning.id}
+                    appearance={settings.appearance}
                     accidental={settings.accidental}
                     mode={settings.mode}
                     noteDisplayMs={settings.noteDisplayMs}
                     onTuningChange={handleTuningChange}
+                    onAppearanceChange={handleAppearanceChange}
                     onAccidentalChange={(accidental: AccidentalPreference) => updateSettings({ ...settings, accidental })}
                     onModeChange={(mode: FretboardMode) => updateSettings({ ...settings, mode })}
                     onNoteDisplayChange={(noteDisplayMs: NoteDisplayDurationMs) => updateSettings({ ...settings, noteDisplayMs })}
@@ -1070,13 +1066,9 @@ const GuitarFretboardTrainerPage = () => {
                 </div>
               )}
             </div>
-
-            {activeTab === '指板地图' && <MapExplorerSide selectedPosition={selectedPosition} />}
           </div>
         </section>
       </main>
-
-      {detailDate && <PracticeDetailDialog date={detailDate} sessions={sessions} onClose={() => setDetailDate(null)} />}
 
       <BackFooter />
     </div>

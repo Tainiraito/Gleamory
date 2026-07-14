@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { buildSampleUrl, findNearestSample, getPlaybackRate } from '@/lib/guitarFretboard/sampleAudio'
 import type { FretPosition, GuitarSampleManifest } from '@/lib/guitarFretboard/types'
 
@@ -15,6 +15,7 @@ export function useGuitarSampleAudio(): UseGuitarSampleAudioReturn {
   const manifestRef = useRef<GuitarSampleManifest | null>(null)
   const bufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map())
   const activeGainRef = useRef<GainNode | null>(null)
+  const activeSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const [status, setStatus] = useState<UseGuitarSampleAudioReturn['status']>('idle')
   const [message, setMessage] = useState('吉他采样音色将在首次点击时加载')
 
@@ -91,6 +92,7 @@ export function useGuitarSampleAudio(): UseGuitarSampleAudioReturn {
         gain.gain.exponentialRampToValueAtTime(0.9, now + 0.012)
         gain.gain.exponentialRampToValueAtTime(0.001, now + 1.35)
         activeGainRef.current = gain
+        activeSourceRef.current = source
 
         source.buffer = buffer
         source.playbackRate.value = getPlaybackRate(position.midiNumber, sample.midiNumber)
@@ -98,6 +100,12 @@ export function useGuitarSampleAudio(): UseGuitarSampleAudioReturn {
         gain.connect(ctx.destination)
         source.start(now)
         source.stop(now + 1.45)
+        source.onended = () => {
+          source.disconnect()
+          gain.disconnect()
+          if (activeSourceRef.current === source) activeSourceRef.current = null
+          if (activeGainRef.current === gain) activeGainRef.current = null
+        }
       } catch (error) {
         setStatus('error')
         setMessage(error instanceof Error ? error.message : '吉他采样播放失败')
@@ -105,6 +113,26 @@ export function useGuitarSampleAudio(): UseGuitarSampleAudioReturn {
     },
     [getAudioContext, loadBuffer, loadManifest],
   )
+
+  useEffect(() => () => {
+    const source = activeSourceRef.current
+    const gain = activeGainRef.current
+    activeSourceRef.current = null
+    activeGainRef.current = null
+    try {
+      if (source) source.onended = null
+      source?.stop()
+    } catch {
+      // Source may already have ended.
+    }
+    source?.disconnect()
+    gain?.disconnect()
+    bufferCacheRef.current.clear()
+    manifestRef.current = null
+    const context = audioContextRef.current
+    audioContextRef.current = null
+    if (context && context.state !== 'closed') void context.close()
+  }, [])
 
   return { status, message, playPosition }
 }
