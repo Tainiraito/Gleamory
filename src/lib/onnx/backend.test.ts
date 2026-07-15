@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getSessionOptions } from './backend'
+import { getSessionOptions, ort } from './backend'
 import type { ModelInfo } from './modelRegistry'
 
 const baseModel: ModelInfo = {
@@ -19,6 +19,10 @@ const baseModel: ModelInfo = {
 }
 
 describe('getSessionOptions', () => {
+  it('uses the runtime bundled with the installed onnxruntime-web version', () => {
+    expect(ort.env.wasm.wasmPaths).toBeUndefined()
+  })
+
   it('uses low-memory session options for high-quality waveform models', () => {
     const options = getSessionOptions({
       ...baseModel,

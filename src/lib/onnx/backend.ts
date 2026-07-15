@@ -1,15 +1,12 @@
 /* ============================================================
  * ONNX Runtime 封装
- * - 设置 WASM 路径指向 /ort-wasm/
+ * - 使用 onnxruntime-web 与 Vite 生成的匹配 WASM 运行时
  * - 提供"创建 session"的工厂方法
  * - 保持简洁,实际推理逻辑在 Web Worker 里
  * ============================================================ */
 
 import * as ort from 'onnxruntime-web'
 import type { ModelInfo } from './modelRegistry'
-
-/* 设置 WASM 路径(Vite 会把 public/ort-wasm/ 整目录复制到 dist) */
-ort.env.wasm.wasmPaths = '/ort-wasm/'
 
 /* 启用 SIMD + 多线程(需要 COOP/COEP,coi-serviceworker 保证) */
 ort.env.wasm.simd = true
