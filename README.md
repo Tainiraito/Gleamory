@@ -18,7 +18,7 @@
 - `#/gacha-simulator`：翻牌抽卡
 - `#/piano`：Web Audio 极简钢琴
 - `#/metronome`：支持小节编辑和变速模式的节拍器
-- `#/guitar-fretboard-trainer`：通过五类测验、可交互指板地图和本地练习记录熟悉吉他弦位与音名
+- `#/guitar-fretboard-trainer`：通过五类可配置测验、单题计时与准确率、音阶/和弦地图、吉他采样音色和四套拟真指板外观熟悉全指板音名
 - `#/audio-separator`：浏览器本地音轨分离，支持 HT-Demucs 高质量四分轨
 
 ### 插件说明页
@@ -43,7 +43,7 @@
 ## 本地开发
 
 ```bash
-npm install --legacy-peer-deps
+npm ci --legacy-peer-deps
 npm run dev
 ```
 
@@ -69,10 +69,12 @@ npm run preview
 
 1. `src/data/projects.json`
 2. `src/data/timeline.json`
-3. `CHANGELOG.md`
-4. 对应路由或外部链接
+3. `README.md` 与 `CHANGELOG.md`
+4. `docs/requirements.md`
+5. 当前设计状态与对应实施计划
+6. 对应路由或外部链接
 
-提交前必须运行测试、Lint 和生产构建。
+提交前必须完成跨文件一致性检查，并运行测试、Lint 和生产构建。详细闭环与 `.gitignore` 管理边界见 `AGENTS.md`。
 
 ## 目录
 

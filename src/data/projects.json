@@ -66,7 +66,7 @@
     {
       "id": "guitar-fretboard-trainer",
       "name": "指板音训练",
-      "description": "用测验、指板地图和采样音色练熟吉他弦位与音名",
+      "description": "通过五类可配置测验、音阶和弦地图、采样音色与拟真指板练习全指板音名",
       "url": "#/guitar-fretboard-trainer",
       "status": "开发中",
       "tags": [
@@ -75,8 +75,8 @@
         "练习"
       ],
       "cover": "",
-      "version": "v0.2.0",
-      "updatedAt": "2026-07-13"
+      "version": "v0.3.0",
+      "updatedAt": "2026-07-14"
     },
     {
       "id": "netease-cover",
