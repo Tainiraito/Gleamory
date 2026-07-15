@@ -78,7 +78,8 @@ TMPDIR=/tmp TMP=/tmp TEMP=/tmp npm test
 | `src/data/timeline.json`       | 项目更新时间线数据源                         |
 | `src/styles/globals.css`       | 全站主题变量、字体和共享样式                 |
 | `src/types/index.ts`           | 项目与时间线等共享数据类型                   |
-| `.github/workflows/deploy.yml` | 生产部署和 CI 质量门槛                       |
+| `.github/workflows/ci.yml`     | PR 测试、Lint 和构建质量门槛                |
+| `.github/workflows/deploy.yml` | `main` 分支的生产构建与 GitHub Pages 部署    |
 | `docs/requirements.md`         | 产品需求、验收规则和当前非目标               |
 
 判断当前行为时优先检查实际代码、配置和数据源；判断期望行为时同时检查 `docs/requirements.md`。README 或需求文档可能晚于代码更新，发现漂移应报告并仅在任务范围内修正。
@@ -206,8 +207,19 @@ TMPDIR=/tmp TMP=/tmp TEMP=/tmp npm test
 7. 在 `README.md` 的当前内容中增加或更新用户可见入口与能力简介。
 8. 在 `CHANGELOG.md` 的 `Unreleased` 中记录用户可感知的新增、修复或变化。
 9. 若实际范围改变，更新 `docs/requirements.md` 或对应的当前规格，并把延期项与已实现项分开。
+10. 更新当前设计文档的状态和能力快照；被后续决策替代的旧设计必须在文首注明替代关系，不能继续充当验收入口。
+11. 若仓库中存在本次功能的实施计划，完成项及时标记为已完成，并记录最终实现相对原计划的修订，避免未勾选任务被误判为尚未开发。
 
-完成前必须执行一次跨文件一致性检查：项目 ID、名称、状态、版本、日期、Hash 路由和功能描述在数据源、页面、README、时间线与 CHANGELOG 中不得互相矛盾。不要只添加可点击卡片而遗漏内容或路由，也不要只完成页面而遗漏元数据和发布记录。
+完成前必须执行一次跨文件一致性检查：项目 ID、名称、状态、版本、日期、Hash 路由和功能描述在数据源、页面、README、时间线、CHANGELOG、需求文档、当前设计和实施计划中不得互相矛盾。不要只添加可点击卡片而遗漏内容或路由，也不要只完成页面而遗漏元数据、发布记录或文档状态。
+
+发布或合并前使用以下固定清单，不得因测试通过而跳过：
+
+- `src/data/projects.json`：名称、描述、状态、版本、日期和入口。
+- `src/data/timeline.json`：当前版本的用户可感知变化，不得继续宣传已撤回功能。
+- `README.md` 与 `CHANGELOG.md`：公开能力和发布变化。
+- `docs/requirements.md`：当前业务规则、非目标与验收条件。
+- `docs/designs/`：当前设计状态、唯一验收入口和旧设计替代说明。
+- `docs/implementation-plans/`：执行状态、完成标记和实施偏差说明。
 
 除非用户明确将工作限定为草稿或局部实验，缺少上述适用项时不得宣称“项目已接入”“功能已发布”或“版本更新完成”。若某项不适用，最终报告中说明原因。
 
@@ -220,6 +232,7 @@ TMPDIR=/tmp TMP=/tmp TEMP=/tmp npm test
 - 本地文件处理默认留在设备内。若需求确实需要上传，必须先取得用户明确确认并说明数据流向。
 - 不把密钥、令牌、个人路径或隐私数据写入仓库、日志、测试夹具和最终回复。
 - 不提交 ONNX 大模型、完整字体、未优化媒体或无用途的静态资源。
+- 可从 `package-lock.json` 锁定依赖随构建稳定生成的运行时二进制不得再手工复制到 `public/`；音轨分离的 ONNX Runtime WASM 必须由当前 `onnxruntime-web` 依赖与 Vite 生成。
 - 音频样本和图片使用浏览器友好格式；批量生成的资源必须有可重复的来源或脚本说明。
 
 涉及音轨分离、模型缓存或 ONNX 推理时，必须先阅读 `docs/agent-guides/audio-separator.md`。
@@ -261,6 +274,25 @@ npm run build
 - `public/models/` 下的大模型不得提交；模型应在运行时下载或由明确的资源流程提供。
 - 不编辑与任务无关的格式，不批量重排文件，不因为局部修改顺手升级依赖。
 - `npm run format` 会写入文件，只在格式化范围已确认时运行；检查差异后再保留结果。
+
+### `.gitignore` 管理边界
+
+`.gitignore` 只用于以下内容：
+
+- 可由安装、测试或构建稳定再生成的目录和缓存，例如 `node_modules/`、`dist/`、`coverage/` 和 `*.tsbuildinfo`。
+- 操作系统、编辑器和开发者机器私有文件，例如 `.DS_Store`、`.idea/`、`.codegraph/`、`.hermes/` 和个人 `opencode.json`。
+- 可能包含密钥或本机配置的环境文件；必须保留不含秘密的 `.env.example` 或 `.env.<mode>.example` 模板。
+- 由明确下载流程提供且不应进入 Git 的大型运行时资源，例如 `public/models/` 下任意层级的 ONNX 权重。
+
+不得通过 `.gitignore` 隐藏源码、测试、`package-lock.json`、`.github/workflows/`、`components.json`、`.prettierrc`、构建必需配置、用户可见文档、资源清单、许可证或正式设计/实施计划。正式留档统一放在 `docs/designs/` 和 `docs/implementation-plans/`，这两个目录不得加入忽略规则。
+
+新增或扩大忽略规则前必须：
+
+1. 使用精确路径或后缀，避免 `docs/`、`public/`、`*.json` 等宽泛模式。
+2. 使用 `git check-ignore -v --no-index <path>` 验证直属和嵌套示例，确认不会吞掉应提交文件。
+3. 使用 `git ls-files <path>` 检查是否已有同类文件被跟踪；`.gitignore` 不会自动停止跟踪已提交文件。
+4. 在规则附近写清用途；若资源依赖运行时下载，同时维护来源、许可证、校验或下载说明。
+5. 提交前检查 `git status --short --ignored`，确认没有意外隐藏本任务产物。
 
 ## Git 与协作
 
@@ -310,6 +342,19 @@ git rev-list --left-right --count origin/main...main
 - 提交前核对 `git diff --cached --check` 和暂存文件清单；禁止使用 `git add .`、`git add -A` 将不相关改动一并暂存。
 - 第一次推送主题分支使用 `git push -u origin <branch>`；后续只推送当前分支，不向 `main` 直接推送。
 - 未经用户明确要求，不提交或推送；不得把令牌、密钥、个人路径、构建产物或大型模型带入提交。
+- 删除已提交的大文件只会清理新快照，不会自动移除 Git 历史对象。使用 `git filter-repo` 或强制推送改写历史前，必须另行取得用户明确授权，并先备份引用、说明协作影响和验证恢复方案。
+
+#### 每次远程推送前的 LLM 强制审计
+
+任何 `git push`、PR 更新或发布分支前，必须由当前执行的 LLM 基于最新工作树、HEAD 和远程引用重新审计。不得直接沿用上一轮、上一个提交或其他 LLM 的结论；审计后 HEAD 再发生变化时必须重新执行。
+
+1. **确认推送边界**：核对当前分支、目标 remote、upstream 和远程最新提交；首次推送主题分支时，以 `origin/main` 与 merge-base 确定待上传范围。
+2. **阅读实际待上传内容**：检查 `git status --short --ignored`、待推送提交列表、`git diff --name-status`、`git diff --stat` 和完整 diff；不得只根据提交标题或文件数量判断。
+3. **检查仓库卫生**：执行 `git ls-files -ci --exclude-standard`，并审查待上传 blob 的大小、类型和来源；拒绝大模型、手工复制的依赖二进制、构建产物、缓存、索引数据库、重复或未引用资源以及 `Zone.Identifier`。
+4. **检查安全与隐私**：扫描待上传 diff 中的令牌、密钥、环境值、个人绝对路径、局域网地址、代理端口和用户本地数据；文档、测试夹具和生成资源同样在检查范围内。
+5. **检查产品与文档一致性**：对照实际功能核对项目卡片、路由、版本、状态、timeline、README、CHANGELOG、需求、设计和实施计划；静态资源必须有引用，外部资源必须有来源和许可说明。
+6. **重新验证**：根据变更范围运行目标测试与完整质量门槛；运行时代码默认需要 `npm test`、`npm run lint`、`npm run build` 和 `git diff --check`。
+7. **在推送前报告**：向用户说明目标远程与分支、待推送提交、文件范围、审计结果、实际验证和残留风险。只有审计通过且用户已明确要求推送时才能执行；任何一项不明确、证据不足或发现异常都必须先停止推送。
 
 ### 同步 main 与解决冲突
 

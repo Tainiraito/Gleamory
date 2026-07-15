@@ -1,84 +1,46 @@
-# 音轨分离 — 模型资源
+# 音轨分离模型资源
 
-本目录存放本地运行时需要的 ONNX 音轨分离模型 + 必要配置。
+本目录只保留运行时模型的下载与校验说明。ONNX 权重体积较大，不提交到 Git；实际模型清单、下载顺序和推理参数以 `src/lib/onnx/modelRegistry.ts` 为准。
 
-## ✅ 当前状态(2026-06-04)
+## 运行时策略
 
-`htdemucs_ft` 的 **4 个 fp16 stem 模型已全部下载就位**(共用 632 MB):
+- 浏览器按注册表中的 `downloadUrls` 顺序尝试下载，校验通过后写入 IndexedDB。
+- Spleeter 使用固定上游提交，依次尝试 Hugging Face 主站、镜像和可选本地文件。
+- HT-Demucs 和 UVR 的远程与本地回退路由注册表管理；开发代理只在 Vite 开发服务器中有效。
+- 本地回退文件仅供开发和私有部署，`public/models/**/*.onnx` 和 `public/models/**/*.bin` 已由 `.gitignore` 排除。
 
-| 文件 | 大小 | 状态 |
-|------|------|------|
-| `htdemucs_ft_vocals_fp16weights.onnx` | 158 MB | ✅ 已下载 |
-| `htdemucs_ft_drums_fp16weights.onnx` | 158 MB | ✅ 已下载 |
-| `htdemucs_ft_bass_fp16weights.onnx` | 158 MB | ✅ 已下载 |
-| `htdemucs_ft_other_fp16weights.onnx` | 158 MB | ✅ 已下载 |
+## Spleeter 2-stem
 
-> ⚠️ 这些文件**已通过 .gitignore 排除**(`public/models/*.onnx`),不进 git。  
-> 部署到 GitHub Pages 时需手动上传到生产服务器(详见 `AGENTS.md` 部署流程)。
+来源：[csukuangfj/sherpa-onnx-spleeter-2stems](https://huggingface.co/csukuangfj/sherpa-onnx-spleeter-2stems/tree/7001ba316a615cacddb3f9ef3ec416661a277e26)
 
-## 手动下载说明(如果需要重新下/换模型)
+固定版本：`7001ba316a615cacddb3f9ef3ec416661a277e26`
 
-### 推荐模型(已采用 fp16 版)
+| 文件 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| `vocals.onnx` | 39,318,336 | `bdc16ab6bf6117ddd4842c19e80e40e2be188fc555295064d424616b0224ac97` |
+| `accompaniment.onnx` | 39,318,343 | `671ace17acd3720674a2bc14de32ac6292453dec20d9eb0ba4255d4ad8e3d8c0` |
 
-| 优先级 | 模型 | 大小 | 来源 | 用途 |
-|------|------|------|------|------|
-| 🥇 | `htdemucs_ft_vocals_fp16weights.onnx` | 158 MB | [StemSplitio/htdemucs-ft-onnx](https://huggingface.co/StemSplitio/htdemucs-ft-onnx) | 人声分离(春日影主用例) |
-| 🥈 | `htdemucs_ft_drums_fp16weights.onnx` | 158 MB | 同上 | 鼓组分离 |
-| 🥉 | `htdemucs_ft_bass_fp16weights.onnx` | 158 MB | 同上 | 贝斯分离 |
-| 4 | `htdemucs_ft_other_fp16weights.onnx` | 158 MB | 同上 | 伴奏分离 |
-
-### 下载命令(主人在终端跑)
-
-**方案 A:huggingface-cli(中国大陆推荐用 mirror)**
+需要本地回退时，在仓库根目录执行：
 
 ```bash
-# 装工具
-pip install -U "huggingface_hub[cli]"
-
-# 设置镜像
-export HF_ENDPOINT=https://hf-mirror.com
-
-# 下 4 个 fp16 stem
-for stem in vocals drums bass other; do
-  huggingface-cli download StemSplitio/htdemucs-ft-onnx \
-    "htdemucs_ft_${stem}_fp16weights.onnx" \
-    --local-dir /home/lumine/Hermes_Area/Gleamory-audio-separator/public/models/
-done
+mkdir -p public/models/spleeter
+curl -L --fail --retry 3 \
+  -o public/models/spleeter/vocals.onnx \
+  "https://huggingface.co/csukuangfj/sherpa-onnx-spleeter-2stems/resolve/7001ba316a615cacddb3f9ef3ec416661a277e26/vocals.onnx"
+curl -L --fail --retry 3 \
+  -o public/models/spleeter/accompaniment.onnx \
+  "https://huggingface.co/csukuangfj/sherpa-onnx-spleeter-2stems/resolve/7001ba316a615cacddb3f9ef3ec416661a277e26/accompaniment.onnx"
+sha256sum public/models/spleeter/*.onnx
 ```
 
-**方案 B:直接 curl(直连 hf-mirror.com,实测 12-20MB/s)**
+如需使用代理，请通过本机 `HTTPS_PROXY` 环境变量配置，不要把个人代理地址写入仓库。
 
-```bash
-mkdir -p /home/lumine/Hermes_Area/Gleamory-audio-separator/public/models/
-for stem in vocals drums bass other; do
-  curl -L -C- -o "/home/lumine/Hermes_Area/Gleamory-audio-separator/public/models/htdemucs_ft_${stem}_fp16weights.onnx" \
-    "https://hf-mirror.com/StemSplitio/htdemucs-ft-onnx/resolve/main/htdemucs_ft_${stem}_fp16weights.onnx"
-done
-```
+## 校验与维护
 
-**方案 C:走代理(如果直连不通)**
+- 新增或更换模型时，必须记录固定版本、精确大小、校验值、来源和许可信息。
+- 下载内容若是 HTML 错误页、Git LFS pointer、截断文件或明显过小的响应，必须拒绝缓存和推理。
+- 调整模型来源后，至少运行 `npm test -- src/lib/onnx/modelRegistry.test.ts`、`npm run lint` 和 `npm run build`。
 
-```bash
-for stem in vocals drums bass other; do
-  curl -L -x "http://192.168.31.45:7890" \
-    -o "/home/lumine/Hermes_Area/Gleamory-audio-separator/public/models/htdemucs_ft_${stem}_fp16weights.onnx" \
-    "https://hf-mirror.com/StemSplitio/htdemucs-ft-onnx/resolve/main/htdemucs_ft_${stem}_fp16weights.onnx"
-done
-```
+## 许可说明
 
-### 验证
-
-```bash
-# 4 个文件应该都是 ~158MB
-ls -lh /home/lumine/Hermes_Area/Gleamory-audio-separator/public/models/
-
-# 校验 ONNX 文件头
-head -c 16 /home/lumine/Hermes_Area/Gleamory-audio-separator/public/models/*.onnx | xxd | head -4
-# 应该看到 "pytorch" magic
-```
-
-## 版权 & 致谢
-
-- 模型来自 [StemSplitio/htdemucs-ft-onnx](https://huggingface.co/StemSplitio/htdemucs-ft-onnx),MIT 许可
-- 原始 Meta Demucs 模型 © Meta Platforms, Inc.
-- 原始音源(春日影)© Bushiroad / BanG Dream! Project — **本项目仅供个人学习使用,请勿用于商业用途或未经授权的二次分发**
+Spleeter 模型仓库当前没有提供模型卡或权重许可证，因此本仓库不重新分发这两个权重文件。上游代码项目 [Deezer Spleeter](https://github.com/deezer/spleeter) 采用 MIT 许可，[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 采用 Apache-2.0 许可；这些代码许可不应自动视为模型权重许可。

@@ -85,8 +85,11 @@ export interface UvrModelSpec {
 /* ----------- 路径常量 ----------- */
 
 const LOCAL_BASE = '/models'
-/** 备选:运行时从 huggingface mirror 拉(用户没预下载时) */
-const HF_SPLEETER = 'https://hf-mirror.com/csukuangfj/sherpa-onnx-spleeter-2stems/resolve/main'
+const SPLEETER_REVISION = '7001ba316a615cacddb3f9ef3ec416661a277e26'
+const HF_SPLEETER_UPSTREAM =
+  `https://huggingface.co/csukuangfj/sherpa-onnx-spleeter-2stems/resolve/${SPLEETER_REVISION}`
+const HF_SPLEETER_MIRROR =
+  `https://hf-mirror.com/csukuangfj/sherpa-onnx-spleeter-2stems/resolve/${SPLEETER_REVISION}`
 const HF_HTDEMUCS = 'https://hf-mirror.com/StemSplitio/htdemucs-ft-onnx/resolve/main'
 const HF_HTDEMUCS_UPSTREAM = 'https://huggingface.co/StemSplitio/htdemucs-ft-onnx/resolve/main'
 const HF_HTDEMUCS_VOCALS = 'https://hf-mirror.com/StemSplitio/htdemucs-ft-vocals-onnx/resolve/main'
@@ -97,7 +100,6 @@ const UVR_MDX_KARA_2_PROXY = '/model-proxy/uvr/UVR_MDXNET_KARA_2.onnx'
 const UVR_MDX_KARA_2_GITHUB =
   'https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/UVR_MDXNET_KARA_2.onnx'
 const UVR_MDX_KARA_2_LOCAL = `${LOCAL_BASE}/uvr/UVR_MDXNET_KARA_2.onnx`
-void HF_SPLEETER
 
 const UVR_MDX_KARA_2_DOWNLOAD_URLS = import.meta.env.DEV
   ? [UVR_MDX_KARA_2_PROXY, UVR_MDX_KARA_2_GITHUB, UVR_MDX_KARA_2_LOCAL]
@@ -115,8 +117,13 @@ export const MODELS: ModelInfo[] = [
     englishName: 'Spleeter 2-stem vocals',
     outputStem: 'vocals',
     size: '38 MB',
-    sizeBytes: 38 * 1024 * 1024,
-    downloadUrl: `${LOCAL_BASE}/spleeter/vocals.onnx`,
+    sizeBytes: 39_318_336,
+    downloadUrl: `${HF_SPLEETER_UPSTREAM}/vocals.onnx`,
+    downloadUrls: [
+      `${HF_SPLEETER_UPSTREAM}/vocals.onnx`,
+      `${HF_SPLEETER_MIRROR}/vocals.onnx`,
+      `${LOCAL_BASE}/spleeter/vocals.onnx`,
+    ],
     family: 'spleeter',
     quality: 'fast',
     implemented: true,
@@ -130,8 +137,13 @@ export const MODELS: ModelInfo[] = [
     englishName: 'Spleeter 2-stem accompaniment',
     outputStem: 'other',
     size: '38 MB',
-    sizeBytes: 38 * 1024 * 1024,
-    downloadUrl: `${LOCAL_BASE}/spleeter/accompaniment.onnx`,
+    sizeBytes: 39_318_343,
+    downloadUrl: `${HF_SPLEETER_UPSTREAM}/accompaniment.onnx`,
+    downloadUrls: [
+      `${HF_SPLEETER_UPSTREAM}/accompaniment.onnx`,
+      `${HF_SPLEETER_MIRROR}/accompaniment.onnx`,
+      `${LOCAL_BASE}/spleeter/accompaniment.onnx`,
+    ],
     family: 'spleeter',
     quality: 'fast',
     implemented: true,
