@@ -64,6 +64,21 @@
       "updatedAt": "2026-07-07"
     },
     {
+      "id": "pitch-detector",
+      "name": "音高检测",
+      "description": "实时检测麦克风或电脑音频，也可分析本地音频文件的音高、音名与音分偏差",
+      "url": "#/pitch-detector",
+      "status": "开发中",
+      "tags": [
+        "小工具",
+        "音乐",
+        "音频"
+      ],
+      "cover": "",
+      "version": "v0.1.0",
+      "updatedAt": "2026-07-16"
+    },
+    {
       "id": "guitar-fretboard-trainer",
       "name": "指板音训练",
       "description": "通过五类可配置测验、音阶和弦地图、采样音色与拟真指板练习全指板音名",

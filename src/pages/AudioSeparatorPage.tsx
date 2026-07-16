@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import {
   CloudUpload,
   FileAudio,
@@ -38,6 +39,7 @@ import {
   type StemSelections,
 } from '@/hooks/useSeparator'
 import { encodeWav } from '@/lib/audio/encode'
+import { createPitchTransfer } from '@/lib/audio/pitchTransfer'
 import {
   AVAILABLE_STEMS,
   getModelById,
@@ -59,6 +61,7 @@ const STEM_META: Record<StemKey, { label: string; accent: string }> = {
 const AudioSeparatorPage = () => {
   useDocumentTitle('音轨分离 | Gleamory 微光集')
   const project = getProjectById('audio-separator')!
+  const navigate = useNavigate()
 
   const {
     state,
@@ -115,6 +118,20 @@ const AudioSeparatorPage = () => {
       for (const url of createdUrls) URL.revokeObjectURL(url)
     }
   }, [state.phase, state.stems])
+
+  const analyzeStemPitch = useCallback(
+    (stem: StemKey) => {
+      const data = state.stems?.[stem]
+      if (!data) return
+      const baseName = (state.fileName ?? 'audio').replace(/\.[^.]+$/, '')
+      const transferId = createPitchTransfer(encodeWav(data.channels, data.sampleRate), {
+        fileName: `${baseName}_${stem}.wav`,
+        source: 'separator-result',
+      })
+      navigate(`/pitch-detector?transfer=${encodeURIComponent(transferId)}`)
+    },
+    [navigate, state.fileName, state.stems],
+  )
 
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
@@ -249,6 +266,7 @@ const AudioSeparatorPage = () => {
                         available={state.stems?.[stem] != null}
                         previewUrl={previewUrls[stem]}
                         onDownload={() => downloadStemWav(stem)}
+                        onAnalyzePitch={() => analyzeStemPitch(stem)}
                       />
                     )
                   })}
@@ -1057,12 +1075,14 @@ const ResultCard = ({
   available,
   previewUrl,
   onDownload,
+  onAnalyzePitch,
 }: {
   label: string
   accent: string
   available: boolean
   previewUrl?: string
   onDownload: () => void
+  onAnalyzePitch: () => void
 }) => (
   <motion.div
     whileHover={{ y: -2 }}
@@ -1083,20 +1103,36 @@ const ResultCard = ({
       <span className="text-sm font-semibold flex-1" style={{ color: 'var(--text-primary)' }}>
         {label}
       </span>
-      <button
-        type="button"
-        onClick={onDownload}
-        disabled={!available}
-        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[0.7rem] cursor-pointer transition-all hover:opacity-80 disabled:cursor-not-allowed"
-        style={{
-          background: 'var(--accent-glow)',
-          color: 'var(--accent-amber)',
-          border: '0.5px solid var(--accent-amber)',
-        }}
-      >
-        <Download size={12} strokeWidth={1.5} />
-        下载 WAV
-      </button>
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={onAnalyzePitch}
+          disabled={!available}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[0.7rem] cursor-pointer transition-all hover:opacity-80 disabled:cursor-not-allowed"
+          style={{
+            background: 'transparent',
+            color: 'var(--text-secondary)',
+            border: '0.5px solid var(--border-line)',
+          }}
+        >
+          <Music size={12} strokeWidth={1.5} />
+          检测音高
+        </button>
+        <button
+          type="button"
+          onClick={onDownload}
+          disabled={!available}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[0.7rem] cursor-pointer transition-all hover:opacity-80 disabled:cursor-not-allowed"
+          style={{
+            background: 'var(--accent-glow)',
+            color: 'var(--accent-amber)',
+            border: '0.5px solid var(--accent-amber)',
+          }}
+        >
+          <Download size={12} strokeWidth={1.5} />
+          下载 WAV
+        </button>
+      </div>
     </div>
     {previewUrl && (
       <audio

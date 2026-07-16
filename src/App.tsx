@@ -17,6 +17,7 @@ const NeteaseCoverPage = lazy(() => import('@/pages/NeteaseCoverPage'))
 const PixivCoverPage = lazy(() => import('@/pages/PixivCoverPage'))
 const AudioSeparatorPage = lazy(() => import('@/pages/AudioSeparatorPage'))
 const GuitarFretboardTrainerPage = lazy(() => import('@/pages/GuitarFretboardTrainerPage'))
+const PitchDetectorPage = lazy(() => import('@/pages/PitchDetectorPage'))
 
 const { projects } = projectsData as ProjectsData
 const { updates } = updatesData as UpdatesData
@@ -73,6 +74,7 @@ const App = () => (
         <Route path="/pixiv-image-extractor" element={<PixivCoverPage />} />
         <Route path="/audio-separator" element={<AudioSeparatorPage />} />
         <Route path="/guitar-fretboard-trainer" element={<GuitarFretboardTrainerPage />} />
+        <Route path="/pitch-detector" element={<PitchDetectorPage />} />
       </Routes>
     </Suspense>
   </HashRouter>

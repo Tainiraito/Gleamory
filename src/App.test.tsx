@@ -15,4 +15,14 @@ describe('App routes', () => {
 
     expect(await screen.findByRole('heading', { name: '指板音训练' }, { timeout: 3000 })).toBeInTheDocument()
   })
+
+  it('renders the pitch detector from its hash route', async () => {
+    window.location.hash = '/pitch-detector'
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: '音高检测' }, { timeout: 3000 })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '实时检测' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '上传分析' })).toBeInTheDocument()
+  })
 })

@@ -18,6 +18,7 @@
 - `#/gacha-simulator`：翻牌抽卡
 - `#/piano`：Web Audio 极简钢琴
 - `#/metronome`：支持小节编辑和变速模式的节拍器
+- `#/pitch-detector`：浏览器本地音高检测，支持降噪麦克风、电脑音频、上传文件、录音回放、钢琴参照音和分轨结果分析
 - `#/guitar-fretboard-trainer`：通过五类可配置测验、单题计时与准确率、音阶/和弦地图、吉他采样音色和四套拟真指板外观熟悉全指板音名
 - `#/audio-separator`：浏览器本地音轨分离，支持 HT-Demucs 高质量四分轨
 
@@ -28,15 +29,15 @@
 
 ## 技术栈
 
-| 类别 | 技术 |
-| --- | --- |
-| 前端 | React 19、TypeScript |
-| 构建 | Vite 6 |
-| 路由 | React Router 7、HashRouter |
+| 类别 | 技术                           |
+| ---- | ------------------------------ |
+| 前端 | React 19、TypeScript           |
+| 构建 | Vite 6                         |
+| 路由 | React Router 7、HashRouter     |
 | 样式 | Tailwind CSS 4、CSS 自定义属性 |
-| 动画 | Framer Motion 12 |
-| 测试 | Vitest 4、Testing Library |
-| 部署 | GitHub Pages、GitHub Actions |
+| 动画 | Framer Motion 12               |
+| 测试 | Vitest 4、Testing Library      |
+| 部署 | GitHub Pages、GitHub Actions   |
 
 非首页路由使用 `React.lazy` 分包。思源宋体采用本地子集化 WOFF2，项目封面采用 WebP。
 

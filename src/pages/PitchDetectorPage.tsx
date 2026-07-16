@@ -31,7 +31,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Slider } from '@/components/ui/slider'
@@ -40,12 +40,22 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import SiteHeader from '@/components/SiteHeader'
 import BackFooter from '@/components/BackFooter'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { usePianoAudio } from '@/hooks/usePianoAudio'
 import { decodeAudioFile, toMono, validateDuration, validateFileSize } from '@/lib/audio/decode'
-import { analyzePitchTrack, detectPitch, type PitchDetection, type PitchTrackPoint } from '@/lib/audio/pitch'
 import {
+  analyzePitchTrack,
+  createLivePitchStabilizerState,
+  detectPitch,
+  stabilizeLivePitch,
+  type PitchDetection,
+  type PitchTrackPoint,
+} from '@/lib/audio/pitch'
+import {
+  chartYFromFrequency,
   clampPitchView,
   noteTicksForFrequencyRange,
   panPitchView,
+  spaceFrequencyTicks,
   svgXFromClientX,
   timeFromChartX,
   zoomPitchView,
@@ -53,6 +63,7 @@ import {
 } from '@/lib/audio/pitchView'
 import { consumePitchTransfer, type PitchSource } from '@/lib/audio/pitchTransfer'
 import { formatNoteNameForDisplay } from '@/utils/music'
+import { getProjectById } from '@/utils/projectData'
 
 type PitchTab = 'live' | 'upload'
 type LiveStatus = 'idle' | 'running' | 'paused'
@@ -63,10 +74,12 @@ const LIVE_HOP_SECONDS = 0.08
 const LIVE_HISTORY_SECONDS = 180
 const DEFAULT_VIEWPORT: PitchViewport = { startTime: 0, endTime: 20 }
 const CHART_WIDTH = 960
-const CHART_HEIGHT = 420
-const CHART_PLOT = { left: 48, right: 10, top: 20, bottom: 34 }
-const PANEL_STYLE = { background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }
-const PANEL_INSET_STYLE = { background: 'rgba(255,255,255,0.46)', border: '0.5px solid var(--border-line)' }
+const CHART_HEIGHT = 360
+const CHART_PLOT = { left: 48, right: 10, top: 18, bottom: 30 }
+const PANEL_INSET_STYLE = {
+  background: 'rgba(255,255,255,0.46)',
+  border: '0.5px solid var(--border-line)',
+}
 
 const EMPTY_DETECTION: PitchDetection = {
   frequencyHz: null,
@@ -79,6 +92,7 @@ const EMPTY_DETECTION: PitchDetection = {
 
 const PitchDetectorPage = () => {
   useDocumentTitle('音高检测 | Gleamory 微光集')
+  const project = getProjectById('pitch-detector')!
   const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<PitchTab>('live')
 
@@ -93,6 +107,8 @@ const PitchDetectorPage = () => {
   const [livePlaybackTime, setLivePlaybackTime] = useState(0)
   const [livePlaying, setLivePlaying] = useState(false)
   const [liveVolume, setLiveVolume] = useState(0.9)
+  const [liveNoiseReduction, setLiveNoiseReduction] = useState(true)
+  const [liveRecordingAvailable, setLiveRecordingAvailable] = useState(false)
 
   const [uploadFileName, setUploadFileName] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
@@ -109,11 +125,17 @@ const PitchDetectorPage = () => {
 
   const uploadAudioRef = useRef<HTMLAudioElement | null>(null)
   const livePlaybackAudioRef = useRef<HTMLAudioElement | null>(null)
+  const uploadAudioUrlRef = useRef<string | null>(null)
+  const livePlaybackUrlRef = useRef<string | null>(null)
   const liveAudioContextRef = useRef<AudioContext | null>(null)
   const liveStreamRef = useRef<MediaStream | null>(null)
   const liveSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const liveFilterNodesRef = useRef<AudioNode[]>([])
   const liveRecorderRef = useRef<MediaRecorder | null>(null)
   const liveRecordingChunksRef = useRef<Blob[]>([])
+  const liveRecordingDiscardRef = useRef(false)
+  const pendingLiveSeekRef = useRef<number | null>(null)
+  const livePitchStabilizerRef = useRef(createLivePitchStabilizerState())
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const liveStartMsRef = useRef(0)
@@ -127,9 +149,57 @@ const PitchDetectorPage = () => {
   const setLivePlaybackObjectUrl = useCallback((url: string | null) => {
     setLivePlaybackUrl((prev) => {
       if (prev && prev !== url) URL.revokeObjectURL(prev)
+      livePlaybackUrlRef.current = url
       return url
     })
   }, [])
+
+  const playLiveAudioAt = useCallback(
+    (audio: HTMLAudioElement, url: string, time: number) => {
+      const startPlayback = () => {
+        try {
+          const duration = Number.isFinite(audio.duration) ? audio.duration : time
+          audio.currentTime = Math.max(0, Math.min(time, duration))
+          void audio.play().catch(() => {
+            setLivePlaying(false)
+            setLiveError('浏览器没有成功开始回放，请再次点击“播放回放”。')
+          })
+        } catch {
+          setLivePlaying(false)
+          setLiveError('录音仍在生成索引，请稍等片刻后再次点击曲线。')
+        }
+      }
+
+      audio.src = url
+      audio.volume = liveVolume
+      if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) startPlayback()
+      else {
+        audio.addEventListener('loadedmetadata', startPlayback, { once: true })
+        audio.load()
+      }
+    },
+    [liveVolume],
+  )
+
+  const prepareLivePlayback = useCallback(
+    (time?: number) => {
+      if (liveRecordingChunksRef.current.length === 0) {
+        setLiveRecordingAvailable(false)
+        setLiveError('还没有可回放的录音片段，请先检测至少一秒。')
+        return
+      }
+      const blob = new Blob(liveRecordingChunksRef.current, {
+        type: liveRecordingChunksRef.current[0]?.type || 'audio/webm',
+      })
+      const url = URL.createObjectURL(blob)
+      setLivePlaybackObjectUrl(url)
+      setLiveRecordingAvailable(true)
+      if (time != null && livePlaybackAudioRef.current) {
+        playLiveAudioAt(livePlaybackAudioRef.current, url, time)
+      }
+    },
+    [playLiveAudioAt, setLivePlaybackObjectUrl],
+  )
 
   const stopLiveInput = useCallback(() => {
     if (animationFrameRef.current != null) {
@@ -150,6 +220,8 @@ const PitchDetectorPage = () => {
     liveStreamRef.current = null
     liveSourceNodeRef.current?.disconnect()
     liveSourceNodeRef.current = null
+    liveFilterNodesRef.current.forEach((node) => node.disconnect())
+    liveFilterNodesRef.current = []
     analyserRef.current?.disconnect()
     analyserRef.current = null
   }, [])
@@ -164,7 +236,12 @@ const PitchDetectorPage = () => {
       const now = performance.now()
       if (now - lastLiveSampleMsRef.current >= LIVE_HOP_SECONDS * 1000) {
         analyser.getFloatTimeDomainData(frame)
-        const detection = detectPitch(frame, audioContext.sampleRate)
+        const rawDetection = detectPitch(
+          frame,
+          audioContext.sampleRate,
+          liveNoiseReduction ? { rmsThreshold: 0.016, confidenceThreshold: 0.9 } : {},
+        )
+        const detection = stabilizeLivePitch(rawDetection, livePitchStabilizerRef.current)
         const time = liveBaseSecondsRef.current + (now - liveStartMsRef.current) / 1000
         setLiveCurrent(detection)
         setLiveCursorTime(time)
@@ -183,7 +260,7 @@ const PitchDetectorPage = () => {
       animationFrameRef.current = requestAnimationFrame(tick)
     }
     animationFrameRef.current = requestAnimationFrame(tick)
-  }, [])
+  }, [liveNoiseReduction])
 
   const startLiveRecorder = useCallback(
     (stream: MediaStream) => {
@@ -194,7 +271,16 @@ const PitchDetectorPage = () => {
       try {
         const recorder = new MediaRecorder(stream)
         recorder.ondataavailable = (event) => {
-          if (event.data.size > 0) liveRecordingChunksRef.current.push(event.data)
+          if (!liveRecordingDiscardRef.current && event.data.size > 0) {
+            liveRecordingChunksRef.current.push(event.data)
+            setLiveRecordingAvailable(true)
+          }
+        }
+        recorder.onstop = () => {
+          if (liveRecordingDiscardRef.current) return
+          const pendingTime = pendingLiveSeekRef.current
+          pendingLiveSeekRef.current = null
+          prepareLivePlayback(pendingTime ?? undefined)
         }
         recorder.start(1000)
         liveRecorderRef.current = recorder
@@ -202,7 +288,7 @@ const PitchDetectorPage = () => {
         setLiveError('实时输入已开始，但浏览器无法录制该音频流，曲线点击回放不可用。')
       }
     },
-    [],
+    [prepareLivePlayback],
   )
 
   const startLive = useCallback(
@@ -214,7 +300,16 @@ const PitchDetectorPage = () => {
         const stream =
           source === 'display-audio'
             ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
-            : await navigator.mediaDevices.getUserMedia({ audio: true })
+            : await navigator.mediaDevices.getUserMedia({
+                audio: liveNoiseReduction
+                  ? {
+                      channelCount: 1,
+                      echoCancellation: true,
+                      noiseSuppression: true,
+                      autoGainControl: false,
+                    }
+                  : { channelCount: 1 },
+              })
 
         if (stream.getAudioTracks().length === 0) {
           stream.getTracks().forEach((track) => track.stop())
@@ -222,22 +317,41 @@ const PitchDetectorPage = () => {
         }
 
         const AudioContextCtor =
-          window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
         const audioContext = liveAudioContextRef.current ?? new AudioContextCtor()
         await audioContext.resume()
         const analyser = audioContext.createAnalyser()
         analyser.fftSize = LIVE_FRAME_SIZE
         analyser.smoothingTimeConstant = 0
         const sourceNode = audioContext.createMediaStreamSource(stream)
-        sourceNode.connect(analyser)
+        if (source === 'microphone' && liveNoiseReduction) {
+          const highPass = audioContext.createBiquadFilter()
+          highPass.type = 'highpass'
+          highPass.frequency.value = 70
+          const lowPass = audioContext.createBiquadFilter()
+          lowPass.type = 'lowpass'
+          lowPass.frequency.value = 1600
+          sourceNode.connect(highPass)
+          highPass.connect(lowPass)
+          lowPass.connect(analyser)
+          liveFilterNodesRef.current = [highPass, lowPass]
+        } else {
+          sourceNode.connect(analyser)
+        }
 
         liveStreamRef.current = stream
         liveSourceNodeRef.current = sourceNode
         liveAudioContextRef.current = audioContext
         analyserRef.current = analyser
         liveStartMsRef.current = performance.now()
-        liveBaseSecondsRef.current = livePoints.length > 0 ? livePoints[livePoints.length - 1].time : 0
+        liveBaseSecondsRef.current =
+          livePoints.length > 0 ? livePoints[livePoints.length - 1].time : 0
         lastLiveSampleMsRef.current = 0
+        liveRecordingDiscardRef.current = false
+        if (livePoints.length === 0) {
+          livePitchStabilizerRef.current = createLivePitchStabilizerState()
+        }
         setLiveStatus('running')
         startLiveRecorder(stream)
         runLiveLoop()
@@ -247,7 +361,7 @@ const PitchDetectorPage = () => {
         setLiveError(error instanceof Error ? error.message : String(error))
       }
     },
-    [livePoints, runLiveLoop, startLiveRecorder, stopLiveInput],
+    [liveNoiseReduction, livePoints, runLiveLoop, startLiveRecorder, stopLiveInput],
   )
 
   const pauseLive = useCallback(() => {
@@ -256,15 +370,19 @@ const PitchDetectorPage = () => {
   }, [livePoints.length, stopLiveInput])
 
   const clearLive = useCallback(() => {
+    liveRecordingDiscardRef.current = true
+    pendingLiveSeekRef.current = null
     stopLiveInput()
     setLiveStatus('idle')
     setLivePoints([])
     setLiveCursorTime(0)
     setLivePlaybackTime(0)
     setLiveCurrent(EMPTY_DETECTION)
+    setLiveRecordingAvailable(false)
     setLiveError(null)
     setLiveViewport(DEFAULT_VIEWPORT)
     liveRecordingChunksRef.current = []
+    livePitchStabilizerRef.current = createLivePitchStabilizerState()
     setLivePlaybackObjectUrl(null)
   }, [setLivePlaybackObjectUrl, stopLiveInput])
 
@@ -272,24 +390,22 @@ const PitchDetectorPage = () => {
     (time: number) => {
       setLiveCursorTime(time)
       setLivePlaybackTime(time)
+      setLiveError(null)
+      if (liveStatus === 'running') {
+        const recorder = liveRecorderRef.current
+        const finalizingRecording = recorder?.state === 'recording'
+        if (finalizingRecording) pendingLiveSeekRef.current = time
+        stopLiveInput()
+        setLiveStatus(livePoints.length > 0 ? 'paused' : 'idle')
+        if (finalizingRecording) return
+      }
       if (liveRecordingChunksRef.current.length === 0) {
         setLiveError('还没有可回放的实时录音片段。开始检测一小段时间后，再点击曲线定位播放。')
         return
       }
-      const blob = new Blob(liveRecordingChunksRef.current, {
-        type: liveRecordingChunksRef.current[0]?.type || 'audio/webm',
-      })
-      const url = URL.createObjectURL(blob)
-      setLivePlaybackObjectUrl(url)
-      const audio = livePlaybackAudioRef.current
-      if (!audio) return
-      audio.src = url
-      audio.volume = liveVolume
-      audio.currentTime = Math.max(0, time)
-      void audio.play()
-      setLivePlaying(true)
+      prepareLivePlayback(time)
     },
-    [liveVolume, setLivePlaybackObjectUrl],
+    [livePoints.length, liveStatus, prepareLivePlayback, stopLiveInput],
   )
 
   const analyzeUploadFile = useCallback(
@@ -302,7 +418,14 @@ const PitchDetectorPage = () => {
       setUploadFileName(file.name)
       setUploadPoints([])
       setUploadCurrentTime(0)
+      setUploadDuration(0)
+      setUploadViewport(DEFAULT_VIEWPORT)
       setUploadPlaying(false)
+      setUploadAudioUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        uploadAudioUrlRef.current = null
+        return null
+      })
       appendUploadLog(`已选择 ${file.name}`)
 
       void (async () => {
@@ -333,6 +456,7 @@ const PitchDetectorPage = () => {
           const url = URL.createObjectURL(file)
           setUploadAudioUrl((prev) => {
             if (prev) URL.revokeObjectURL(prev)
+            uploadAudioUrlRef.current = url
             return url
           })
           setUploadDuration(audioBuffer.duration)
@@ -340,7 +464,9 @@ const PitchDetectorPage = () => {
           setUploadPoints(track)
           setUploadProgress(100)
           setUploadStatus('done')
-          appendUploadLog(source === 'separator-result' ? '已载入音轨分离结果' : '分析完成，可以播放和定位曲线')
+          appendUploadLog(
+            source === 'separator-result' ? '已载入音轨分离结果' : '分析完成，可以播放和定位曲线',
+          )
         } catch (error) {
           setUploadStatus('error')
           setUploadProgress(100)
@@ -353,33 +479,38 @@ const PitchDetectorPage = () => {
     [appendUploadLog],
   )
 
-  const seekUploadPlayback = useCallback((time: number) => {
-    const audio = uploadAudioRef.current
-    const nextTime = Math.max(0, Math.min(time, audio?.duration || time))
-    if (audio) {
-      audio.currentTime = nextTime
-      audio.volume = uploadVolume
-      void audio.play()
-      setUploadPlaying(true)
-    }
-    setUploadCurrentTime(nextTime)
-  }, [uploadVolume])
+  const seekUploadPlayback = useCallback(
+    (time: number) => {
+      const audio = uploadAudioRef.current
+      const nextTime = Math.max(0, Math.min(time, audio?.duration || time))
+      if (audio) {
+        audio.currentTime = nextTime
+        audio.volume = uploadVolume
+        void audio.play()
+        setUploadPlaying(true)
+      }
+      setUploadCurrentTime(nextTime)
+    },
+    [uploadVolume],
+  )
 
   const toggleLivePlayback = useCallback(() => {
     const audio = livePlaybackAudioRef.current
-    if (!audio || !livePlaybackUrl) {
-      setLiveError('请先点击已录制的音高曲线，再使用回放监听。')
+    if (liveStatus === 'running' || !livePlaybackUrl) {
+      seekLivePlayback(livePlaybackTime)
       return
     }
+    if (!audio) return
     audio.volume = liveVolume
     if (audio.paused) {
-      void audio.play()
-      setLivePlaying(true)
+      void audio.play().catch(() => {
+        setLivePlaying(false)
+        setLiveError('浏览器没有成功开始回放，请再次点击“播放回放”。')
+      })
     } else {
       audio.pause()
-      setLivePlaying(false)
     }
-  }, [livePlaybackUrl, liveVolume])
+  }, [livePlaybackTime, livePlaybackUrl, liveStatus, liveVolume, seekLivePlayback])
 
   useEffect(() => {
     const transferId = searchParams.get('transfer')
@@ -407,11 +538,15 @@ const PitchDetectorPage = () => {
 
   useEffect(() => {
     return () => {
+      liveRecordingDiscardRef.current = true
       stopLiveInput()
-      if (uploadAudioUrl) URL.revokeObjectURL(uploadAudioUrl)
-      if (livePlaybackUrl) URL.revokeObjectURL(livePlaybackUrl)
+      if (uploadAudioUrlRef.current) URL.revokeObjectURL(uploadAudioUrlRef.current)
+      if (livePlaybackUrlRef.current) URL.revokeObjectURL(livePlaybackUrlRef.current)
+      const audioContext = liveAudioContextRef.current
+      liveAudioContextRef.current = null
+      if (audioContext && audioContext.state !== 'closed') void audioContext.close()
     }
-  }, [livePlaybackUrl, stopLiveInput, uploadAudioUrl])
+  }, [stopLiveInput])
 
   const uploadCurrentPoint = useMemo(
     () => findNearestPoint(uploadPoints, uploadCurrentTime),
@@ -423,115 +558,149 @@ const PitchDetectorPage = () => {
   )
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden" style={{ background: 'var(--bg-page)' }}>
+    <div
+      className="relative min-h-screen overflow-x-hidden"
+      style={{ background: 'var(--bg-page)' }}
+    >
       <SiteHeader />
-      <main className="w-full max-w-full overflow-hidden px-4 sm:px-[15%] pt-16 sm:pt-20 pb-28 sm:pb-20">
-        <section className="mx-auto w-full min-w-0 max-w-[20rem] sm:max-w-none">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PitchTab)} className="gap-5">
-            <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-3xl">
-                <h1 className="font-display text-4xl sm:text-5xl leading-tight" style={{ color: 'var(--text-primary)' }}>
-                  音高检测
-                </h1>
-                <p className="mt-2 w-full max-w-[min(42rem,100%)] text-sm leading-relaxed break-all [overflow-wrap:anywhere]" style={{ color: 'var(--text-secondary)' }}>
-                  检测实时输入或上传音频的音高走势。曲线可缩放、拖动和点击定位，音频只在浏览器本地处理。
-                </p>
-              </div>
-              <TabsList
-                className="grid !h-auto w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] overflow-hidden rounded-full p-1 shadow-[inset_0_0_0_0.5px_rgba(44,42,48,0.08)] lg:w-[21rem]"
-                style={{ background: 'rgba(255,255,255,0.58)', border: '0.5px solid rgba(44,42,48,0.08)', backdropFilter: 'blur(18px)' }}
+      <main className="w-full max-w-full overflow-hidden px-4 pb-28 pt-16 sm:px-8 sm:pb-24 sm:pt-20">
+        <section className="mx-auto w-full min-w-0 max-w-[88rem]">
+          <PitchPageHeader
+            name={project.name}
+            description="实时看见声音的音高、走向与细微偏差。"
+            version={project.version}
+          />
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as PitchTab)}
+            className="w-full min-w-0 max-w-full gap-0 overflow-hidden"
+          >
+            <div
+              className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border shadow-[0_24px_70px_rgba(44,42,48,0.07)]"
+              style={{ background: 'rgba(250,246,240,0.9)', borderColor: 'rgba(44,42,48,0.12)' }}
+            >
+              <div
+                className="grid border-b xl:grid-cols-[17rem_minmax(0,1fr)]"
+                style={{ borderColor: 'rgba(44,42,48,0.11)' }}
               >
-                <TabsTrigger
-                  value="live"
-                  className="!h-10 min-w-0 rounded-full px-2 py-2.5 text-[0.82rem] data-active:bg-[rgba(255,255,255,0.92)] data-active:text-[var(--text-primary)] data-active:shadow-[0_6px_18px_rgba(44,42,48,0.08)] sm:px-4"
+                <div
+                  className="border-b px-4 py-3 xl:border-b-0 xl:border-r"
+                  style={{ borderColor: 'rgba(44,42,48,0.11)' }}
                 >
-                  <Mic data-icon="inline-start" />
-                  实时检测
-                </TabsTrigger>
-                <TabsTrigger
-                  value="upload"
-                  className="!h-10 min-w-0 rounded-full px-2 py-2.5 text-[0.82rem] data-active:bg-[rgba(255,255,255,0.92)] data-active:text-[var(--text-primary)] data-active:shadow-[0_6px_18px_rgba(44,42,48,0.08)] sm:px-4"
-                >
-                  <FileAudio data-icon="inline-start" />
-                  上传分析
-                </TabsTrigger>
-              </TabsList>
-            </div>
+                  <TabsList
+                    variant="line"
+                    className="grid !h-10 w-full min-w-0 grid-cols-2 rounded-none bg-transparent p-0"
+                  >
+                    <TabsTrigger
+                      value="live"
+                      className="!h-10 min-w-0 rounded-md border px-2 text-[0.78rem] text-[var(--text-secondary)] hover:bg-white/40 data-active:border-[var(--accent-amber)] data-active:bg-[var(--accent-glow)] data-active:font-semibold data-active:text-[var(--text-primary)] data-active:shadow-[inset_0_-2px_0_var(--accent-amber)] data-active:[&_svg]:text-[var(--accent-amber)] sm:px-3"
+                    >
+                      <Mic data-icon="inline-start" />
+                      实时检测
+                      <span
+                        aria-hidden="true"
+                        className={`size-1.5 rounded-full bg-[var(--accent-amber)] transition-opacity ${activeTab === 'live' ? 'opacity-100' : 'opacity-0'}`}
+                      />
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="upload"
+                      className="!h-10 min-w-0 rounded-md border px-2 text-[0.78rem] text-[var(--text-secondary)] hover:bg-white/40 data-active:border-[var(--accent-amber)] data-active:bg-[var(--accent-glow)] data-active:font-semibold data-active:text-[var(--text-primary)] data-active:shadow-[inset_0_-2px_0_var(--accent-amber)] data-active:[&_svg]:text-[var(--accent-amber)] sm:px-3"
+                    >
+                      <FileAudio data-icon="inline-start" />
+                      上传分析
+                      <span
+                        aria-hidden="true"
+                        className={`size-1.5 rounded-full bg-[var(--accent-amber)] transition-opacity ${activeTab === 'upload' ? 'opacity-100' : 'opacity-0'}`}
+                      />
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+                <div className="flex min-h-12 items-center px-4 py-2 sm:px-6">
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    音频仅在本机处理，不会上传
+                  </p>
+                </div>
+              </div>
 
-            <TabsContent value="live">
-              <audio
-                ref={livePlaybackAudioRef}
-                src={livePlaybackUrl ?? undefined}
-                className="hidden"
-                onTimeUpdate={(event) => {
-                  setLivePlaybackTime(event.currentTarget.currentTime)
-                  setLiveCursorTime(event.currentTarget.currentTime)
-                }}
-                onPlay={() => setLivePlaying(true)}
-                onPause={() => setLivePlaying(false)}
-                onEnded={() => setLivePlaying(false)}
-              />
-              <LiveWorkbench
-                status={liveStatus}
-                source={liveSource}
-                points={livePoints}
-                current={liveDisplayCurrent}
-                cursorTime={livePlaying ? livePlaybackTime : liveCursorTime}
-                viewport={liveViewport}
-                volume={liveVolume}
-                error={liveError}
-                onViewportChange={setLiveViewport}
-                onSeek={seekLivePlayback}
-                onVolumeChange={setLiveVolume}
-                onStart={() => startLive(liveSource)}
-                onSelectSource={setLiveSource}
-                onTogglePlayback={toggleLivePlayback}
-                onPause={pauseLive}
-                onClear={clearLive}
-                playbackAvailable={Boolean(livePlaybackUrl)}
-                playing={livePlaying}
-              />
-            </TabsContent>
-
-            <TabsContent value="upload">
-              {uploadAudioUrl && (
+              <TabsContent value="live" className="w-full min-w-0 max-w-full overflow-hidden">
                 <audio
-                  ref={uploadAudioRef}
-                  src={uploadAudioUrl}
-                  preload="metadata"
+                  ref={livePlaybackAudioRef}
+                  src={livePlaybackUrl ?? undefined}
                   className="hidden"
-                  onLoadedMetadata={(event) => {
-                    setUploadDuration(event.currentTarget.duration || uploadDuration)
-                    setUploadCurrentTime(Math.min(uploadCurrentTime, event.currentTarget.duration || 0))
+                  onTimeUpdate={(event) => {
+                    setLivePlaybackTime(event.currentTarget.currentTime)
+                    setLiveCursorTime(event.currentTarget.currentTime)
                   }}
-                  onTimeUpdate={(event) => setUploadCurrentTime(event.currentTarget.currentTime)}
-                  onPlay={() => setUploadPlaying(true)}
-                  onPause={() => setUploadPlaying(false)}
-                  onEnded={() => setUploadPlaying(false)}
+                  onPlay={() => setLivePlaying(true)}
+                  onPause={() => setLivePlaying(false)}
+                  onEnded={() => setLivePlaying(false)}
                 />
-              )}
-              <UploadWorkbench
-                fileName={uploadFileName}
-                status={uploadStatus}
-                progress={uploadProgress}
-                logs={uploadLogs}
-                error={uploadError}
-                points={uploadPoints}
-                current={uploadCurrentPoint ?? EMPTY_DETECTION}
-                audioRef={uploadAudioRef}
-                duration={uploadDuration}
-                currentTime={uploadCurrentTime}
-                viewport={uploadViewport}
-                playing={uploadPlaying}
-                volume={uploadVolume}
-                onFile={analyzeUploadFile}
-                onSeek={seekUploadPlayback}
-                onTimeChange={setUploadCurrentTime}
-                onViewportChange={setUploadViewport}
-                onPlayingChange={setUploadPlaying}
-                onVolumeChange={setUploadVolume}
-              />
-            </TabsContent>
+                <LiveWorkbench
+                  status={liveStatus}
+                  source={liveSource}
+                  points={livePoints}
+                  current={liveDisplayCurrent}
+                  cursorTime={livePlaying ? livePlaybackTime : liveCursorTime}
+                  viewport={liveViewport}
+                  volume={liveVolume}
+                  noiseReduction={liveNoiseReduction}
+                  error={liveError}
+                  onViewportChange={setLiveViewport}
+                  onSeek={seekLivePlayback}
+                  onVolumeChange={setLiveVolume}
+                  onNoiseReductionChange={setLiveNoiseReduction}
+                  onStart={() => startLive(liveSource)}
+                  onSelectSource={setLiveSource}
+                  onTogglePlayback={toggleLivePlayback}
+                  onPause={pauseLive}
+                  onClear={clearLive}
+                  playbackAvailable={liveRecordingAvailable || Boolean(livePlaybackUrl)}
+                  playing={livePlaying}
+                />
+              </TabsContent>
+
+              <TabsContent value="upload" className="w-full min-w-0 max-w-full overflow-hidden">
+                {uploadAudioUrl && (
+                  <audio
+                    ref={uploadAudioRef}
+                    src={uploadAudioUrl}
+                    preload="metadata"
+                    className="hidden"
+                    onLoadedMetadata={(event) => {
+                      setUploadDuration(event.currentTarget.duration || uploadDuration)
+                      setUploadCurrentTime(
+                        Math.min(uploadCurrentTime, event.currentTarget.duration || 0),
+                      )
+                    }}
+                    onTimeUpdate={(event) => setUploadCurrentTime(event.currentTarget.currentTime)}
+                    onPlay={() => setUploadPlaying(true)}
+                    onPause={() => setUploadPlaying(false)}
+                    onEnded={() => setUploadPlaying(false)}
+                  />
+                )}
+                <UploadWorkbench
+                  fileName={uploadFileName}
+                  status={uploadStatus}
+                  progress={uploadProgress}
+                  logs={uploadLogs}
+                  error={uploadError}
+                  points={uploadPoints}
+                  current={uploadCurrentPoint ?? EMPTY_DETECTION}
+                  audioRef={uploadAudioRef}
+                  duration={uploadDuration}
+                  currentTime={uploadCurrentTime}
+                  viewport={uploadViewport}
+                  playing={uploadPlaying}
+                  volume={uploadVolume}
+                  onFile={analyzeUploadFile}
+                  onSeek={seekUploadPlayback}
+                  onTimeChange={setUploadCurrentTime}
+                  onViewportChange={setUploadViewport}
+                  onPlayingChange={setUploadPlaying}
+                  onVolumeChange={setUploadVolume}
+                />
+              </TabsContent>
+            </div>
           </Tabs>
         </section>
       </main>
@@ -539,6 +708,47 @@ const PitchDetectorPage = () => {
     </div>
   )
 }
+
+const PitchPageHeader = ({
+  name,
+  description,
+  version,
+}: {
+  name: string
+  description: string
+  version: string
+}) => (
+  <header
+    className="mb-7 grid gap-5 border-b pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+    style={{ borderColor: 'rgba(44,42,48,0.11)' }}
+  >
+    <div className="min-w-0">
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span
+          className="text-[0.64rem] uppercase tracking-[0.28em]"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          Pitch Detector
+        </span>
+        <span className="font-mono text-[0.64rem]" style={{ color: 'var(--accent-amber)' }}>
+          {version}
+        </span>
+      </div>
+      <h1
+        className="font-display text-4xl font-semibold leading-none tracking-tight sm:text-5xl"
+        style={{ color: 'var(--text-primary)' }}
+      >
+        {name}
+      </h1>
+    </div>
+    <p
+      className="max-w-md text-sm leading-7 lg:text-right"
+      style={{ color: 'var(--text-secondary)' }}
+    >
+      {description}
+    </p>
+  </header>
+)
 
 const LiveWorkbench = ({
   status,
@@ -548,10 +758,12 @@ const LiveWorkbench = ({
   cursorTime,
   viewport,
   volume,
+  noiseReduction,
   error,
   onViewportChange,
   onSeek,
   onVolumeChange,
+  onNoiseReductionChange,
   onStart,
   onSelectSource,
   onTogglePlayback,
@@ -567,10 +779,12 @@ const LiveWorkbench = ({
   cursorTime: number
   viewport: PitchViewport
   volume: number
+  noiseReduction: boolean
   error: string | null
   onViewportChange: (viewport: PitchViewport) => void
   onSeek: (time: number) => void
   onVolumeChange: (volume: number) => void
+  onNoiseReductionChange: (enabled: boolean) => void
   onStart: () => void
   onSelectSource: (source: PitchSource) => void
   onTogglePlayback: () => void
@@ -582,54 +796,94 @@ const LiveWorkbench = ({
   <WorkbenchLayout
     sidebar={
       <>
-        <ControlPanel
-          title="输入来源"
-          description={source === 'display-audio' ? '屏幕或标签页音频' : '麦克风输入'}
-          headerRight={<StatusPill status={status} />}
-        >
+        <ControlPanel title="输入来源" headerRight={<StatusPill status={status} />}>
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
             <Button
               type="button"
-              variant={source === 'microphone' ? 'secondary' : 'outline'}
-              className="min-w-0 shrink justify-center rounded-xl bg-white/45 px-2"
+              variant="outline"
+              aria-pressed={source === 'microphone'}
+              className={`min-w-0 shrink justify-center rounded-lg px-2 ${
+                source === 'microphone'
+                  ? 'border-[var(--accent-amber)] bg-[var(--accent-glow)] text-[var(--text-primary)] shadow-[inset_0_0_0_1px_rgba(196,149,106,0.12)]'
+                  : 'text-[var(--text-secondary)]'
+              }`}
               onClick={() => onSelectSource('microphone')}
               disabled={status === 'running'}
             >
               <Mic data-icon="inline-start" />
               麦克风
+              <span
+                aria-hidden="true"
+                className={`size-1.5 rounded-full bg-[var(--accent-amber)] transition-opacity ${source === 'microphone' ? 'opacity-100' : 'opacity-0'}`}
+              />
             </Button>
             <Button
               type="button"
-              variant={source === 'display-audio' ? 'secondary' : 'outline'}
-              className="min-w-0 shrink justify-center rounded-xl bg-white/45 px-2"
+              variant="outline"
+              aria-pressed={source === 'display-audio'}
+              className={`min-w-0 shrink justify-center rounded-lg px-2 ${
+                source === 'display-audio'
+                  ? 'border-[var(--accent-amber)] bg-[var(--accent-glow)] text-[var(--text-primary)] shadow-[inset_0_0_0_1px_rgba(196,149,106,0.12)]'
+                  : 'text-[var(--text-secondary)]'
+              }`}
               onClick={() => onSelectSource('display-audio')}
               disabled={status === 'running'}
             >
               <MonitorSpeaker data-icon="inline-start" />
               电脑音频
+              <span
+                aria-hidden="true"
+                className={`size-1.5 rounded-full bg-[var(--accent-amber)] transition-opacity ${source === 'display-audio' ? 'opacity-100' : 'opacity-0'}`}
+              />
             </Button>
           </div>
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] gap-2">
             <Button
               type="button"
-              className="min-w-0 shrink justify-center rounded-xl border-[rgba(var(--accent-amber-rgb),0.42)] bg-[var(--accent-glow)] px-2 text-[var(--accent-amber)] hover:opacity-85"
-              variant="outline"
+              className="min-w-0 shrink justify-center rounded-lg bg-[var(--text-primary)] px-2 text-[var(--bg-page)] hover:bg-[var(--accent-amber)] hover:text-white"
               onClick={status === 'running' ? onPause : onStart}
             >
-              {status === 'running' ? <Pause data-icon="inline-start" /> : <Play data-icon="inline-start" />}
+              {status === 'running' ? (
+                <Pause data-icon="inline-start" />
+              ) : (
+                <Play data-icon="inline-start" />
+              )}
               {status === 'running' ? '暂停' : status === 'paused' ? '继续' : '开始'}
             </Button>
-            <Button type="button" variant="outline" className="min-w-0 shrink bg-white/45 px-2 text-[var(--text-secondary)]" onClick={onClear}>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-w-0 shrink rounded-lg px-2 text-[var(--text-secondary)]"
+              onClick={onClear}
+            >
               <RotateCcw data-icon="inline-start" />
               清空
             </Button>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            aria-pressed={noiseReduction}
+            className={
+              noiseReduction
+                ? 'w-full border-[var(--accent-amber)] bg-[var(--accent-glow)] text-[var(--text-primary)]'
+                : 'w-full text-[var(--text-secondary)]'
+            }
+            onClick={() => onNoiseReductionChange(!noiseReduction)}
+            disabled={status === 'running'}
+          >
+            <Activity data-icon="inline-start" />
+            环境降噪 {noiseReduction ? '开' : '关'}
+          </Button>
+          <p className="text-[0.68rem] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            减少风噪、低频轰鸣和持续背景声；检测很弱的乐器音时可关闭。
+          </p>
         </ControlPanel>
         <ControlPanel title="回放监听" description="点击已录制曲线后播放">
           <Button
             type="button"
             variant="outline"
-            className="w-full min-w-0 shrink justify-center rounded-xl bg-white/45 text-[var(--text-primary)]"
+            className="w-full min-w-0 shrink justify-center rounded-lg text-[var(--text-primary)]"
             onClick={onTogglePlayback}
             disabled={!playbackAvailable}
           >
@@ -638,7 +892,7 @@ const LiveWorkbench = ({
           </Button>
           <VolumeControl volume={volume} onVolumeChange={onVolumeChange} />
           <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-            实时录音片段仅保存在当前浏览器会话中。开始检测一小段时间后，可点击曲线从对应时刻回放。
+            音频仅在当前浏览器会话中处理。开始检测一小段时间后，可点击曲线从对应时刻回放。
           </p>
         </ControlPanel>
         {error && <ErrorMessage message={error} />}
@@ -709,11 +963,11 @@ const UploadWorkbench = ({
       sidebar={
         <>
           <label
-            className="flex w-full min-w-0 max-w-full cursor-pointer flex-col items-center gap-3 rounded-2xl p-6 text-center transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(44,42,48,0.08)]"
-            style={PANEL_STYLE}
+            className="m-5 flex w-auto min-w-0 max-w-full cursor-pointer flex-col items-center gap-3 rounded-lg border border-dashed p-5 text-center transition hover:bg-white/35"
+            style={{ borderColor: 'rgba(44,42,48,0.18)' }}
           >
             <span
-              className="flex size-12 items-center justify-center rounded-2xl"
+              className="flex size-11 items-center justify-center rounded-lg"
               style={{ background: 'var(--accent-glow)', color: 'var(--accent-amber)' }}
             >
               <Upload size={26} strokeWidth={1.7} />
@@ -750,7 +1004,11 @@ const UploadWorkbench = ({
         current={current}
         cursorTime={currentTime}
         viewport={viewport}
-        emptyText={status === 'analyzing' ? '正在分析音频，完成后会显示完整曲线。' : '上传音频后，音高曲线会显示在这里。'}
+        emptyText={
+          status === 'analyzing'
+            ? '正在分析音频，完成后会显示完整曲线。'
+            : '上传音频后，音高曲线会显示在这里。'
+        }
         onViewportChange={onViewportChange}
         onSeek={onSeek}
       />
@@ -759,8 +1017,13 @@ const UploadWorkbench = ({
 }
 
 const WorkbenchLayout = ({ sidebar, children }: { sidebar: ReactNode; children: ReactNode }) => (
-  <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-5 xl:grid-cols-[18rem_minmax(0,1fr)]">
-    <aside className="order-1 flex min-w-0 max-w-full flex-col gap-4 xl:sticky xl:top-20 xl:self-start">{sidebar}</aside>
+  <div className="grid w-full min-w-0 max-w-full grid-cols-1 xl:grid-cols-[17rem_minmax(0,1fr)]">
+    <aside
+      className="order-1 flex min-w-0 max-w-full flex-col border-b xl:border-b-0 xl:border-r"
+      style={{ borderColor: 'rgba(44,42,48,0.11)', background: 'rgba(243,237,228,0.42)' }}
+    >
+      {sidebar}
+    </aside>
     <section className="order-2 min-w-0 max-w-full">{children}</section>
   </div>
 )
@@ -772,27 +1035,32 @@ const ControlPanel = ({
   children,
 }: {
   title: string
-  description: string
+  description?: string
   headerRight?: ReactNode
   children: ReactNode
 }) => (
-  <Card
-    className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl p-0"
-    style={PANEL_STYLE}
+  <section
+    className="w-full min-w-0 max-w-full border-b px-5 py-5 last:border-b-0"
+    style={{ borderColor: 'rgba(44,42,48,0.11)' }}
   >
-    <CardHeader className="flex flex-row items-start justify-between gap-3 px-4 pb-0 pt-4">
+    <div className="mb-4 flex flex-row items-start justify-between gap-3">
       <div className="min-w-0">
-        <CardTitle className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <h2
+          className="font-display text-base font-semibold"
+          style={{ color: 'var(--text-primary)' }}
+        >
           {title}
-        </CardTitle>
-        <CardDescription className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          {description}
-        </CardDescription>
+        </h2>
+        {description ? (
+          <p className="mt-1 text-[0.72rem]" style={{ color: 'var(--text-muted)' }}>
+            {description}
+          </p>
+        ) : null}
       </div>
       {headerRight}
-    </CardHeader>
-    <CardContent className="flex flex-col gap-3 px-4 pb-4 pt-3">{children}</CardContent>
-  </Card>
+    </div>
+    <div className="flex flex-col gap-3">{children}</div>
+  </section>
 )
 
 const StatusPill = ({ status }: { status: LiveStatus }) => {
@@ -800,7 +1068,7 @@ const StatusPill = ({ status }: { status: LiveStatus }) => {
   return (
     <Badge
       variant="secondary"
-      className="max-w-[5rem] shrink-0 gap-1.5 truncate rounded-full px-2.5 py-1 text-[0.68rem]"
+      className="max-w-[5rem] shrink-0 gap-1.5 truncate rounded-md px-2 py-1 text-[0.66rem]"
       style={{ background: 'var(--accent-glow)', color: 'var(--accent-amber)' }}
     >
       <Activity data-icon="inline-start" />
@@ -828,31 +1096,10 @@ const ResultSurface = ({
   onViewportChange: (viewport: PitchViewport) => void
   onSeek: (time: number) => void
 }) => (
-  <div
-    className="w-full min-w-0 max-w-full rounded-2xl p-4 sm:p-5"
-    style={PANEL_STYLE}
-  >
-    <div className="mb-4 flex flex-col gap-3">
-      <div className="flex flex-col gap-1 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {title}
-          </h2>
-          <p className="mt-1 flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-            <MousePointer2 size={13} />
-            点击定位播放，滚轮缩放，拖拽移动时间轴
-          </p>
-        </div>
-        <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-          {formatTime(cursorTime)}
-        </span>
-      </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="音名" value={current.isVoiced ? formatNoteNameForDisplay(current.noteName) : '--'} />
-        <Metric label="频率" value={current.frequencyHz ? `${current.frequencyHz.toFixed(1)} Hz` : '--'} />
-        <Metric label="偏差" value={current.cents != null ? `${current.cents > 0 ? '+' : ''}${current.cents.toFixed(0)} cents` : '--'} />
-        <Metric label="置信度" value={`${Math.round(current.confidence * 100)}%`} />
-      </div>
+  <div className="w-full min-w-0 max-w-full p-3 sm:p-4 lg:p-5">
+    <h2 className="sr-only">{title}</h2>
+    <div className="mb-3">
+      <PitchReadout current={current} />
     </div>
     <PitchChart
       points={points}
@@ -865,16 +1112,126 @@ const ResultSurface = ({
   </div>
 )
 
-const Metric = ({ label, value }: { label: string; value: string }) => (
-  <Card className="flex min-h-14 items-center justify-between gap-3 rounded-xl px-3 py-2.5" style={PANEL_INSET_STYLE}>
-    <p className="shrink-0 text-[0.65rem]" style={{ color: 'var(--text-muted)' }}>
-      {label}
-    </p>
-    <p className="min-w-0 truncate text-right text-lg font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
-      {value}
-    </p>
-  </Card>
-)
+const PitchReadout = ({ current }: { current: PitchDetection }) => {
+  const cents =
+    current.isVoiced && current.cents != null ? Math.max(-50, Math.min(50, current.cents)) : null
+  const markerPosition = cents == null ? 50 : cents + 50
+  const noteName = current.isVoiced ? formatNoteNameForDisplay(current.noteName) : '—'
+
+  return (
+    <section
+      aria-label="当前音高读数"
+      className="grid overflow-hidden rounded-lg border lg:grid-cols-[minmax(12rem,0.34fr)_minmax(0,1fr)]"
+      style={{ borderColor: 'rgba(44,42,48,0.11)', background: 'rgba(255,255,255,0.38)' }}
+    >
+      <div
+        className="flex min-h-40 flex-col justify-center border-b px-5 py-5 lg:border-b-0 lg:border-r lg:px-7"
+        style={{ borderColor: 'rgba(44,42,48,0.11)' }}
+      >
+        <p
+          className="text-[0.64rem] uppercase tracking-[0.2em]"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          Current pitch
+        </p>
+        <div className="mt-2 flex min-w-0 items-end justify-between gap-3">
+          <p
+            className="min-w-0 whitespace-nowrap font-display text-5xl font-semibold leading-none tracking-[-0.06em] sm:text-6xl"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {noteName}
+          </p>
+          <div className="shrink-0 pb-1 text-right">
+            <p className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {current.frequencyHz ? `${current.frequencyHz.toFixed(1)} Hz` : '— Hz'}
+            </p>
+            <p className="mt-2 text-[0.68rem]" style={{ color: 'var(--text-muted)' }}>
+              置信度 {Math.round(current.confidence * 100)}%
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="flex min-h-40 flex-col justify-center px-5 py-5 sm:px-7">
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <p
+              className="text-[0.64rem] uppercase tracking-[0.2em]"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Tuning deviation
+            </p>
+            <p
+              className="mt-1 font-display text-3xl font-semibold leading-none"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {current.cents != null
+                ? `${current.cents > 0 ? '+' : ''}${current.cents.toFixed(0)}`
+                : '—'}
+              <span
+                className="ml-2 font-sans text-xs font-normal tracking-normal"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                cents
+              </span>
+            </p>
+          </div>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {cents == null
+              ? '等待稳定音高'
+              : Math.abs(cents) <= 5
+                ? '音高准确'
+                : cents < 0
+                  ? '音高偏低'
+                  : '音高偏高'}
+          </p>
+        </div>
+        <div className="relative h-10" aria-label="音高偏差刻度">
+          <div
+            className="absolute left-0 right-0 top-3 h-px"
+            style={{ background: 'rgba(44,42,48,0.18)' }}
+          />
+          <div
+            className="absolute left-1/2 top-0 h-7 w-px -translate-x-1/2"
+            style={{ background: 'var(--text-primary)' }}
+          />
+          {[-50, -25, 0, 25, 50].map((tick) => (
+            <div
+              key={tick}
+              className="absolute top-2 -translate-x-1/2"
+              style={{ left: `${tick + 50}%` }}
+            >
+              <span className="block h-3 w-px" style={{ background: 'rgba(44,42,48,0.28)' }} />
+              <span
+                className="mt-1 block -translate-x-1/2 font-mono text-[0.58rem]"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                {tick}
+              </span>
+            </div>
+          ))}
+          {cents != null && (
+            <span
+              className="absolute top-0 block h-7 w-[3px] -translate-x-1/2 rounded-sm transition-[left] duration-200"
+              style={{
+                left: `${markerPosition}%`,
+                background: 'var(--accent-amber)',
+                boxShadow: 'var(--shadow-accent-sm)',
+              }}
+            />
+          )}
+        </div>
+        <div
+          className="mt-1 flex justify-between text-[0.62rem]"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <span>偏低</span>
+          <span>准确</span>
+          <span>偏高</span>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 const PitchChart = ({
   points,
@@ -891,9 +1248,17 @@ const PitchChart = ({
   onViewportChange: (viewport: PitchViewport) => void
   onSeek: (time: number) => void
 }) => {
+  const { playNote } = usePianoAudio()
   const chartRef = useRef<SVGSVGElement | null>(null)
   const dragRef = useRef<{ x: number; viewport: PitchViewport; moved: boolean } | null>(null)
-  const [hover, setHover] = useState<{ x: number; y: number; time: number; point: PitchTrackPoint | null } | null>(null)
+  const referenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [activeReferenceFrequency, setActiveReferenceFrequency] = useState<number | null>(null)
+  const [hover, setHover] = useState<{
+    x: number
+    y: number
+    time: number
+    point: PitchTrackPoint | null
+  } | null>(null)
   const timelineBounds = useMemo(() => {
     const lastTime = points.length > 0 ? points[points.length - 1].time : Math.max(20, cursorTime)
     return { minTime: 0, maxTime: Math.max(20, lastTime), minSpan: 1 }
@@ -903,26 +1268,67 @@ const PitchChart = ({
     [timelineBounds, viewport],
   )
   const visiblePoints = useMemo(
-    () => points.filter((point) => point.time >= visibleViewport.startTime && point.time <= visibleViewport.endTime),
+    () =>
+      points.filter(
+        (point) => point.time >= visibleViewport.startTime && point.time <= visibleViewport.endTime,
+      ),
     [points, visibleViewport],
   )
   const voiced = visiblePoints.filter((point) => point.isVoiced && point.frequencyHz != null)
-  const minFrequency = voiced.length > 0 ? Math.max(65, Math.min(...voiced.map((point) => point.frequencyHz as number)) - 40) : 65
-  const maxFrequency = voiced.length > 0 ? Math.min(1200, Math.max(...voiced.map((point) => point.frequencyHz as number)) + 40) : 1200
+  const minFrequency =
+    voiced.length > 0
+      ? Math.max(65, Math.min(...voiced.map((point) => point.frequencyHz as number)) - 40)
+      : 65
+  const maxFrequency =
+    voiced.length > 0
+      ? Math.min(1200, Math.max(...voiced.map((point) => point.frequencyHz as number)) + 40)
+      : 1200
   const timeSpan = Math.max(0.1, visibleViewport.endTime - visibleViewport.startTime)
-  const frequencySpan = Math.max(1, maxFrequency - minFrequency)
   const noteTicks = useMemo(
-    () => noteTicksForFrequencyRange(minFrequency, maxFrequency, 7),
+    () =>
+      spaceFrequencyTicks(
+        noteTicksForFrequencyRange(minFrequency, maxFrequency, 7),
+        minFrequency,
+        maxFrequency,
+        CHART_HEIGHT,
+        CHART_PLOT.top,
+        CHART_PLOT.bottom,
+      ),
     [maxFrequency, minFrequency],
   )
   const cursorX =
     CHART_PLOT.left +
-    ((cursorTime - visibleViewport.startTime) / timeSpan) * (CHART_WIDTH - CHART_PLOT.left - CHART_PLOT.right)
-  const path = buildPitchPath(visiblePoints, visibleViewport.startTime, timeSpan, minFrequency, frequencySpan)
+    ((cursorTime - visibleViewport.startTime) / timeSpan) *
+      (CHART_WIDTH - CHART_PLOT.left - CHART_PLOT.right)
+  const path = buildPitchPath(
+    visiblePoints,
+    visibleViewport.startTime,
+    timeSpan,
+    minFrequency,
+    maxFrequency,
+  )
   const yFromFrequency = (frequencyHz: number) =>
-    CHART_HEIGHT -
-    CHART_PLOT.bottom -
-    ((frequencyHz - minFrequency) / frequencySpan) * (CHART_HEIGHT - CHART_PLOT.top - CHART_PLOT.bottom)
+    chartYFromFrequency(
+      frequencyHz,
+      minFrequency,
+      maxFrequency,
+      CHART_HEIGHT,
+      CHART_PLOT.top,
+      CHART_PLOT.bottom,
+    )
+
+  const playReferenceTone = (frequencyHz: number) => {
+    playNote(frequencyHz)
+    setActiveReferenceFrequency(frequencyHz)
+    if (referenceTimeoutRef.current) clearTimeout(referenceTimeoutRef.current)
+    referenceTimeoutRef.current = setTimeout(() => setActiveReferenceFrequency(null), 900)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (referenceTimeoutRef.current) clearTimeout(referenceTimeoutRef.current)
+    }
+  }, [])
 
   const pointerPosition = (clientX: number) => {
     const rect = chartRef.current?.getBoundingClientRect()
@@ -943,7 +1349,9 @@ const PitchChart = ({
   const handleWheel = (event: WheelEvent<SVGSVGElement>) => {
     event.preventDefault()
     const { time: anchorTime } = pointerPosition(event.clientX)
-    onViewportChange(zoomPitchView(visibleViewport, event.deltaY > 0 ? 1.18 : 0.82, anchorTime, timelineBounds))
+    onViewportChange(
+      zoomPitchView(visibleViewport, event.deltaY > 0 ? 1.18 : 0.82, anchorTime, timelineBounds),
+    )
   }
 
   const handlePointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
@@ -958,7 +1366,10 @@ const PitchChart = ({
     const point = findNearestPoint(visiblePoints, time)
     setHover({
       x: Math.min(CHART_WIDTH - 190, Math.max(CHART_PLOT.left + 4, svgX + 12)),
-      y: point?.isVoiced && point.frequencyHz ? Math.max(CHART_PLOT.top + 8, yFromFrequency(point.frequencyHz) - 36) : CHART_PLOT.top + 16,
+      y:
+        point?.isVoiced && point.frequencyHz
+          ? Math.max(CHART_PLOT.top + 8, yFromFrequency(point.frequencyHz) - 36)
+          : CHART_PLOT.top + 16,
       time,
       point,
     })
@@ -988,23 +1399,78 @@ const PitchChart = ({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl" style={PANEL_INSET_STYLE}>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2" style={{ borderColor: 'var(--border-line)' }}>
-        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-          <MoveHorizontal size={14} />
-          <span>{formatTime(visibleViewport.startTime)} - {formatTime(visibleViewport.endTime)}</span>
+    <div
+      className="overflow-hidden rounded-lg border"
+      style={{ borderColor: 'rgba(44,42,48,0.11)', background: 'rgba(255,255,255,0.3)' }}
+    >
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2.5 sm:px-4"
+        style={{ borderColor: 'rgba(44,42,48,0.11)' }}
+      >
+        <div
+          className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <span className="flex items-center gap-2 font-mono">
+            <MoveHorizontal size={14} />
+            {formatTime(visibleViewport.startTime)} — {formatTime(visibleViewport.endTime)}
+          </span>
+          <span className="hidden items-center gap-1.5 sm:flex">
+            <MousePointer2 size={13} />
+            点击定位 · 滚轮缩放 · 拖拽时间轴
+          </span>
+          <span className="hidden items-center gap-1.5 md:flex">
+            <Volume2 size={13} />
+            点击纵轴音名试听
+          </span>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1">
           <Tooltip>
-            <TooltipTrigger render={<Button type="button" variant="outline" size="icon-sm" onClick={() => zoomByButton(0.75)} aria-label="放大时间轴"><ZoomIn /></Button>} />
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => zoomByButton(0.75)}
+                  aria-label="放大时间轴"
+                >
+                  <ZoomIn />
+                </Button>
+              }
+            />
             <TooltipContent>放大时间轴</TooltipContent>
           </Tooltip>
           <Tooltip>
-            <TooltipTrigger render={<Button type="button" variant="outline" size="icon-sm" onClick={() => zoomByButton(1.35)} aria-label="缩小时间轴"><ZoomOut /></Button>} />
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => zoomByButton(1.35)}
+                  aria-label="缩小时间轴"
+                >
+                  <ZoomOut />
+                </Button>
+              }
+            />
             <TooltipContent>缩小时间轴</TooltipContent>
           </Tooltip>
           <Tooltip>
-            <TooltipTrigger render={<Button type="button" variant="outline" size="icon-sm" onClick={resetView} aria-label="显示全部曲线"><Maximize2 /></Button>} />
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={resetView}
+                  aria-label="显示全部曲线"
+                >
+                  <Maximize2 />
+                </Button>
+              }
+            />
             <TooltipContent>显示全部曲线</TooltipContent>
           </Tooltip>
         </div>
@@ -1013,9 +1479,9 @@ const PitchChart = ({
         <svg
           ref={chartRef}
           viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-          role="img"
-          aria-label="音高曲线"
-          className="block h-[24rem] w-full sm:h-[34rem]"
+          role="group"
+          aria-label="交互式音高曲线"
+          className="block h-auto w-full"
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -1025,36 +1491,137 @@ const PitchChart = ({
             setHover(null)
           }}
         >
-          <line x1={CHART_PLOT.left} y1={CHART_HEIGHT - CHART_PLOT.bottom} x2={CHART_WIDTH - CHART_PLOT.right} y2={CHART_HEIGHT - CHART_PLOT.bottom} stroke="rgba(44,42,48,0.18)" />
-          <line x1={CHART_PLOT.left} y1={CHART_PLOT.top} x2={CHART_PLOT.left} y2={CHART_HEIGHT - CHART_PLOT.bottom} stroke="rgba(44,42,48,0.18)" />
+          <line
+            x1={CHART_PLOT.left}
+            y1={CHART_HEIGHT - CHART_PLOT.bottom}
+            x2={CHART_WIDTH - CHART_PLOT.right}
+            y2={CHART_HEIGHT - CHART_PLOT.bottom}
+            stroke="rgba(44,42,48,0.18)"
+          />
+          <line
+            x1={CHART_PLOT.left}
+            y1={CHART_PLOT.top}
+            x2={CHART_PLOT.left}
+            y2={CHART_HEIGHT - CHART_PLOT.bottom}
+            stroke="rgba(44,42,48,0.18)"
+          />
           {noteTicks.map((tick) => {
             const y = yFromFrequency(tick.frequencyHz)
+            const tickIndex = noteTicks.indexOf(tick)
+            const nextTick = noteTicks[tickIndex + 1]
+            const nextY = nextTick ? yFromFrequency(nextTick.frequencyHz) : CHART_PLOT.top
+            const bandTop = Math.min(y, nextY)
+            const bandHeight = Math.max(1, Math.abs(y - nextY))
             return (
               <g key={`${tick.noteName}-${tick.frequencyHz}`}>
-                <line x1={CHART_PLOT.left} y1={y} x2={CHART_WIDTH - CHART_PLOT.right} y2={y} stroke="rgba(44,42,48,0.07)" />
-                <text x={8} y={y - 2} fontSize="10" fill="var(--text-muted)">
-                  {tick.noteName}
-                </text>
-                <text x={8} y={y + 11} fontSize="9" fill="var(--text-muted)" opacity={0.72}>
-                  {Math.round(tick.frequencyHz)}Hz
-                </text>
+                {tickIndex % 2 === 0 && (
+                  <rect
+                    x={CHART_PLOT.left}
+                    y={bandTop}
+                    width={CHART_WIDTH - CHART_PLOT.left - CHART_PLOT.right}
+                    height={bandHeight}
+                    fill="rgba(196,149,106,0.025)"
+                  />
+                )}
+                <line
+                  x1={CHART_PLOT.left}
+                  y1={y}
+                  x2={CHART_WIDTH - CHART_PLOT.right}
+                  y2={y}
+                  stroke="rgba(44,42,48,0.07)"
+                />
+                <g
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`播放标准音 ${tick.noteName}`}
+                  className="cursor-pointer outline-none"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onPointerUp={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    playReferenceTone(tick.frequencyHz)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      playReferenceTone(tick.frequencyHz)
+                    }
+                  }}
+                >
+                  <rect
+                    x={0}
+                    y={Math.max(CHART_PLOT.top, y - 15)}
+                    width={CHART_PLOT.left}
+                    height={30}
+                    rx={5}
+                    fill={
+                      activeReferenceFrequency === tick.frequencyHz
+                        ? 'var(--accent-glow)'
+                        : 'transparent'
+                    }
+                    stroke={
+                      activeReferenceFrequency === tick.frequencyHz
+                        ? 'var(--accent-amber)'
+                        : 'transparent'
+                    }
+                  />
+                  <text
+                    x={8}
+                    y={y - 2}
+                    fontSize="10"
+                    fontWeight={activeReferenceFrequency === tick.frequencyHz ? 700 : 400}
+                    fill={
+                      activeReferenceFrequency === tick.frequencyHz
+                        ? 'var(--text-primary)'
+                        : 'var(--text-muted)'
+                    }
+                    pointerEvents="none"
+                  >
+                    {tick.noteName}
+                  </text>
+                  <text
+                    x={8}
+                    y={y + 11}
+                    fontSize="9"
+                    fill="var(--text-muted)"
+                    opacity={0.72}
+                    pointerEvents="none"
+                  >
+                    {Math.round(tick.frequencyHz)}Hz
+                  </text>
+                </g>
               </g>
             )
           })}
-          {path && <path d={path} fill="none" stroke="var(--accent-amber)" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />}
-          {visiblePoints
-            .filter((point) => point.isVoiced && point.frequencyHz != null)
-            .map((point) => {
-              const x = CHART_PLOT.left + ((point.time - visibleViewport.startTime) / timeSpan) * (CHART_WIDTH - CHART_PLOT.left - CHART_PLOT.right)
-              const y = yFromFrequency(point.frequencyHz as number)
-              return <circle key={`${point.time}-${point.frequencyHz}`} cx={x} cy={y} r={2.4} fill="var(--accent-amber)" opacity={0.7} />
-            })}
+          {path && (
+            <path
+              d={path}
+              fill="none"
+              stroke="var(--accent-amber)"
+              strokeWidth={3.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
           {cursorX >= CHART_PLOT.left && cursorX <= CHART_WIDTH - CHART_PLOT.right && (
-            <line x1={cursorX} y1={CHART_PLOT.top} x2={cursorX} y2={CHART_HEIGHT - CHART_PLOT.bottom} stroke="rgba(12,10,18,0.42)" strokeDasharray="5 6" />
+            <line
+              x1={cursorX}
+              y1={CHART_PLOT.top}
+              x2={cursorX}
+              y2={CHART_HEIGHT - CHART_PLOT.bottom}
+              stroke="rgba(12,10,18,0.42)"
+              strokeDasharray="5 6"
+            />
           )}
           {hover && (
             <g transform={`translate(${hover.x} ${hover.y})`} pointerEvents="none">
-              <rect width="178" height="76" rx="12" fill="rgba(250,246,240,0.96)" stroke="rgba(44,42,48,0.12)" />
+              <rect
+                width="178"
+                height="76"
+                rx="12"
+                fill="rgba(250,246,240,0.96)"
+                stroke="rgba(44,42,48,0.12)"
+              />
               <text x="12" y="20" fontSize="11" fontWeight="600" fill="var(--text-primary)">
                 {formatTime(hover.time)}
               </text>
@@ -1064,7 +1631,11 @@ const PitchChart = ({
                     {formatNoteNameForDisplay(hover.point.noteName)}
                   </text>
                   <text x="12" y="61" fontSize="11" fill="var(--text-muted)">
-                    {hover.point.frequencyHz.toFixed(1)}Hz · {hover.point.cents != null ? `${hover.point.cents > 0 ? '+' : ''}${hover.point.cents.toFixed(0)}c` : '--'} · {Math.round(hover.point.confidence * 100)}%
+                    {hover.point.frequencyHz.toFixed(1)}Hz ·{' '}
+                    {hover.point.cents != null
+                      ? `${hover.point.cents > 0 ? '+' : ''}${hover.point.cents.toFixed(0)}c`
+                      : '--'}{' '}
+                    · {Math.round(hover.point.confidence * 100)}%
                   </text>
                 </>
               ) : (
@@ -1077,7 +1648,13 @@ const PitchChart = ({
           <text x={CHART_PLOT.left} y={CHART_HEIGHT - 11} fontSize="12" fill="var(--text-muted)">
             {formatTime(visibleViewport.startTime)}
           </text>
-          <text x={CHART_WIDTH - CHART_PLOT.right} y={CHART_HEIGHT - 11} textAnchor="end" fontSize="12" fill="var(--text-muted)">
+          <text
+            x={CHART_WIDTH - CHART_PLOT.right}
+            y={CHART_HEIGHT - 11}
+            textAnchor="end"
+            fontSize="12"
+            fill="var(--text-muted)"
+          >
             {formatTime(visibleViewport.endTime)}
           </text>
         </svg>
@@ -1091,45 +1668,64 @@ const PitchChart = ({
   )
 }
 
-const AnalysisStatus = ({ status, progress, logs }: { status: UploadStatus; progress: number; logs: string[] }) => {
+const AnalysisStatus = ({
+  status,
+  progress,
+  logs,
+}: {
+  status: UploadStatus
+  progress: number
+  logs: string[]
+}) => {
   const normalizedProgress = Math.min(100, Math.max(0, progress))
 
   return (
-    <Card className="rounded-2xl p-4" style={PANEL_STYLE}>
+    <section className="border-t px-5 py-5" style={{ borderColor: 'rgba(44,42,48,0.11)' }}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
             分析状态
           </p>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {status === 'idle' ? '等待上传' : status === 'analyzing' ? '正在检测音高' : status === 'done' ? '分析完成' : '分析失败'}
+            {status === 'idle'
+              ? '等待上传'
+              : status === 'analyzing'
+                ? '正在检测音高'
+                : status === 'done'
+                  ? '分析完成'
+                  : '分析失败'}
           </p>
         </div>
         <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
           {Math.round(normalizedProgress)}%
         </span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full" style={{ background: 'rgba(44,42,48,0.08)' }}>
-        <div
-          className="h-full rounded-full transition-[width] duration-300 ease-out"
-          style={{ width: `${normalizedProgress}%`, background: 'var(--accent-amber)' }}
-        />
-      </div>
+      <Progress
+        value={normalizedProgress}
+        aria-label="音频分析进度"
+        className="gap-0 [&_[data-slot=progress-track]]:h-2 [&_[data-slot=progress-track]]:bg-[rgba(44,42,48,0.08)] [&_[data-slot=progress-indicator]]:bg-[var(--accent-amber)]"
+      />
       <Separator className="my-3" />
       <ScrollArea className="max-h-40 pr-3">
         {logs.length === 0 ? (
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>上传后会显示处理日志。</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            上传后会显示处理日志。
+          </p>
         ) : (
-          <ol className="space-y-1">
+          <ol className="flex flex-col gap-1">
             {logs.map((log) => (
-              <li key={log} className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              <li
+                key={log}
+                className="text-xs leading-relaxed"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 {log}
               </li>
             ))}
           </ol>
         )}
       </ScrollArea>
-    </Card>
+    </section>
   )
 }
 
@@ -1164,16 +1760,16 @@ const AudioTransport = ({
     }
   }
   const seek = (value: number | readonly number[]) => {
-    const nextTime = Array.isArray(value) ? value[0] ?? 0 : value
+    const nextTime = Array.isArray(value) ? (value[0] ?? 0) : value
     const audio = audioRef.current
     if (audio) audio.currentTime = nextTime
     onTimeChange(nextTime)
   }
 
   return (
-    <Card
-      className="flex flex-col gap-4 rounded-2xl p-4"
-      style={PANEL_STYLE}
+    <section
+      className="flex flex-col gap-4 border-t px-5 py-5"
+      style={{ borderColor: 'rgba(44,42,48,0.11)' }}
     >
       <div className="flex items-center gap-3">
         <Tooltip>
@@ -1194,11 +1790,15 @@ const AudioTransport = ({
           <TooltipContent>{playing ? '暂停播放' : '播放音频'}</TooltipContent>
         </Tooltip>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>播放器</p>
-          <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{formatTime(currentTime)} / {formatTime(duration)}</p>
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            播放器
+          </p>
+          <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </p>
         </div>
       </div>
-      <div className="rounded-xl px-3 py-4" style={PANEL_INSET_STYLE}>
+      <div className="rounded-lg px-3 py-4" style={PANEL_INSET_STYLE}>
         <Slider
           min={0}
           max={Math.max(0, duration)}
@@ -1209,19 +1809,25 @@ const AudioTransport = ({
         />
       </div>
       <VolumeControl volume={volume} onVolumeChange={onVolumeChange} />
-    </Card>
+    </section>
   )
 }
 
-const VolumeControl = ({ volume, onVolumeChange }: { volume: number; onVolumeChange: (volume: number) => void }) => (
-  <div className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={PANEL_INSET_STYLE}>
+const VolumeControl = ({
+  volume,
+  onVolumeChange,
+}: {
+  volume: number
+  onVolumeChange: (volume: number) => void
+}) => (
+  <div className="flex items-center gap-3 rounded-lg px-3 py-2.5" style={PANEL_INSET_STYLE}>
     <Volume2 size={16} style={{ color: 'var(--text-muted)' }} />
     <Slider
       min={0}
       max={1}
       step={0.01}
       value={[volume]}
-      onValueChange={(value) => onVolumeChange(Array.isArray(value) ? value[0] ?? 0 : value)}
+      onValueChange={(value) => onVolumeChange(Array.isArray(value) ? (value[0] ?? 0) : value)}
       aria-label="音量"
       className="flex-1"
     />
@@ -1232,16 +1838,25 @@ const VolumeControl = ({ volume, onVolumeChange }: { volume: number; onVolumeCha
 )
 
 const ErrorMessage = ({ message }: { message: string }) => (
-  <Alert
-    variant="destructive"
-    className="rounded-2xl p-4 text-xs leading-relaxed"
-    style={{ background: 'var(--danger-bg)', border: '0.5px solid var(--danger-red)', color: 'var(--danger-red)' }}
-  >
-    <AlertCircle />
-    <AlertDescription className="text-xs leading-relaxed" style={{ color: 'var(--danger-red)' }}>
-      {message}
-    </AlertDescription>
-  </Alert>
+  <div className="w-full min-w-0 px-5 py-5">
+    <Alert
+      variant="destructive"
+      className="min-w-0 rounded-lg p-4 text-xs leading-relaxed [overflow-wrap:anywhere]"
+      style={{
+        background: 'var(--danger-bg)',
+        border: '0.5px solid var(--danger-red)',
+        color: 'var(--danger-red)',
+      }}
+    >
+      <AlertCircle />
+      <AlertDescription
+        className="min-w-0 text-xs leading-relaxed"
+        style={{ color: 'var(--danger-red)' }}
+      >
+        {message}
+      </AlertDescription>
+    </Alert>
+  </div>
 )
 
 function findNearestPoint(points: PitchTrackPoint[], time: number): PitchTrackPoint | null {
@@ -1263,7 +1878,7 @@ function buildPitchPath(
   minTime: number,
   timeSpan: number,
   minFrequency: number,
-  frequencySpan: number,
+  maxFrequency: number,
 ): string {
   let path = ''
   let drawing = false
@@ -1272,11 +1887,17 @@ function buildPitchPath(
       drawing = false
       continue
     }
-    const x = CHART_PLOT.left + ((point.time - minTime) / timeSpan) * (CHART_WIDTH - CHART_PLOT.left - CHART_PLOT.right)
-    const y =
-      CHART_HEIGHT -
-      CHART_PLOT.bottom -
-      ((point.frequencyHz - minFrequency) / frequencySpan) * (CHART_HEIGHT - CHART_PLOT.top - CHART_PLOT.bottom)
+    const x =
+      CHART_PLOT.left +
+      ((point.time - minTime) / timeSpan) * (CHART_WIDTH - CHART_PLOT.left - CHART_PLOT.right)
+    const y = chartYFromFrequency(
+      point.frequencyHz,
+      minFrequency,
+      maxFrequency,
+      CHART_HEIGHT,
+      CHART_PLOT.top,
+      CHART_PLOT.bottom,
+    )
     path += drawing ? ` L ${x.toFixed(1)} ${y.toFixed(1)}` : ` M ${x.toFixed(1)} ${y.toFixed(1)}`
     drawing = true
   }

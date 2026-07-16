@@ -27,7 +27,51 @@ export interface PitchFrequencyTick {
   noteName: string
 }
 
-export function clampPitchView(viewport: PitchViewport, bounds: PitchTimelineBounds): PitchViewport {
+export function chartYFromFrequency(
+  frequencyHz: number,
+  minFrequency: number,
+  maxFrequency: number,
+  chartHeight: number,
+  plotTop: number,
+  plotBottom: number,
+): number {
+  const safeMin = Math.max(Number.EPSILON, minFrequency)
+  const safeMax = Math.max(safeMin + Number.EPSILON, maxFrequency)
+  const clampedFrequency = Math.min(safeMax, Math.max(safeMin, frequencyHz))
+  const pitchSpan = Math.log2(safeMax / safeMin)
+  const ratio = pitchSpan === 0 ? 0 : Math.log2(clampedFrequency / safeMin) / pitchSpan
+  return chartHeight - plotBottom - ratio * (chartHeight - plotTop - plotBottom)
+}
+
+export function spaceFrequencyTicks(
+  ticks: PitchFrequencyTick[],
+  minFrequency: number,
+  maxFrequency: number,
+  chartHeight: number,
+  plotTop: number,
+  plotBottom: number,
+  minSpacing = 28,
+): PitchFrequencyTick[] {
+  let previousY: number | null = null
+  return ticks.filter((tick) => {
+    const y = chartYFromFrequency(
+      tick.frequencyHz,
+      minFrequency,
+      maxFrequency,
+      chartHeight,
+      plotTop,
+      plotBottom,
+    )
+    if (previousY != null && Math.abs(y - previousY) < minSpacing) return false
+    previousY = y
+    return true
+  })
+}
+
+export function clampPitchView(
+  viewport: PitchViewport,
+  bounds: PitchTimelineBounds,
+): PitchViewport {
   const totalSpan = Math.max(bounds.minSpan, bounds.maxTime - bounds.minTime)
   const requestedSpan = Math.max(bounds.minSpan, viewport.endTime - viewport.startTime)
   const span = Math.min(requestedSpan, totalSpan)
@@ -98,8 +142,17 @@ export function svgXFromClientX(clientX: number, box: SvgRenderBox): number {
   return (clampedX / Math.max(1, renderedWidth)) * box.viewBoxWidth
 }
 
-export function noteTicksForFrequencyRange(minFrequency: number, maxFrequency: number, maxTicks = 6): PitchFrequencyTick[] {
-  if (!Number.isFinite(minFrequency) || !Number.isFinite(maxFrequency) || minFrequency <= 0 || maxFrequency <= 0) {
+export function noteTicksForFrequencyRange(
+  minFrequency: number,
+  maxFrequency: number,
+  maxTicks = 6,
+): PitchFrequencyTick[] {
+  if (
+    !Number.isFinite(minFrequency) ||
+    !Number.isFinite(maxFrequency) ||
+    minFrequency <= 0 ||
+    maxFrequency <= 0
+  ) {
     return []
   }
   const minMidi = Math.ceil(69 + 12 * Math.log2(minFrequency / 440))
@@ -115,7 +168,10 @@ export function noteTicksForFrequencyRange(minFrequency: number, maxFrequency: n
       noteName: displayNoteNameFromMidi(midi),
     })
   }
-  if (ticks.length === 0 || ticks[ticks.length - 1].frequencyHz < 440 * Math.pow(2, (maxMidi - 69) / 12)) {
+  if (
+    ticks.length === 0 ||
+    ticks[ticks.length - 1].frequencyHz < 440 * Math.pow(2, (maxMidi - 69) / 12)
+  ) {
     ticks.push({
       frequencyHz: 440 * Math.pow(2, (maxMidi - 69) / 12),
       noteName: displayNoteNameFromMidi(maxMidi),
@@ -145,5 +201,8 @@ function toSubscript(value: number): string {
     '8': '₈',
     '9': '₉',
   }
-  return `${value}`.split('').map((char) => map[char] ?? char).join('')
+  return `${value}`
+    .split('')
+    .map((char) => map[char] ?? char)
+    .join('')
 }

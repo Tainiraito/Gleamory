@@ -25,6 +25,18 @@ export interface PitchTrackOptions extends PitchDetectionOptions {
   hopSize?: number
 }
 
+export interface LivePitchStabilizerState {
+  recentFrequencies: number[]
+  lastVoiced: PitchDetection | null
+  dropoutFrames: number
+}
+
+export interface LivePitchStabilizerOptions {
+  historySize?: number
+  holdFrames?: number
+  maxUncertainJumpSemitones?: number
+}
+
 const DEFAULT_MIN_FREQUENCY = 65
 const DEFAULT_MAX_FREQUENCY = 1200
 const DEFAULT_RMS_THRESHOLD = 0.01
@@ -94,7 +106,7 @@ export function detectPitch(
     }
   }
 
-  if (bestTau < minTau || bestConfidence < 0.55) return UNVOICED
+  if (bestTau < minTau || bestConfidence < confidenceThreshold) return UNVOICED
 
   const refinedTau = refineTau(correlations, bestTau)
   const frequencyHz = sampleRate / refinedTau
@@ -109,7 +121,7 @@ export function detectPitch(
     noteName: noteNameFromMidi(midi),
     cents: centsOffset(frequencyHz, midi),
     confidence,
-    isVoiced: confidence > 0,
+    isVoiced: true,
   }
 }
 
@@ -120,16 +132,71 @@ export function analyzePitchTrack(
 ): PitchTrackPoint[] {
   const frameSize = options.frameSize ?? DEFAULT_FRAME_SIZE
   const hopSize = options.hopSize ?? DEFAULT_HOP_SIZE
-  if (frameSize <= 0 || hopSize <= 0 || samples.length === 0) return []
+  if (frameSize <= 0 || hopSize <= 0 || sampleRate <= 0 || samples.length < 2) return []
+
+  const effectiveFrameSize = Math.min(Math.floor(frameSize), samples.length)
+  const effectiveHopSize = Math.max(1, Math.floor(hopSize))
 
   const points: PitchTrackPoint[] = []
-  for (let offset = 0; offset + frameSize <= samples.length; offset += hopSize) {
+  for (let offset = 0; offset + effectiveFrameSize <= samples.length; offset += effectiveHopSize) {
     points.push({
       time: offset / sampleRate,
-      ...detectPitch(samples.subarray(offset, offset + frameSize), sampleRate, options),
+      ...detectPitch(samples.subarray(offset, offset + effectiveFrameSize), sampleRate, options),
     })
   }
   return smoothPitchTrack(points)
+}
+
+export function createLivePitchStabilizerState(): LivePitchStabilizerState {
+  return { recentFrequencies: [], lastVoiced: null, dropoutFrames: 0 }
+}
+
+export function stabilizeLivePitch(
+  detection: PitchDetection,
+  state: LivePitchStabilizerState,
+  options: LivePitchStabilizerOptions = {},
+): PitchDetection {
+  const historySize = Math.max(1, options.historySize ?? 5)
+  const holdFrames = Math.max(0, options.holdFrames ?? 2)
+  const maxUncertainJumpSemitones = options.maxUncertainJumpSemitones ?? 7
+
+  if (!detection.isVoiced || detection.frequencyHz == null) {
+    state.dropoutFrames += 1
+    if (state.lastVoiced && state.dropoutFrames <= holdFrames) {
+      return {
+        ...state.lastVoiced,
+        confidence: state.lastVoiced.confidence * Math.pow(0.82, state.dropoutFrames),
+      }
+    }
+    if (state.dropoutFrames > holdFrames) state.recentFrequencies = []
+    return detection
+  }
+
+  const lastVoiced = state.lastVoiced
+  const previousFrequency = lastVoiced?.frequencyHz
+  if (previousFrequency != null) {
+    const jumpSemitones = Math.abs(12 * Math.log2(detection.frequencyHz / previousFrequency))
+    if (lastVoiced && jumpSemitones > maxUncertainJumpSemitones && detection.confidence < 0.97) {
+      state.dropoutFrames = 1
+      return { ...lastVoiced, confidence: lastVoiced.confidence * 0.82 }
+    }
+  }
+
+  state.dropoutFrames = 0
+  state.recentFrequencies.push(detection.frequencyHz)
+  state.recentFrequencies = state.recentFrequencies.slice(-historySize)
+  const sorted = [...state.recentFrequencies].sort((a, b) => a - b)
+  const medianFrequency = sorted[Math.floor(sorted.length / 2)]
+  const midi = midiFromFrequency(medianFrequency)
+  const stabilized = {
+    ...detection,
+    frequencyHz: medianFrequency,
+    midi,
+    noteName: noteNameFromMidi(midi),
+    cents: centsOffset(medianFrequency, midi),
+  }
+  state.lastVoiced = stabilized
+  return stabilized
 }
 
 export function smoothPitchTrack(points: PitchTrackPoint[]): PitchTrackPoint[] {
