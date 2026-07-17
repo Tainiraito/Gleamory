@@ -1,6 +1,5 @@
 import type { Project } from '@/types'
-import HomeHeroCarousel from '@/components/HomeHeroCarousel'
-import ProjectCard from '@/components/ProjectCard'
+import ProjectListItem from '@/components/ProjectListItem'
 import { FEATURED_PROJECT_ID, PROJECT_CATEGORIES } from '@/data/projectCategories'
 
 interface ProjectGridProps {
@@ -13,6 +12,8 @@ interface ProjectSection {
   description: string
   projects: Project[]
 }
+
+const CHAPTER_MARKS = ['一', '二', '三', '四', '五', '六']
 
 const ProjectGrid = ({ projects }: ProjectGridProps) => {
   if (projects.length === 0) {
@@ -55,64 +56,51 @@ const ProjectGrid = ({ projects }: ProjectGridProps) => {
   }
 
   return (
-    <div className="space-y-10 sm:space-y-12">
-      <HomeHeroCarousel title={featured.name} description={featured.description} />
-
-      <div className="space-y-8 sm:space-y-10">
-        {sections.map((section, sectionIndex) => (
-          <section
-            key={section.id}
-            aria-labelledby={`project-category-${section.id}`}
-            className="grid gap-4 lg:grid-cols-[11.5rem_minmax(0,1fr)] lg:gap-5"
+    <div className="space-y-8 sm:space-y-10">
+      {sections.map((section, sectionIndex) => (
+        <section
+          key={section.id}
+          aria-labelledby={`project-category-${section.id}`}
+          className="grid gap-4 lg:grid-cols-[11.5rem_minmax(0,1fr)] lg:gap-5"
+        >
+          <div
+            className="border-b pb-3 lg:border-r lg:border-b-0 lg:pr-5 lg:pb-0"
+            style={{ borderColor: 'rgba(44,42,48,0.11)' }}
           >
-            <div
-              className="flex flex-col justify-between gap-2 border-b pb-3 lg:border-r lg:border-b-0 lg:pr-5 lg:pb-0"
-              style={{ borderColor: 'rgba(44,42,48,0.11)' }}
-            >
-              <div className="flex min-w-0 items-start gap-3">
-                <span
-                  aria-hidden="true"
-                  className="pt-1 font-mono text-[0.62rem] tracking-[0.18em]"
-                  style={{ color: 'var(--accent-amber)' }}
-                >
-                  {String(sectionIndex + 1).padStart(2, '0')}
-                </span>
-                <div className="min-w-0">
-                  <h2
-                    id={`project-category-${section.id}`}
-                    className="font-display text-xl font-semibold leading-tight"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    {section.title}
-                  </h2>
-                  <p
-                    className="mt-1 text-xs leading-relaxed"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
-                    {section.description}
-                  </p>
-                </div>
-              </div>
+            <div className="min-w-0">
               <span
-                className="pl-8 font-mono text-[0.62rem] uppercase tracking-[0.16em]"
-                style={{ color: 'var(--text-muted)' }}
+                aria-hidden="true"
+                className="font-kai text-xs tracking-[0.16em]"
+                style={{ color: 'var(--accent-amber)' }}
               >
-                {section.projects.length} 项
+                卷 {CHAPTER_MARKS[sectionIndex] ?? sectionIndex + 1}
               </span>
+              <div className="mt-2 min-w-0">
+                <h2
+                  id={`project-category-${section.id}`}
+                  className="font-display text-xl font-semibold leading-tight"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {section.title}
+                </h2>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                  {section.description}
+                </p>
+              </div>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {section.projects.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  index={projects.findIndex((candidate) => candidate.id === project.id)}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+          <ol
+            aria-label={`${section.title}项目列表`}
+            className="min-w-0 border-y"
+            style={{ borderColor: 'rgba(44,42,48,0.1)' }}
+          >
+            {section.projects.map((project) => (
+              <ProjectListItem key={project.id} project={project} />
+            ))}
+          </ol>
+        </section>
+      ))}
     </div>
   )
 }

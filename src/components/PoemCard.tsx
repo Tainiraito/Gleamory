@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+
 import poems from '@/data/poems.json'
 
 interface PoemData {
@@ -14,80 +15,88 @@ const PoemCard = () => {
   useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 8000)
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000)
 
     fetch('https://v1.jinrishici.com/all.json', { signal: controller.signal })
-      .then((res) => {
-        if (!res.ok) throw new Error('API error')
-        return res.json()
+      .then((response) => {
+        if (!response.ok) throw new Error('API error')
+        return response.json()
       })
       .then((data) => {
-        if (!cancelled) {
-          if (data?.content && data?.origin && data?.author) {
-            setPoem({ content: data.content, origin: data.origin, author: data.author })
-          } else {
-            throw new Error('Invalid response format')
-          }
-          setLoading(false)
+        if (cancelled) return
+        if (!data?.content || !data?.origin || !data?.author) {
+          throw new Error('Invalid response format')
         }
+        setPoem({ content: data.content, origin: data.origin, author: data.author })
+        setLoading(false)
       })
       .catch(() => {
-        if (!cancelled) {
-          const idx = (new Date().getDate() + 30) % poems.length
-          setPoem(poems[idx])
-          setLoading(false)
-        }
+        if (cancelled) return
+        const index = (new Date().getDate() + 30) % poems.length
+        setPoem(poems[index])
+        setLoading(false)
       })
 
     return () => {
       cancelled = true
-      clearTimeout(timeoutId)
+      window.clearTimeout(timeoutId)
       controller.abort()
     }
   }, [])
 
   return (
-    <div
-      className="rounded-sm p-6 sm:p-8 flex flex-col justify-center h-full"
-      style={{ background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' }}
+    <section
+      aria-labelledby="poem-heading"
+      className="flex h-full min-h-64 flex-col justify-center px-6 py-7 sm:px-8 sm:py-9 min-[1760px]:px-0"
     >
+      <header className="mb-6 border-b pb-4">
+        <p
+          className="mb-1 font-mono text-[0.6rem] tracking-[0.16em]"
+          style={{ color: 'var(--accent-amber)' }}
+        >
+          每日诗笺
+        </p>
+        <h2
+          id="poem-heading"
+          className="font-display text-2xl font-semibold leading-none"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          今日一诗
+        </h2>
+      </header>
+
       {loading ? (
-        <div style={{ color: 'var(--text-muted)' }} className="text-sm">
-          加载中...
-        </div>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          正在展卷…
+        </p>
       ) : poem ? (
         <>
           <blockquote
-            className="font-kai leading-relaxed mb-5"
-            style={{
-              color: 'var(--text-primary)',
-              fontSize: 'clamp(1.25rem, 3vw, 1.75rem)',
-              fontWeight: 500,
-            }}
+            className="max-w-2xl font-kai text-xl leading-[1.85] font-medium sm:text-2xl"
+            style={{ color: 'var(--text-primary)' }}
           >
             {poem.content}
           </blockquote>
-          <div className="flex items-center gap-2">
+          <footer className="mt-6 flex items-center gap-3">
             <span
-              className="font-display text-sm"
+              aria-hidden="true"
+              className="h-px w-8 shrink-0"
+              style={{ background: 'var(--accent-amber)' }}
+            />
+            <cite
+              className="font-display text-xs not-italic"
               style={{ color: 'var(--text-muted)' }}
             >
-              《{poem.origin}》
-            </span>
-            <span
-              className="text-xs"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              {poem.author}
-            </span>
-          </div>
+              《{poem.origin}》 · {poem.author}
+            </cite>
+          </footer>
         </>
       ) : (
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          暂无诗句
+          今日诗笺暂缺
         </p>
       )}
-    </div>
+    </section>
   )
 }
 

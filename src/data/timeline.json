@@ -25,12 +25,6 @@
       "date": "2026-05-19"
     },
     {
-      "id": "5",
-      "projectId": "gleamory",
-      "content": "全宽 SiteHeader 导航栏重构，配色更新为琥珀+暖纸+墨黑",
-      "date": "2026-05-19"
-    },
-    {
       "id": "6",
       "projectId": "web-piano",
       "content": "极简钢琴 v1.0 上线 — C2 到 B5 四个八度，四种合成音色可切换",
@@ -39,13 +33,13 @@
     {
       "id": "7",
       "projectId": "metronome",
-      "content": "节拍器 v1.0 上线 — Web Audio 合成音色、小节编辑器、变速模式、6种音色预设",
+      "content": "节拍器 v1.0 上线 — 支持小节编辑、变速练习与 6 种提示音色",
       "date": "2026-05-24"
     },
     {
       "id": "7b",
       "projectId": "metronome",
-      "content": "节拍器 v1.1 — 每拍独立细分(1-4)、可视化细分圆、全局细分选择器、ClampedNumberInput",
+      "content": "节拍器 v1.1 — 新增每拍独立细分与全局节奏型控制",
       "date": "2026-07-07"
     },
     {
@@ -63,7 +57,7 @@
     {
       "id": "10",
       "projectId": "audio-separator",
-      "content": "新增项目:音轨分离 v0.3.0 — 引入 lucide-react 统一图标 + 缓存管理面板 + 整卡点击切换 + 折叠动画 + 下拉美化",
+      "content": "音轨分离 v0.3.0 — 上线浏览器本地分轨、模型缓存与结果试听",
       "date": "2026-06-04"
     },
     {

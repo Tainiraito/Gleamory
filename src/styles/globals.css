@@ -64,6 +64,8 @@
   --shadow-accent-md: 0 0 16px rgba(196, 149, 106, 0.35);
   --shadow-popup: 0 4px 20px rgba(0, 0, 0, 0.12);
   --white-alpha-80: rgba(255, 255, 255, 0.8);
+  --selection-bg: #d9b28b;
+  --selection-text: #1a1210;
 }
 
 * {
@@ -86,8 +88,9 @@ body {
 }
 
 ::selection {
-  background: var(--accent-glow);
-  color: var(--text-primary);
+  background: var(--selection-bg);
+  color: var(--selection-text);
+  text-shadow: none;
 }
 
 :focus-visible {
