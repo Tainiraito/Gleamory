@@ -161,6 +161,11 @@ TMPDIR=/tmp TMP=/tmp TEMP=/tmp npm test
 
 - 保持暖纸、琥珀、墨黑、细边框和杂志式留白的全站视觉语言。
 - 颜色、字体、背景、边框和阴影优先使用 `src/styles/globals.css` 中的 CSS 自定义属性。
+- 全站使用“表达 / 产品 / 数据”三层本地字体：`--font-display` 为 `Gleamory Editorial`（思源宋体），`--font-sans` 为 `Gleamory UI`（思源黑体），`--font-mono` 为 `Gleamory Mono`（Source Code Pro）。已删除 `font-kai`；诗词使用 `font-display`。
+- 正文与原生控件使用 UI 400，固定控件与标签使用 UI 500，动态诗词使用 Editorial 500，固定标题使用 Editorial 600；数字、时间、坐标、版本、日志和代码才使用 Mono 400/500。不得使用 650/750、700、中文斜体或浏览器合成字形。
+- 中文界面文字不得小于 12px；仅短数字和单位的图表刻度可使用 11px/16px。中文正文不使用负字距，大字距标签不超过 `0.08em`。
+- 不以 `system-ui`、LXGW WenKai、KaiTi 或外部字体服务作为主要来源，不新增运行时字体依赖，不提交完整 OTF/TTF。仅确认 GB2312 以外的动态字形确实不足时，才讨论补充字体资源。
+- 修改 `src` 或 `index.html` 的运行时字符后必须运行 `npm run check:fonts`；检查失败时按 `scripts/build-font-assets.py` 与 `src/assets/fonts/manifest.json` 重新生成六份 WOFF2，并同步 manifest、许可证与第三方声明。
 - 布局和响应式优先使用 Tailwind 工具类；只有跨页面复用或复杂状态需要时才添加共享 CSS 类。
 - 不在多个组件重复硬编码同一颜色、阴影、圆角、间距组合或大段内联 `style`。
 - 需要新设计值时，先判断是否应成为全局 token；局部特例必须保持局部，不污染通用主题。

@@ -32,6 +32,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Check font assets
+        run: npm run check:fonts
+
       - name: Lint
         run: npm run lint
 

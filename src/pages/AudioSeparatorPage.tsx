@@ -412,7 +412,7 @@ const PrivacyNotice = () => {
 const DetailItem = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div>
     <p
-      className="text-[0.65rem] uppercase tracking-wider mb-0.5"
+      className="mb-0.5 text-xs uppercase tracking-[0.08em]"
       style={{ color: 'var(--accent-amber)' }}
     >
       {label}
@@ -481,7 +481,7 @@ const StemModelList = ({
           <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
             {meta.label}
           </p>
-          <p className="mt-0.5 text-[0.68rem] truncate" style={{ color: 'var(--text-muted)' }}>
+          <p className="mt-0.5 truncate text-xs" style={{ color: 'var(--text-muted)' }}>
             {selectedModelName ? `当前模型：${selectedModelName}` : `${availableModels.length} 个可用模型，展开后选择`}
           </p>
         </div>
@@ -524,7 +524,7 @@ const StemModelList = ({
                 return (
                   <div key={`${stem}-${quality}`} className="space-y-2">
                     <p
-                      className="px-1 text-[0.66rem] font-semibold uppercase tracking-[0.14em]"
+                      className="px-1 text-xs font-medium uppercase tracking-[0.08em]"
                       style={{ color: quality === 'high' ? meta.accent : 'var(--text-muted)' }}
                     >
                       {quality === 'high' ? '高质量模式' : '快速模式'}
@@ -669,7 +669,7 @@ const ModelRow = ({
               transition={{ duration: 0.2 }}
             />
           </div>
-          <p className="mt-1.5 text-[0.68rem]" style={{ color: 'var(--text-muted)' }}>
+          <p className="mt-1.5 text-xs leading-[1.125rem]" style={{ color: 'var(--text-muted)' }}>
             {cacheAction.currentStep ?? `下载中 ${progress}%`}
           </p>
         </div>
@@ -1048,7 +1048,7 @@ const ProcessLogPanel = ({
         {visibleLogs.map((log, index) => (
           <li
             key={`${log.time}-${index}-${log.message}`}
-            className="grid grid-cols-[4.5rem_3rem_1fr] gap-2 rounded-lg px-2 py-1 text-[0.68rem] leading-relaxed transition-colors"
+            className="grid grid-cols-[4.5rem_3rem_1fr] gap-2 rounded-lg px-2 py-1 text-xs leading-[1.125rem] transition-colors"
             style={{
               color: log.level === 'error' ? 'var(--danger-red, #c84444)' : 'var(--text-muted)',
               background:

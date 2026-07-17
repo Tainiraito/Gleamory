@@ -25,7 +25,7 @@ const TimelineEntry = ({ update }: TimelineEntryProps) => (
     <div className="min-w-0">
       <time
         dateTime={update.date}
-        className="mb-1 block font-mono text-[0.58rem] tracking-[0.08em]"
+        className="mb-1 block font-mono text-xs leading-[1.125rem] tracking-[0.04em]"
         style={{ color: 'var(--text-muted)' }}
       >
         {update.date}
@@ -53,7 +53,7 @@ const Timeline = ({ updates }: TimelineProps) => {
     >
       <header className="mb-6 border-b pb-4">
         <p
-          className="mb-1 font-mono text-[0.6rem] tracking-[0.16em]"
+          className="mb-1 text-xs tracking-[0.08em]"
           style={{ color: 'var(--accent-amber)' }}
         >
           更新札记
@@ -111,7 +111,7 @@ const Timeline = ({ updates }: TimelineProps) => {
               type="button"
               onClick={() => setExpanded((previous) => !previous)}
               aria-expanded={expanded}
-              className="mt-7 inline-flex items-center gap-1.5 border-b pb-1 font-mono text-[0.6rem] tracking-[0.1em] transition-colors hover:text-[var(--accent-amber)]"
+              className="mt-7 inline-flex items-center gap-1.5 border-b pb-1 text-xs tracking-[0.06em] transition-colors hover:text-[var(--accent-amber)]"
               style={{ color: 'var(--text-muted)', borderColor: 'var(--accent-amber)' }}
             >
               {expanded ? '收起记录' : `展开全部 ${updates.length} 条`}

@@ -229,14 +229,14 @@ const GachaSimulator = () => {
             style={{ width: '100%', height: '100%', transformStyle: 'preserve-3d', position: 'relative' }}>
             {/* Back — warm paper */}
             <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', background: '#e2d8c8', border: '0.5px solid rgba(196, 149, 106, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span className="font-display text-xl font-bold select-none" style={{ color: 'rgba(196, 149, 106, 0.3)' }}>?</span>
+              <span className="select-none font-display text-xl font-medium" style={{ color: 'rgba(196, 149, 106, 0.3)' }}>?</span>
             </div>
             {/* Front — warm paper */}
             <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: 'var(--bg-card)', border: '0.5px solid var(--border-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
               {(entry.name.startsWith('♥') || entry.name.startsWith('♦')) ? (
-                <span className="block font-display text-lg font-semibold text-center leading-snug mb-1" style={{ color: 'var(--accent-amber)', wordBreak: 'break-word' }}>{entry.name}</span>
+                <span className="mb-1 block text-center font-display text-lg font-medium leading-snug" style={{ color: 'var(--accent-amber)', wordBreak: 'break-word' }}>{entry.name}</span>
               ) : (
-                <span className="block font-display text-sm font-semibold text-center leading-snug mb-1" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{entry.name}</span>
+                <span className="mb-1 block text-center font-display text-sm font-medium leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{entry.name}</span>
               )}
               {isFlipped && (
                 <span className="text-xs text-center" style={{ color: 'var(--accent-amber)' }}>

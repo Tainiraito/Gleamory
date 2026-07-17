@@ -223,7 +223,7 @@ const PianoPage = () => {
               {whiteKeysHint.map((k) => (
                 <kbd
                   key={k}
-                  className="px-1.5 py-0.5 mx-0.5 rounded-sm font-mono text-[0.6rem]"
+                  className="mx-0.5 rounded-sm px-1.5 py-0.5 font-mono text-[11px] leading-4"
                   style={{ background: 'var(--accent-glow)', color: 'var(--text-secondary)' }}
                 >
                   {k}
@@ -235,7 +235,7 @@ const PianoPage = () => {
               {blackKeysHint.map((k) => (
                 <kbd
                   key={k}
-                  className="px-1.5 py-0.5 mx-0.5 rounded-sm font-mono text-[0.6rem]"
+                  className="mx-0.5 rounded-sm px-1.5 py-0.5 font-mono text-[11px] leading-4"
                   style={{ background: 'var(--accent-glow)', color: 'var(--text-secondary)' }}
                 >
                   {k}
@@ -245,14 +245,14 @@ const PianoPage = () => {
             <p className="text-xs leading-loose" style={{ color: 'var(--text-muted)' }}>
               <span className="inline-block mr-2">八度:</span>
               <kbd
-                className="px-1.5 py-0.5 mx-0.5 rounded-sm font-mono text-[0.6rem]"
+                className="mx-0.5 rounded-sm px-1.5 py-0.5 font-mono text-[11px] leading-4"
                 style={{ background: 'var(--accent-glow)', color: 'var(--text-secondary)' }}
               >
                 Z
               </kbd>
               降
               <kbd
-                className="px-1.5 py-0.5 mx-0.5 rounded-sm font-mono text-[0.6rem]"
+                className="mx-0.5 rounded-sm px-1.5 py-0.5 font-mono text-[11px] leading-4"
                 style={{ background: 'var(--accent-glow)', color: 'var(--text-secondary)' }}
               >
                 X

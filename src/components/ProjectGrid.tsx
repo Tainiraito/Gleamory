@@ -70,7 +70,7 @@ const ProjectGrid = ({ projects }: ProjectGridProps) => {
             <div className="min-w-0">
               <span
                 aria-hidden="true"
-                className="font-kai text-xs tracking-[0.16em]"
+                className="font-display text-xs font-medium tracking-[0.08em]"
                 style={{ color: 'var(--accent-amber)' }}
               >
                 卷 {CHAPTER_MARKS[sectionIndex] ?? sectionIndex + 1}

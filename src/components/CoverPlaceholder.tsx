@@ -65,7 +65,7 @@ export const CoverPlaceholder: React.FC<CoverPlaceholderProps> = ({ name, classN
       <span
         style={{
           fontSize: '4.5rem',
-          fontWeight: 700,
+          fontWeight: 600,
           color: g.text,
           fontFamily: 'var(--font-display, inherit)',
           letterSpacing: '-0.02em',

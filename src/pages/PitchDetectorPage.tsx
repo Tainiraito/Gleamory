@@ -725,17 +725,17 @@ const PitchPageHeader = ({
     <div className="min-w-0">
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <span
-          className="text-[0.64rem] uppercase tracking-[0.28em]"
+          className="text-xs uppercase tracking-[0.2em]"
           style={{ color: 'var(--text-muted)' }}
         >
           Pitch Detector
         </span>
-        <span className="font-mono text-[0.64rem]" style={{ color: 'var(--accent-amber)' }}>
+        <span className="font-mono text-xs" style={{ color: 'var(--accent-amber)' }}>
           {version}
         </span>
       </div>
       <h1
-        className="font-display text-4xl font-semibold leading-none tracking-tight sm:text-5xl"
+        className="font-display text-4xl font-semibold leading-none sm:text-5xl"
         style={{ color: 'var(--text-primary)' }}
       >
         {name}
@@ -875,7 +875,7 @@ const LiveWorkbench = ({
             <Activity data-icon="inline-start" />
             环境降噪 {noiseReduction ? '开' : '关'}
           </Button>
-          <p className="text-[0.68rem] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs leading-[1.125rem]" style={{ color: 'var(--text-muted)' }}>
             减少风噪、低频轰鸣和持续背景声；检测很弱的乐器音时可关闭。
           </p>
         </ControlPanel>
@@ -1068,7 +1068,7 @@ const StatusPill = ({ status }: { status: LiveStatus }) => {
   return (
     <Badge
       variant="secondary"
-      className="max-w-[5rem] shrink-0 gap-1.5 truncate rounded-md px-2 py-1 text-[0.66rem]"
+      className="max-w-[5rem] shrink-0 gap-1.5 truncate rounded-md px-2 py-1 text-xs"
       style={{ background: 'var(--accent-glow)', color: 'var(--accent-amber)' }}
     >
       <Activity data-icon="inline-start" />
@@ -1129,7 +1129,7 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
         style={{ borderColor: 'rgba(44,42,48,0.11)' }}
       >
         <p
-          className="text-[0.64rem] uppercase tracking-[0.2em]"
+          className="text-xs uppercase tracking-[0.16em]"
           style={{ color: 'var(--text-muted)' }}
         >
           Current pitch
@@ -1145,7 +1145,7 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
             <p className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
               {current.frequencyHz ? `${current.frequencyHz.toFixed(1)} Hz` : '— Hz'}
             </p>
-            <p className="mt-2 text-[0.68rem]" style={{ color: 'var(--text-muted)' }}>
+            <p className="mt-2 text-xs leading-[1.125rem]" style={{ color: 'var(--text-muted)' }}>
               置信度 {Math.round(current.confidence * 100)}%
             </p>
           </div>
@@ -1155,7 +1155,7 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
             <p
-              className="text-[0.64rem] uppercase tracking-[0.2em]"
+              className="text-xs uppercase tracking-[0.16em]"
               style={{ color: 'var(--text-muted)' }}
             >
               Tuning deviation
@@ -1202,7 +1202,7 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
             >
               <span className="block h-3 w-px" style={{ background: 'rgba(44,42,48,0.28)' }} />
               <span
-                className="mt-1 block -translate-x-1/2 font-mono text-[0.58rem]"
+                className="mt-1 block -translate-x-1/2 font-mono text-[11px] leading-4"
                 style={{ color: 'var(--text-muted)' }}
               >
                 {tick}
@@ -1221,7 +1221,7 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
           )}
         </div>
         <div
-          className="mt-1 flex justify-between text-[0.62rem]"
+          className="mt-1 flex justify-between text-xs"
           style={{ color: 'var(--text-muted)' }}
         >
           <span>偏低</span>
@@ -1481,7 +1481,7 @@ const PitchChart = ({
           viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
           role="group"
           aria-label="交互式音高曲线"
-          className="block h-auto w-full"
+          className="block h-auto w-full font-sans"
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -1568,8 +1568,9 @@ const PitchChart = ({
                   <text
                     x={8}
                     y={y - 2}
-                    fontSize="10"
-                    fontWeight={activeReferenceFrequency === tick.frequencyHz ? 700 : 400}
+                    className="font-mono"
+                    fontSize="11"
+                    fontWeight={activeReferenceFrequency === tick.frequencyHz ? 500 : 400}
                     fill={
                       activeReferenceFrequency === tick.frequencyHz
                         ? 'var(--text-primary)'
@@ -1582,7 +1583,8 @@ const PitchChart = ({
                   <text
                     x={8}
                     y={y + 11}
-                    fontSize="9"
+                    className="font-mono"
+                    fontSize="11"
                     fill="var(--text-muted)"
                     opacity={0.72}
                     pointerEvents="none"
@@ -1622,15 +1624,15 @@ const PitchChart = ({
                 fill="rgba(250,246,240,0.96)"
                 stroke="rgba(44,42,48,0.12)"
               />
-              <text x="12" y="20" fontSize="11" fontWeight="600" fill="var(--text-primary)">
+              <text className="font-mono" x="12" y="20" fontSize="11" fontWeight="500" fill="var(--text-primary)">
                 {formatTime(hover.time)}
               </text>
               {hover.point?.isVoiced && hover.point.frequencyHz != null ? (
                 <>
-                  <text x="12" y="42" fontSize="18" fontWeight="700" fill="var(--text-primary)">
+                  <text className="font-mono" x="12" y="42" fontSize="18" fontWeight="500" fill="var(--text-primary)">
                     {formatNoteNameForDisplay(hover.point.noteName)}
                   </text>
-                  <text x="12" y="61" fontSize="11" fill="var(--text-muted)">
+                  <text className="font-mono" x="12" y="61" fontSize="11" fill="var(--text-muted)">
                     {hover.point.frequencyHz.toFixed(1)}Hz ·{' '}
                     {hover.point.cents != null
                       ? `${hover.point.cents > 0 ? '+' : ''}${hover.point.cents.toFixed(0)}c`
@@ -1645,10 +1647,11 @@ const PitchChart = ({
               )}
             </g>
           )}
-          <text x={CHART_PLOT.left} y={CHART_HEIGHT - 11} fontSize="12" fill="var(--text-muted)">
+          <text className="font-mono" x={CHART_PLOT.left} y={CHART_HEIGHT - 11} fontSize="12" fill="var(--text-muted)">
             {formatTime(visibleViewport.startTime)}
           </text>
           <text
+            className="font-mono"
             x={CHART_WIDTH - CHART_PLOT.right}
             y={CHART_HEIGHT - 11}
             textAnchor="end"

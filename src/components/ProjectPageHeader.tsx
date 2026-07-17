@@ -42,7 +42,7 @@ export function ProjectPageHeader({ name, englishName, description, version, chi
 
       {/* ② 中文正标题 */}
       <motion.h1
-        className="font-display text-5xl sm:text-6xl tracking-tight mb-3 leading-tight"
+        className="mb-3 font-display text-4xl font-semibold leading-tight sm:text-5xl"
         style={{ color: 'var(--text-primary)' }}
         custom={0}
         variants={stagger}
@@ -68,9 +68,9 @@ export function ProjectPageHeader({ name, englishName, description, version, chi
         </span>
       </motion.div>
 
-      {/* ④ 简介 — 斜体，更像题记 */}
+      {/* ④ 简介 — 通过色阶与留白保持题记感，避免中文合成斜体 */}
       <motion.p
-        className="text-sm leading-relaxed max-w-xl mx-auto italic"
+        className="mx-auto mt-5 max-w-[48ch] border-l pl-4 text-left text-base leading-7"
         style={{ color: 'var(--text-secondary)' }}
         custom={2}
         variants={stagger}
@@ -83,7 +83,7 @@ export function ProjectPageHeader({ name, englishName, description, version, chi
       {/* ⑤ 版本号 — 下沉到简介下方，低调的元信息 */}
       {version && (
         <motion.p
-          className="mt-3 text-[0.6rem] font-mono tracking-wider"
+          className="mt-3 font-mono text-xs leading-[1.125rem] tracking-[0.04em]"
           style={{ color: 'var(--text-secondary)', opacity: 0.78 }}
           custom={2.5}
           variants={stagger}

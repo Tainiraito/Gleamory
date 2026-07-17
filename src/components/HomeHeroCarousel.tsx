@@ -69,7 +69,7 @@ const HomeHeroCarousel = ({ title, description }: HomeHeroCarouselProps) => {
           className="mb-5 block h-px w-12"
           style={{ background: 'var(--accent-amber)' }}
         />
-        <h1 className="font-display text-3xl font-semibold leading-tight text-[var(--text-primary)] sm:text-4xl lg:text-[2.7rem]">
+        <h1 className="font-display text-5xl font-semibold leading-none text-[var(--text-primary)] sm:text-[3.25rem] lg:text-6xl">
           {title}
         </h1>
         <p
@@ -86,7 +86,7 @@ const HomeHeroCarousel = ({ title, description }: HomeHeroCarouselProps) => {
             className="mt-9 flex w-full max-w-xs items-center sm:mt-11"
           >
             <span
-              className="font-mono text-[0.6rem] tracking-[0.16em]"
+              className="font-mono text-xs leading-[1.125rem] tracking-[0.08em]"
               style={{ color: 'var(--accent-amber)' }}
             >
               {formatSlideNumber(activeIndex)} / {String(slideCount).padStart(2, '0')}

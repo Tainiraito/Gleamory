@@ -162,7 +162,7 @@ return (
         {/*计数器 */}
         {hasMultiple && (
           <div
-            className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-[10px] font-medium backdrop-blur-md pointer-events-none"
+            className="pointer-events-none absolute top-3 right-3 rounded-full px-2.5 py-1 text-xs font-medium backdrop-blur-md"
             style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}
           >
             {activeIndex + 1} / {screenshots.length}
@@ -171,7 +171,7 @@ return (
 
         {/*悬停放大提示 */}
         <div
-          className="absolute bottom-3 right-3 px-2.5 py-1 rounded-full text-[10px] font-medium backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none flex items-center gap-1.5"
+          className="pointer-events-none absolute right-3 bottom-3 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium opacity-0 backdrop-blur-md transition-opacity duration-200 group-hover:opacity-100"
           style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}
         >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -400,7 +400,7 @@ const StepList = ({ steps, accentColor }: StepListProps) => (
           style={{ color: 'var(--text-secondary)' }}
         >
           <span
-            className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold mt-0.5 transition-transform duration-150 group-hover/step:scale-110"
+            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium transition-transform duration-150 group-hover/step:scale-110"
             style={{
               background: hasLink ? accentColor : `${accentColor}cc`,
               color: '#fff',

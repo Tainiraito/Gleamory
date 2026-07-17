@@ -8,7 +8,7 @@ const SiteHeader = () => (
     <div className="w-full px-4 sm:px-[15%]">
       <Link
         to="/"
-        className="font-display text-[0.6rem] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity duration-300"
+        className="font-display text-xs font-medium uppercase tracking-[0.2em] transition-opacity duration-300 hover:opacity-70"
         style={{ color: 'var(--text-muted)' }}
       >
         Gleamory
