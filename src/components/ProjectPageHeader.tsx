@@ -68,9 +68,9 @@ export function ProjectPageHeader({ name, englishName, description, version, chi
         </span>
       </motion.div>
 
-      {/* ④ 简介 — 通过色阶与留白保持题记感，避免中文合成斜体 */}
+      {/* ④ 简介 — 与标题保持同一中轴，通过色阶与留白保持题记感 */}
       <motion.p
-        className="mx-auto mt-5 max-w-[48ch] border-l pl-4 text-left text-base leading-7"
+        className="mx-auto mt-5 max-w-[48ch] text-center text-base leading-7"
         style={{ color: 'var(--text-secondary)' }}
         custom={2}
         variants={stagger}

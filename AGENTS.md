@@ -161,6 +161,7 @@ TMPDIR=/tmp TMP=/tmp TEMP=/tmp npm test
 
 - 保持暖纸、琥珀、墨黑、细边框和杂志式留白的全站视觉语言。
 - 颜色、字体、背景、边框和阴影优先使用 `src/styles/globals.css` 中的 CSS 自定义属性。
+- 页面横向布局只允许使用 `src/components/PageContainer.tsx` 的两档容器：`standard`（首页与普通功能页，最大 90rem）和 `wide`（指板训练、音高检测等宽工作台，最大 100rem）。`SiteHeader` 与 `PageMain` 必须选择同一档，不得在页面内新增独立百分比边距或第三套最大宽度。
 - 全站使用“表达 / 产品 / 数据”三层本地字体：`--font-display` 为 `Gleamory Editorial`（思源宋体），`--font-sans` 为 `Gleamory UI`（思源黑体），`--font-mono` 为 `Gleamory Mono`（Source Code Pro）。已删除 `font-kai`；诗词使用 `font-display`。
 - 正文与原生控件使用 UI 400，固定控件与标签使用 UI 500，动态诗词使用 Editorial 500，固定标题使用 Editorial 600；数字、时间、坐标、版本、日志和代码才使用 Mono 400/500。不得使用 650/750、700、中文斜体或浏览器合成字形。
 - 中文界面文字不得小于 12px；仅短数字和单位的图表刻度可使用 11px/16px。中文正文不使用负字距，大字距标签不超过 `0.08em`。
@@ -336,7 +337,7 @@ npm run build
 - 修改前和完成后都检查 `git status` 与目标文件差异。
 - 保留工作树已有改动；遇到重叠修改时先理解来源，不覆盖他人工作。
 - 不使用 `git reset --hard`、强制推送或其他破坏性命令，除非用户明确要求并确认风险。
-- 未经用户要求，不提交、推送、创建分支或打开 PR。
+- 需求完成并通过对应测试后，允许直接创建本地提交作为可回退检查点，无需逐次确认；仍不得据此自动推送、创建分支或打开 PR。
 - 提交时只暂存本任务文件，提交说明应准确描述实际范围。
 - 最终报告必须区分：已修改、已验证、未验证、假设和剩余风险。
 
@@ -399,7 +400,7 @@ git rev-list --left-right --count origin/main...main
 - 提交说明采用 Conventional Commits 风格，例如 `feat(guitar-fretboard): add daily summary fallback`、`fix(audio): release context on unmount`、`docs: define branch workflow`。
 - 提交前核对 `git diff --cached --check` 和暂存文件清单；禁止使用 `git add .`、`git add -A` 将不相关改动一并暂存。
 - 第一次推送主题分支使用 `git push -u origin <branch>`；后续只推送当前分支，不向 `main` 直接推送。
-- 未经用户明确要求，不提交或推送；不得把令牌、密钥、个人路径、构建产物或大型模型带入提交。
+- 完成需求并验证通过后可直接本地提交；未经用户明确要求不得推送。不得把令牌、密钥、个人路径、构建产物或大型模型带入提交。
 - 删除已提交的大文件只会清理新快照，不会自动移除 Git 历史对象。使用 `git filter-repo` 或强制推送改写历史前，必须另行取得用户明确授权，并先备份引用、说明协作影响和验证恢复方案。
 
 #### 每次远程推送前的 LLM 强制审计

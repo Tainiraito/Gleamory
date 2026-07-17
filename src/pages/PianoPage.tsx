@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import SiteHeader from '@/components/SiteHeader'
+import { PageMain } from '@/components/PageContainer'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import Piano from '@/components/piano/Piano'
 import { ALL_NOTES, getPlayableNotes, KEYBOARD_PRESETS, DEFAULT_PRESET } from '@/data/pianoNotes'
@@ -131,7 +132,7 @@ const PianoPage = () => {
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
       <SiteHeader />
 
-<main className="px-6 sm:px-[15%] py-20 sm:py-24">
+      <PageMain className="py-20 sm:py-24">
         <ProjectPageHeader
           name={project.name}
           englishName="Mini Piano"
@@ -279,7 +280,7 @@ const PianoPage = () => {
             </div>
           </div>
         </div>
-      </main>
+      </PageMain>
 
       <BackFooter as="a" />
     </div>

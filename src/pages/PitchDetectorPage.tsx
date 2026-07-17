@@ -38,6 +38,7 @@ import { Slider } from '@/components/ui/slider'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import SiteHeader from '@/components/SiteHeader'
+import { PageMain } from '@/components/PageContainer'
 import BackFooter from '@/components/BackFooter'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { usePianoAudio } from '@/hooks/usePianoAudio'
@@ -562,9 +563,13 @@ const PitchDetectorPage = () => {
       className="relative min-h-screen overflow-x-hidden"
       style={{ background: 'var(--bg-page)' }}
     >
-      <SiteHeader />
-      <main className="w-full max-w-full overflow-hidden px-4 pb-28 pt-16 sm:px-8 sm:pb-24 sm:pt-20">
-        <section className="mx-auto w-full min-w-0 max-w-[88rem]">
+      <SiteHeader width="wide" />
+      <PageMain
+        width="wide"
+        className="max-w-full overflow-hidden pt-16 pb-28 sm:pt-20 sm:pb-24"
+        innerClassName="min-w-0"
+      >
+        <section className="w-full min-w-0">
           <PitchPageHeader
             name={project.name}
             description="实时看见声音的音高、走向与细微偏差。"
@@ -703,7 +708,7 @@ const PitchDetectorPage = () => {
             </div>
           </Tabs>
         </section>
-      </main>
+      </PageMain>
       <BackFooter />
     </div>
   )

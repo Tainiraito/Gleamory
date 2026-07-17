@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import SiteHeader from '@/components/SiteHeader'
+import { PageMain } from '@/components/PageContainer'
 import BackFooter from '@/components/BackFooter'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import { Fretboard } from '@/components/guitar-fretboard/Fretboard'
@@ -934,9 +935,9 @@ const GuitarFretboardTrainerPage = () => {
 
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
-      <SiteHeader />
+      <SiteHeader width="wide" />
 
-      <main className="px-4 sm:px-[8%] pt-20 sm:pt-24 pb-36 sm:pb-24">
+      <PageMain width="wide" className="pt-20 pb-36 sm:pt-24 sm:pb-24">
         <ProjectPageHeader
           name={project.name}
           englishName="Guitar Fretboard Trainer"
@@ -1068,7 +1069,7 @@ const GuitarFretboardTrainerPage = () => {
             </div>
           </div>
         </section>
-      </main>
+      </PageMain>
 
       <BackFooter />
     </div>

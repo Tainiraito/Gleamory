@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import SiteHeader from '@/components/SiteHeader'
+import { PageMain } from '@/components/PageContainer'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import BackFooter from '@/components/BackFooter'
@@ -254,7 +255,7 @@ const GachaSimulator = () => {
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
       <SiteHeader />
 
-      <main className="px-4 sm:px-[15%] py-20 sm:py-24">
+      <PageMain className="py-20 sm:py-24">
         <ProjectPageHeader
           name={project.name}
           englishName="Gacha Simulator"
@@ -432,7 +433,7 @@ const GachaSimulator = () => {
             )}
           </div>
         </div>
-      </main>
+      </PageMain>
 
       {/* Mobile: Results below (only on small screens) */}
       {history.length > 0 && (
