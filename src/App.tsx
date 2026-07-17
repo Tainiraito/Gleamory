@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import type { ProjectsData, UpdatesData } from '@/types'
 import SiteHeader from '@/components/SiteHeader'
+import HomeHeroCarousel from '@/components/HomeHeroCarousel'
 import ProjectGrid from '@/components/ProjectGrid'
 import CalendarCard from '@/components/CalendarCard'
 import PoemCard from '@/components/PoemCard'
@@ -9,6 +10,7 @@ import Timeline from '@/components/Timeline'
 import Footer from '@/components/Footer'
 import projectsData from '@/data/projects.json'
 import updatesData from '@/data/timeline.json'
+import { FEATURED_PROJECT_ID } from '@/data/projectCategories'
 
 const GachaSimulator = lazy(() => import('@/pages/GachaSimulator'))
 const PianoPage = lazy(() => import('@/pages/PianoPage'))
@@ -17,36 +19,51 @@ const NeteaseCoverPage = lazy(() => import('@/pages/NeteaseCoverPage'))
 const PixivCoverPage = lazy(() => import('@/pages/PixivCoverPage'))
 const AudioSeparatorPage = lazy(() => import('@/pages/AudioSeparatorPage'))
 const GuitarFretboardTrainerPage = lazy(() => import('@/pages/GuitarFretboardTrainerPage'))
+const PitchDetectorPage = lazy(() => import('@/pages/PitchDetectorPage'))
 
 const { projects } = projectsData as ProjectsData
 const { updates } = updatesData as UpdatesData
+const featuredProject =
+  projects.find((project) => project.id === FEATURED_PROJECT_ID) ?? projects[0]
 
 const HomePage = () => (
   <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
     <SiteHeader />
-    <main className="px-6 sm:px-[15%] py-20 sm:py-24">
-      {/* Magazine grid for projects */}
-      <ProjectGrid projects={projects} />
+    <main className="px-6 py-20 sm:px-[5.5%] sm:py-24">
+      <div className="mx-auto w-full max-w-[90rem]">
+        {featuredProject && (
+          <HomeHeroCarousel
+            title={featuredProject.name}
+            description={featuredProject.description}
+          />
+        )}
 
-      {/* Decorative divider */}
-      <div className="flex justify-center my-16 sm:my-20">
-        <div style={{ width: '48px', height: '1px', background: 'var(--accent-pink)' }} />
-      </div>
+        <div className="mt-10 grid gap-16 sm:mt-12 min-[1760px]:grid-cols-[minmax(0,1fr)_18rem] min-[1760px]:gap-10">
+          <ProjectGrid projects={projects} />
 
-      {/* Daily section: calendar + poem */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-        <div className="md:col-span-5">
-          <CalendarCard />
+          <aside
+            aria-label="今日与更新"
+            className="grid md:grid-cols-2 min-[1760px]:block min-[1760px]:border-l min-[1760px]:pl-8"
+            style={{ borderColor: 'rgba(44,42,48,0.11)' }}
+          >
+            <div
+              className="border-y md:max-[1759px]:border-r"
+              style={{ borderColor: 'rgba(44,42,48,0.11)' }}
+            >
+              <CalendarCard />
+            </div>
+            <div
+              className="border-y min-[1760px]:border-t-0"
+              style={{ borderColor: 'rgba(44,42,48,0.11)' }}
+            >
+              <PoemCard />
+            </div>
+            <div className="border-b md:col-span-2" style={{ borderColor: 'rgba(44,42,48,0.11)' }}>
+              <Timeline updates={updates} />
+            </div>
+          </aside>
         </div>
-        <div className="md:col-span-7">
-          <PoemCard />
-        </div>
       </div>
-
-      {/* Timeline (full width) */}
-      <section className="mt-24 sm:mt-32">
-        <Timeline updates={updates} />
-      </section>
     </main>
     <Footer />
   </div>
@@ -73,6 +90,7 @@ const App = () => (
         <Route path="/pixiv-image-extractor" element={<PixivCoverPage />} />
         <Route path="/audio-separator" element={<AudioSeparatorPage />} />
         <Route path="/guitar-fretboard-trainer" element={<GuitarFretboardTrainerPage />} />
+        <Route path="/pitch-detector" element={<PitchDetectorPage />} />
       </Routes>
     </Suspense>
   </HashRouter>

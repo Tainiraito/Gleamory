@@ -12,13 +12,17 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{js,ts,json,md}\""
   },
   "dependencies": {
+    "@base-ui/react": "^1.6.0",
     "@tailwindcss/vite": "^4.3.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "framer-motion": "^12.0.0",
     "lucide-react": "^0.460.0",
     "onnxruntime-web": "^1.20.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.15.1"
+    "react-router-dom": "^7.15.1",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

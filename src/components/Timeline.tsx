@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { useMemo, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+
 import type { Update } from '@/types'
 import { sortUpdatesByDateDesc } from '@/utils/timeline'
 
@@ -7,101 +9,125 @@ interface TimelineProps {
   updates: Update[]
 }
 
+interface TimelineEntryProps {
+  update: Update
+}
+
 const INITIAL_COUNT = 5
+
+const TimelineEntry = ({ update }: TimelineEntryProps) => (
+  <article className="relative grid grid-cols-[0.5rem_minmax(0,1fr)] gap-3">
+    <span
+      aria-hidden="true"
+      className="relative mt-1 size-[7px] rounded-full"
+      style={{ background: 'var(--accent-amber)' }}
+    />
+    <div className="min-w-0">
+      <time
+        dateTime={update.date}
+        className="mb-1 block font-mono text-[0.58rem] tracking-[0.08em]"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        {update.date}
+      </time>
+      <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+        {update.content}
+      </p>
+    </div>
+  </article>
+)
 
 const Timeline = ({ updates }: TimelineProps) => {
   const [expanded, setExpanded] = useState(false)
-  // Most recent first
+  const shouldReduceMotion = useReducedMotion()
   const sortedUpdates = useMemo(() => sortUpdatesByDateDesc(updates), [updates])
-  const visibleUpdates = expanded ? sortedUpdates : sortedUpdates.slice(0, INITIAL_COUNT)
-  const hasMore = updates.length > INITIAL_COUNT
+  const primaryUpdates = sortedUpdates.slice(0, INITIAL_COUNT)
+  const extraUpdates = sortedUpdates.slice(INITIAL_COUNT)
+  const hasMore = extraUpdates.length > 0
+  const motionDuration = shouldReduceMotion ? 0 : 0.32
 
   return (
-    <div>
-      {/* Section header — 流光忆庭 */}
-      <div className="flex items-center gap-4 mb-16">
-        <div className="flex-1" style={{ height: '1px', background: 'var(--border-line)' }} />
-        <span
-          className="font-display text-xs uppercase tracking-[0.3em] whitespace-nowrap"
-          style={{ color: 'var(--text-muted)' }}
+    <section
+      aria-labelledby="timeline-heading"
+      className="px-6 py-7 sm:px-8 sm:py-9 min-[1760px]:px-0"
+    >
+      <header className="mb-6 border-b pb-4">
+        <p
+          className="mb-1 font-mono text-[0.6rem] tracking-[0.16em]"
+          style={{ color: 'var(--accent-amber)' }}
+        >
+          更新札记
+        </p>
+        <h2
+          id="timeline-heading"
+          className="font-display text-2xl font-semibold leading-none"
+          style={{ color: 'var(--text-primary)' }}
         >
           流光忆庭
-        </span>
-        <div className="flex-1" style={{ height: '1px', background: 'var(--border-line)' }} />
-      </div>
+        </h2>
+      </header>
 
       {updates.length === 0 ? (
-        <p className="text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
           暂无记录
         </p>
       ) : (
         <>
           <div className="relative">
-            {/* Vertical line */}
             <div
-              className="absolute top-0 bottom-0"
-              style={{
-                left: '5.5px',
-                width: '1px',
-                background: 'var(--border-line)',
-              }}
+              aria-hidden="true"
+              className="absolute top-1 bottom-1 left-[3px] w-px"
+              style={{ background: 'var(--border-line)' }}
             />
 
-            <div className="flex flex-col">
-              {visibleUpdates.map((update, i) => (
-                <motion.div
-                  key={update.id}
-                  className="flex gap-5 pb-8 last:pb-0"
-                  initial={{ opacity: 0, x: -8 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: i * 0.08 }}
-                >
-                  {/* Dot */}
-                  <div
-                    className="relative flex-shrink-0 flex justify-center mt-0.5"
-                    style={{ width: '12px' }}
-                  >
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{
-                        border: '2px solid var(--accent-pink)',
-                        background: 'var(--bg-page)',
-                      }}
-                    />
-                  </div>
-
-                  {/* Content */}
-                  <div>
-                    <span
-                      className="text-[0.6rem] uppercase tracking-widest block mb-1"
-                      style={{ color: 'var(--text-muted)' }}
-                    >
-                      {update.date}
-                    </span>
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                      {update.content}
-                    </p>
-                  </div>
-                </motion.div>
+            <div className="flex flex-col gap-5">
+              {primaryUpdates.map((update) => (
+                <TimelineEntry key={update.id} update={update} />
               ))}
             </div>
+
+            <AnimatePresence initial={false}>
+              {expanded && (
+                <motion.div
+                  key="extra-updates"
+                  className="overflow-hidden"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: motionDuration, ease: 'easeOut' }}
+                >
+                  <div className="flex flex-col gap-5 pt-5">
+                    {extraUpdates.map((update) => (
+                      <TimelineEntry key={update.id} update={update} />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          {/* Toggle button */}
           {hasMore && (
             <button
-              onClick={() => setExpanded((prev) => !prev)}
+              type="button"
+              onClick={() => setExpanded((previous) => !previous)}
               aria-expanded={expanded}
-              className="mt-8 text-[0.6rem] uppercase tracking-widest transition-opacity duration-300 hover:opacity-70"
-              style={{ color: 'var(--text-muted)' }}
+              className="mt-7 inline-flex items-center gap-1.5 border-b pb-1 font-mono text-[0.6rem] tracking-[0.1em] transition-colors hover:text-[var(--accent-amber)]"
+              style={{ color: 'var(--text-muted)', borderColor: 'var(--accent-amber)' }}
             >
-              {expanded ? '收起' : `显示全部 (${updates.length})`}
+              {expanded ? '收起记录' : `展开全部 ${updates.length} 条`}
+              <motion.span
+                aria-hidden="true"
+                className="inline-flex"
+                animate={{ rotate: expanded ? 180 : 0 }}
+                transition={{ duration: motionDuration }}
+              >
+                <ChevronDown size={12} strokeWidth={1.6} />
+              </motion.span>
             </button>
           )}
         </>
       )}
-    </div>
+    </section>
   )
 }
 

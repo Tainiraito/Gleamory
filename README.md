@@ -8,16 +8,18 @@
 
 ### 首页
 
-- 项目卡片目录
-- 实时月历
-- 每日诗句，远程接口失败时使用本地诗词库
-- 按日期排序的项目更新时间线
+- 仅展示站点标题与简介的三图主视觉轮播，跨满内容容器并将唯一一组控制放在图片外
+- 以“卷一、卷二、卷三”区分“弦歌有声、丹青拾光、浮生半日”的单列项目目录
+- 与项目目录共用开放式排版语言的实时月历和每日诗笺，诗词接口失败时使用本地诗词库
+- 只记录项目上线、核心能力大改和重大版本的里程碑时间线
+- 超宽屏将统一排版的月历、每日诗笺和“流光忆庭”收纳为右侧栏，整套内容限制在居中的 90rem 内；普通桌面与移动端自动恢复下方布局
 
 ### 站内工具
 
 - `#/gacha-simulator`：翻牌抽卡
 - `#/piano`：Web Audio 极简钢琴
 - `#/metronome`：支持小节编辑和变速模式的节拍器
+- `#/pitch-detector`：浏览器本地音高检测，支持降噪麦克风、电脑音频、上传文件、录音回放、钢琴参照音和分轨结果分析
 - `#/guitar-fretboard-trainer`：通过五类可配置测验、单题计时与准确率、音阶/和弦地图、吉他采样音色和四套拟真指板外观熟悉全指板音名
 - `#/audio-separator`：浏览器本地音轨分离，支持 HT-Demucs 高质量四分轨
 
@@ -28,15 +30,15 @@
 
 ## 技术栈
 
-| 类别 | 技术 |
-| --- | --- |
-| 前端 | React 19、TypeScript |
-| 构建 | Vite 6 |
-| 路由 | React Router 7、HashRouter |
+| 类别 | 技术                           |
+| ---- | ------------------------------ |
+| 前端 | React 19、TypeScript           |
+| 构建 | Vite 6                         |
+| 路由 | React Router 7、HashRouter     |
 | 样式 | Tailwind CSS 4、CSS 自定义属性 |
-| 动画 | Framer Motion 12 |
-| 测试 | Vitest 4、Testing Library |
-| 部署 | GitHub Pages、GitHub Actions |
+| 动画 | Framer Motion 12               |
+| 测试 | Vitest 4、Testing Library      |
+| 部署 | GitHub Pages、GitHub Actions   |
 
 非首页路由使用 `React.lazy` 分包。思源宋体采用本地子集化 WOFF2，项目封面采用 WebP。
 
@@ -63,7 +65,7 @@ npm run preview
 
 ## 数据维护
 
-项目卡片位于 `src/data/projects.json`，更新时间线位于 `src/data/timeline.json`。
+项目元数据位于 `src/data/projects.json`，更新时间线位于 `src/data/timeline.json`。
 
 新增或发布项目时同步更新：
 
