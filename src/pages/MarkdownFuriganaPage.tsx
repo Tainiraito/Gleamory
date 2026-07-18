@@ -6,12 +6,12 @@ const project = getProjectById('markdown-furigana')!
 
 const config: PluginConfig = {
   name: project.name,
-  englishName: 'Markdown Furigana Local',
+  englishName: 'Furigana Lens',
   description: project.description,
   version: project.version.replace(/^v/, ''),
   accentColor: '#b46f32',
   notice:
-    '个人自用维护版本，暂不提供公开下载、安装支持或社区插件提交。页面仅记录当前使用方式与维护来源。',
+    '个人自用独立实现，暂不提供公开下载、安装支持或社区插件提交。页面仅记录当前功能与语法兼容关系。',
 
   features: [
     {
@@ -49,15 +49,11 @@ const config: PluginConfig = {
   externalLinks: [
     {
       url: 'https://github.com/steven-kraft/obsidian-markdown-furigana',
-      label: '上游项目',
-    },
-    {
-      url: 'https://github.com/steven-kraft/obsidian-markdown-furigana/pull/34',
-      label: '功能基线 PR #34',
+      label: '语法灵感项目',
     },
   ],
 
-  note: '原作者 Steven Kraft；本地版本基于 phoenix-meadowlark 的 PR #34 继续自用维护。',
+  note: 'Furigana Lens 为独立实现；来源链接仅说明既有语法灵感，不代表代码继承或官方关系。',
 }
 
 const MarkdownFuriganaPage = () => <PluginDetailPage config={config} />

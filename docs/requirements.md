@@ -27,17 +27,17 @@ Gleamory 是个人微产品入口站，目标是：
 
 ### 站内页面
 
-| 路由                         | 用途                        |
-| ---------------------------- | --------------------------- |
-| `#/gacha-simulator`          | 翻牌抽卡                    |
-| `#/piano`                    | 极简钢琴                    |
-| `#/metronome`                | 节拍器                      |
-| `#/guitar-fretboard-trainer` | 吉他指板音训练              |
-| `#/pitch-detector`           | 浏览器本地音高检测          |
-| `#/netease-cover`            | 网易云封面提取插件说明      |
-| `#/pixiv-image-extractor`    | Pixiv 插画下载插件说明      |
-| `#/markdown-furigana`        | Markdown 注音自用维护版说明 |
-| `#/audio-separator`          | 浏览器本地音轨分离          |
+| 路由                         | 用途                           |
+| ---------------------------- | ------------------------------ |
+| `#/gacha-simulator`          | 翻牌抽卡                       |
+| `#/piano`                    | 极简钢琴                       |
+| `#/metronome`                | 节拍器                         |
+| `#/guitar-fretboard-trainer` | 吉他指板音训练                 |
+| `#/pitch-detector`           | 浏览器本地音高检测             |
+| `#/netease-cover`            | 网易云封面提取插件说明         |
+| `#/pixiv-image-extractor`    | Pixiv 插画下载插件说明         |
+| `#/markdown-furigana`        | Furigana Lens 自用独立实现说明 |
+| `#/audio-separator`          | 浏览器本地音轨分离             |
 
 ## 3. 业务规则
 
@@ -161,7 +161,7 @@ Gleamory 是个人微产品入口站，目标是：
 ### 插件说明页
 
 - 展示名称、版本、功能、截图、安装步骤、使用步骤和下载入口。
-- 自用且未公开分发的插件以可见版本说明替代安装和下载入口，并提供上游来源与功能基线链接。
+- 自用且未公开分发的插件以可见版本说明替代安装和下载入口；独立实现仅提供语法灵感来源，不把外部仓库或 PR 表述为代码基线。
 - 外部链接在新窗口打开，并使用 `noopener noreferrer`。
 - 使用结构化 React 节点渲染步骤，不使用不受控 HTML 注入。
 - 截图灯箱支持点击、Enter、Space、Escape 和方向键。

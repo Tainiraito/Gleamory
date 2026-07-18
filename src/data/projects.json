@@ -140,12 +140,12 @@
     {
       "id": "markdown-furigana",
       "name": "Markdown 注音",
-      "description": "在 Obsidian 阅读视图与实时预览中渲染注音，并支持模糊、隐藏与常显模式",
+      "description": "Furigana Lens 独立实现：在 Obsidian 阅读视图与实时预览中渲染注音",
       "url": "#/markdown-furigana",
       "status": "开发中",
       "tags": ["笔记工具", "日语", "Obsidian 扩展"],
       "cover": "",
-      "version": "v1.3.1",
+      "version": "v0.1.0",
       "updatedAt": "2026-07-18"
     }
   ]

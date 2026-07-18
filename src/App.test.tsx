@@ -49,13 +49,13 @@ describe('App routes', () => {
     expect(
       await screen.findByRole('heading', { name: 'Markdown 注音' }, { timeout: 3000 }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: '版本说明' })).toHaveTextContent('个人自用维护版本')
+    expect(screen.getByRole('region', { name: '版本说明' })).toHaveTextContent('个人自用独立实现')
     expect(screen.queryByRole('link', { name: /下载/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '上游项目' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '语法灵感项目' })).toHaveAttribute(
       'href',
       'https://github.com/steven-kraft/obsidian-markdown-furigana',
     )
-    expect(screen.getByRole('link', { name: '功能基线 PR #34' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '功能基线 PR #34' })).not.toBeInTheDocument()
   })
 
   it('首页内容在宽屏保持统一最大宽度', () => {

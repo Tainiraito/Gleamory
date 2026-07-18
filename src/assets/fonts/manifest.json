@@ -11,7 +11,7 @@
       "test",
       "tests"
     ],
-    "codepointCount": 1305,
+    "codepointCount": 1306,
     "codepointRanges": [
       "000A",
       "0020-007E",
@@ -301,7 +301,7 @@
       "5B83",
       "5B89",
       "5B8C",
-      "5B97",
+      "5B97-5B98",
       "5B9A",
       "5B9C-5B9E",
       "5BA1-5BA2",
@@ -430,7 +430,7 @@
       "627E-627F",
       "628A",
       "629B",
-      "62A4-62A5",
+      "62A5",
       "62BD",
       "62C9",
       "62CD",
@@ -484,6 +484,7 @@
       "65CB",
       "65CF",
       "65E0",
+      "65E2",
       "65E5",
       "65E7",
       "65E9",
@@ -4680,7 +4681,7 @@
     },
     "runtime": {
       "description": "当前运行时字符",
-      "codepointCount": 1290,
+      "codepointCount": 1291,
       "codepointRanges": [
         "0020-007E",
         "00B2-00B3",
@@ -4965,7 +4966,7 @@
         "5B83",
         "5B89",
         "5B8C",
-        "5B97",
+        "5B97-5B98",
         "5B9A",
         "5B9C-5B9E",
         "5BA1-5BA2",
@@ -5094,7 +5095,7 @@
         "627E-627F",
         "628A",
         "629B",
-        "62A4-62A5",
+        "62A5",
         "62BD",
         "62C9",
         "62CD",
@@ -5148,6 +5149,7 @@
         "65CB",
         "65CF",
         "65E0",
+        "65E2",
         "65E5",
         "65E7",
         "65E9",
@@ -5800,9 +5802,9 @@
       "sourceFile": "SourceHanSerifSC-SemiBold.otf",
       "sourceUrl": "https://raw.githubusercontent.com/adobe-fonts/source-han-serif/2.001R/OTF/SimplifiedChinese/SourceHanSerifSC-SemiBold.otf",
       "sourceSha256": "a75db65b2833969e7f18b17e9680b99a20ad2116d84d8fba49fc50d04ac05be2",
-      "sha256": "fbecdb2fed5b79a3338118d017c2a39bd8a319a13816414b1b317caf9db4a6dd",
-      "bytes": 311796,
-      "codepointCount": 1290
+      "sha256": "b5ba7aa43967a137019a352591a30346cad9bd2a6b51639ac73a60f3e9aa1e75",
+      "bytes": 312012,
+      "codepointCount": 1291
     },
     {
       "path": "GleamoryUI-Regular.woff2",
@@ -5830,9 +5832,9 @@
       "sourceFile": "SourceHanSansSC-Medium.otf",
       "sourceUrl": "https://raw.githubusercontent.com/adobe-fonts/source-han-sans/2.005R/OTF/SimplifiedChinese/SourceHanSansSC-Medium.otf",
       "sourceSha256": "1df61d31687d04fd2f928a3bb6ca6cd61f0e988cc267cf317f32406edbb49f70",
-      "sha256": "92c3c4a8e7059f49cc545c50994f2e50cfaf6ced419e6a287fcc20ff67ddae69",
-      "bytes": 225636,
-      "codepointCount": 1290
+      "sha256": "c233cf27156c93b259f096544eb57bf186b16cf82a36bf3e50cc77533811b3e9",
+      "bytes": 225368,
+      "codepointCount": 1291
     },
     {
       "path": "GleamoryMono-Regular.woff2",

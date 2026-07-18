@@ -27,7 +27,7 @@
 
 - `#/netease-cover`：网易云封面提取
 - `#/pixiv-image-extractor`：Pixiv 插画下载
-- `#/markdown-furigana`：Markdown 注音自用维护版；记录 Obsidian 注音渲染与显示设置，不提供公开下载
+- `#/markdown-furigana`：Furigana Lens 独立实现说明；记录 Obsidian 注音渲染与显示设置，不提供公开下载
 
 ## 技术栈
 
