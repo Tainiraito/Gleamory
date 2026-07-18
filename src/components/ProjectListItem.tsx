@@ -10,6 +10,7 @@ interface ProjectListItemProps {
 
 const ProjectListItem = ({ project }: ProjectListItemProps) => {
   const hasUrl = Boolean(project.url)
+  const isExternalUrl = /^https?:\/\//.test(project.url)
   const shouldReduceMotion = useReducedMotion()
   const statusStyle = project.status ? getStatusStyle(project.status) : null
   const metadata = [project.version, project.updatedAt !== '-' ? project.updatedAt : null].filter(
@@ -88,7 +89,12 @@ const ProjectListItem = ({ project }: ProjectListItemProps) => {
       }
     >
       {hasUrl ? (
-        <a href={project.url} target="_blank" rel="noopener noreferrer" className="block">
+        <a
+          href={project.url}
+          target={isExternalUrl ? '_blank' : undefined}
+          rel={isExternalUrl ? 'noopener noreferrer' : undefined}
+          className="block"
+        >
           {content}
         </a>
       ) : (

@@ -71,6 +71,12 @@
       "projectId": "pitch-detector",
       "content": "音高检测 v0.1.0 — 支持麦克风与电脑音频实时检测、本地文件分析、交互式曲线和分轨结果接续分析",
       "date": "2026-07-16"
+    },
+    {
+      "id": "13",
+      "projectId": "markdown-furigana",
+      "content": "新增 Markdown 注音自用维护版说明页，记录实时预览、阅读视图与注音显示设置",
+      "date": "2026-07-18"
     }
   ]
 }

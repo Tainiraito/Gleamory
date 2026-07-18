@@ -25,4 +25,10 @@ export const PROJECT_CATEGORIES = [
     description: '偷得片刻闲，容一场偶遇与欢喜',
     projectIds: ['gacha-simulator', 'moreAni'],
   },
+  {
+    id: 'writing-notes',
+    title: '笺墨相助',
+    description: '落笔成章，收纳笔记与写作的便利',
+    projectIds: ['markdown-furigana'],
+  },
 ] as const
