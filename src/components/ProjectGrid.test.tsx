@@ -29,10 +29,12 @@ describe('ProjectGrid', () => {
     const musicSection = screen.getByRole('heading', { name: '弦歌有声' }).closest('section')
     const contentSection = screen.getByRole('heading', { name: '丹青拾光' }).closest('section')
     const leisureSection = screen.getByRole('heading', { name: '浮生半日' }).closest('section')
+    const writingSection = screen.getByRole('heading', { name: '笺墨相助' }).closest('section')
 
     expect(musicSection).not.toBeNull()
     expect(contentSection).not.toBeNull()
     expect(leisureSection).not.toBeNull()
+    expect(writingSection).not.toBeNull()
 
     expect(within(musicSection!).getByRole('heading', { name: '音高检测' })).toBeInTheDocument()
     expect(within(musicSection!).getByRole('heading', { name: '音轨分离' })).toBeInTheDocument()
@@ -40,6 +42,12 @@ describe('ProjectGrid', () => {
       within(contentSection!).getByRole('heading', { name: 'Pixiv 插画下载' }),
     ).toBeInTheDocument()
     expect(within(leisureSection!).getByRole('heading', { name: '抽卡模拟' })).toBeInTheDocument()
+    expect(
+      within(writingSection!).getByRole('heading', { name: 'Markdown 注音' }),
+    ).toBeInTheDocument()
+    expect(within(writingSection!).getByRole('link', { name: /Markdown 注音/ })).not.toHaveAttribute(
+      'target',
+    )
     expect(within(musicSection!).getAllByRole('listitem')).toHaveLength(5)
     expect(
       within(musicSection!).getByRole('list', { name: '弦歌有声项目列表' }),

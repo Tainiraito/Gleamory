@@ -21,6 +21,7 @@ const PixivCoverPage = lazy(() => import('@/pages/PixivCoverPage'))
 const AudioSeparatorPage = lazy(() => import('@/pages/AudioSeparatorPage'))
 const GuitarFretboardTrainerPage = lazy(() => import('@/pages/GuitarFretboardTrainerPage'))
 const PitchDetectorPage = lazy(() => import('@/pages/PitchDetectorPage'))
+const MarkdownFuriganaPage = lazy(() => import('@/pages/MarkdownFuriganaPage'))
 
 const { projects } = projectsData as ProjectsData
 const { updates } = updatesData as UpdatesData
@@ -87,6 +88,7 @@ const App = () => (
         <Route path="/audio-separator" element={<AudioSeparatorPage />} />
         <Route path="/guitar-fretboard-trainer" element={<GuitarFretboardTrainerPage />} />
         <Route path="/pitch-detector" element={<PitchDetectorPage />} />
+        <Route path="/markdown-furigana" element={<MarkdownFuriganaPage />} />
       </Routes>
     </Suspense>
   </HashRouter>

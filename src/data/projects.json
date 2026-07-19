@@ -136,6 +136,17 @@
       "cover": "/covers/audio-separator.svg",
       "version": "v0.3.0",
       "updatedAt": "2026-06-04"
+    },
+    {
+      "id": "markdown-furigana",
+      "name": "Markdown 注音",
+      "description": "Furigana Lens 独立实现：在 Obsidian 阅读视图与实时预览中渲染注音",
+      "url": "#/markdown-furigana",
+      "status": "开发中",
+      "tags": ["笔记工具", "日语", "Obsidian 扩展"],
+      "cover": "",
+      "version": "v0.1.0",
+      "updatedAt": "2026-07-18"
     }
   ]
 }

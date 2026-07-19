@@ -27,6 +27,7 @@ describe('首页项目分类', () => {
       { title: '弦歌有声', description: '宫商迭奏，安放乐器、节拍与听辨练习' },
       { title: '丹青拾光', description: '丹青不老，收录图像与内容的灵光' },
       { title: '浮生半日', description: '偷得片刻闲，容一场偶遇与欢喜' },
+      { title: '笺墨相助', description: '落笔成章，收纳笔记与写作的便利' },
     ])
   })
 })

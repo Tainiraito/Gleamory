@@ -25,6 +25,12 @@ export interface PluginScreenshot {
   caption?: string
 }
 
+/** 外部资料链接 */
+export interface PluginExternalLink {
+  url: string
+  label: string
+}
+
 /** 插件配置 */
 export interface PluginConfig {
   name: string
@@ -34,7 +40,7 @@ export interface PluginConfig {
   features: PluginFeature[]
   screenshots?: PluginScreenshot[]
   usage?: {
-    install: string[]
+    install?: string[]
     usage: string[]
   }
   download?: {
@@ -44,6 +50,8 @@ export interface PluginConfig {
     steps?: string[]
   }
   github?: string
+  externalLinks?: PluginExternalLink[]
+  notice?: string
   note?: string
   accentColor?: string
 }
@@ -432,7 +440,7 @@ const LucideIcon = ({ name }: { name: string }): React.ReactNode => {
     'copy': <><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>,
     'settings': <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
     'smartphone': <><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></>,
-    'feather': <><path d="M20.2412.24a66000-8.49-8.49L510.5V19h8.5l6.74-6.76z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></>,
+    'feather': <><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5l6.74-6.76z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></>,
 'chevron-left': <polyline points="15 18 9 12 15 6" />,
     'chevron-right': <polyline points="9 6 15 12 9 18" />,
  'x': <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>,
@@ -456,6 +464,8 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
     usage,
     download,
     github,
+    externalLinks = [],
+    notice,
     note,
     accentColor = '#e03050',
   } = config
@@ -476,8 +486,22 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
           version={version}
         />
 
+        {notice && (
+          <section
+            className="mb-8 rounded-2xl px-5 py-4 text-sm leading-relaxed sm:px-6"
+            style={{
+              background: `${accentColor}0d`,
+              border: `0.5px solid ${accentColor}35`,
+              color: 'var(--text-secondary)',
+            }}
+            aria-label="版本说明"
+          >
+            {notice}
+          </section>
+        )}
+
         {/* ── 下载 & 仓库（置顶） ── */}
-        {(download?.url || github) && (
+        {(download?.url || github || externalLinks.length > 0) && (
           <section className="mb-8">
             <div className="flex flex-col items-center gap-3">
               <div className="flex flex-wrap items-center justify-center gap-3">
@@ -517,6 +541,25 @@ const PluginDetailPage = ({ config }: PluginDetailPageProps) => {
                   GitHub 仓库
                 </a>
               )}
+              {externalLinks.map((link) => (
+                <a
+                  key={link.url}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:scale-95 active:translate-y-0"
+                  style={{
+                    background: 'var(--bg-page)',
+                    color: 'var(--text-secondary)',
+                    border: '0.5px solid var(--border-line)',
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <LucideIcon name="link" />
+                  </svg>
+                  {link.label}
+                </a>
+              ))}
               {note && (
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {note}
