@@ -3,9 +3,11 @@ import type { BeatSoundId } from '@/data/beatSounds'
 import { BEAT_SOUND_MAP } from '@/data/beatSounds'
 import type { MetronomeConfig, TempoChangeConfig } from '@/types/metronome'
 import { totalTicks, getTickInfo } from '@/types/metronome'
+import { normalizeMetronomeVolume } from '@/lib/metronomeVolume'
 
 interface UseMetronomeOptions {
   config: MetronomeConfig
+  volume: number
   onBeat?: (measureIndex: number, beatIndex: number) => void
   onComplete?: () => void
 }
@@ -24,15 +26,21 @@ interface UseMetronomeReturn {
   resume: () => void
 }
 
-function synthesizeBeat(audioCtx: AudioContext, sound: BeatSoundId, time: number, volume = 0.8): void {
+function synthesizeBeat(
+  audioCtx: AudioContext,
+  output: AudioNode,
+  sound: BeatSoundId,
+  time: number,
+  intensity = 1,
+): void {
   const config = BEAT_SOUND_MAP[sound]
   if (!config) return
 
   const { frequency = 440, noiseMix = 0, decay = 0.1, type = 'sine' } = config
 
-  const masterGain = audioCtx.createGain()
-  masterGain.gain.setValueAtTime(volume, time)
-  masterGain.connect(audioCtx.destination)
+  const beatGain = audioCtx.createGain()
+  beatGain.gain.setValueAtTime(intensity, time)
+  beatGain.connect(output)
 
   if (noiseMix < 1) {
     const osc = audioCtx.createOscillator()
@@ -42,7 +50,7 @@ function synthesizeBeat(audioCtx: AudioContext, sound: BeatSoundId, time: number
     oscGain.gain.setValueAtTime(1 - noiseMix, time)
     oscGain.gain.exponentialRampToValueAtTime(0.001, time + decay)
     osc.connect(oscGain)
-    oscGain.connect(masterGain)
+    oscGain.connect(beatGain)
     osc.start(time)
     osc.stop(time + decay)
   }
@@ -67,7 +75,7 @@ function synthesizeBeat(audioCtx: AudioContext, sound: BeatSoundId, time: number
 
     noise.connect(noiseFilter)
     noiseFilter.connect(noiseGain)
-    noiseGain.connect(masterGain)
+    noiseGain.connect(beatGain)
     noise.start(time)
     noise.stop(time + decay)
   }
@@ -111,10 +119,13 @@ function computeTempoBpm(
 
 export function useMetronome({
   config,
+  volume,
   onBeat,
   onComplete,
 }: UseMetronomeOptions): UseMetronomeReturn {
   const audioCtxRef = useRef<AudioContext | null>(null)
+  const masterGainRef = useRef<GainNode | null>(null)
+  const volumeRef = useRef(normalizeMetronomeVolume(volume))
   const timerRef = useRef<number | null>(null)
   const nextBeatTimeRef = useRef<number>(0)
   const globalTickRef = useRef<number>(0)
@@ -135,6 +146,17 @@ export function useMetronome({
 
   useEffect(() => { onBeatRef.current = onBeat }, [onBeat])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
+  useEffect(() => {
+    const nextVolume = normalizeMetronomeVolume(volume)
+    volumeRef.current = nextVolume
+
+    const audioCtx = audioCtxRef.current
+    const masterGain = masterGainRef.current
+    if (!audioCtx || !masterGain) return
+
+    masterGain.gain.cancelScheduledValues(audioCtx.currentTime)
+    masterGain.gain.setTargetAtTime(nextVolume, audioCtx.currentTime, 0.01)
+  }, [volume])
   useEffect(() => {
     configRef.current = config
     if (!isPlayingRef.current) {
@@ -171,6 +193,11 @@ export function useMetronome({
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
       )()
+
+      const masterGain = audioCtxRef.current.createGain()
+      masterGain.gain.setValueAtTime(volumeRef.current, audioCtxRef.current.currentTime)
+      masterGain.connect(audioCtxRef.current.destination)
+      masterGainRef.current = masterGain
     }
     if (audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume()
@@ -196,7 +223,9 @@ export function useMetronome({
 
   const playBeat = useCallback((sound: BeatSoundId) => {
     const ctx = ensureAudioContext()
-    synthesizeBeat(ctx, sound, ctx.currentTime)
+    const masterGain = masterGainRef.current
+    if (!masterGain) return
+    synthesizeBeat(ctx, masterGain, sound, ctx.currentTime)
   }, [ensureAudioContext])
 
   const scheduleNextBeat = useCallback(() => {
@@ -213,9 +242,12 @@ export function useMetronome({
       const info = getTickInfo(globalTickRef.current, cfg.measures, cfg.beatsPerMeasure)
 
       if (info) {
-        // Volume: first tick of each beat = 0.8, subdivisions = 0.4
-        const volume = info.tickInBeat === 0 ? 0.8 : 0.4
-        synthesizeBeat(ctx, info.sound, nextBeatTimeRef.current, volume)
+        const masterGain = masterGainRef.current
+        if (!masterGain) return
+
+        // 主拍与细分拍保留 2:1 的响度关系，再统一经过用户音量控制。
+        const intensity = info.tickInBeat === 0 ? 1 : 0.5
+        synthesizeBeat(ctx, masterGain, info.sound, nextBeatTimeRef.current, intensity)
 
         const delay = (nextBeatTimeRef.current - ctx.currentTime) * 1000
         const mi = info.measureIndex
@@ -278,8 +310,9 @@ export function useMetronome({
 
     // Play first tick immediately
     const firstInfo = getTickInfo(0, configRef.current.measures, configRef.current.beatsPerMeasure)
-    if (firstInfo) {
-      synthesizeBeat(ctx, firstInfo.sound, ctx.currentTime)
+    const masterGain = masterGainRef.current
+    if (firstInfo && masterGain) {
+      synthesizeBeat(ctx, masterGain, firstInfo.sound, ctx.currentTime)
       setCurrentBeat({ measure: firstInfo.measureIndex, beat: firstInfo.beatIndex })
       onBeatRef.current?.(firstInfo.measureIndex, firstInfo.beatIndex)
 
@@ -338,6 +371,7 @@ export function useMetronome({
     return () => {
       if (timerRef.current !== null) clearTimeout(timerRef.current)
       if (tickRef.current !== null) clearInterval(tickRef.current)
+      masterGainRef.current?.disconnect()
       if (audioCtxRef.current) audioCtxRef.current.close()
     }
   }, [])

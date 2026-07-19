@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useId } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Volume1, Volume2, VolumeX } from 'lucide-react'
 import { useMetronome } from '@/hooks/useMetronome'
 import {
   createDefaultConfig,
@@ -18,6 +19,8 @@ import {
 import type { BeatSoundId } from '@/data/beatSounds'
 import { BEAT_SOUND_MAP, BEAT_SOUNDS, MEASURE_SOUND_PRESETS, type MeasureSoundPreset } from '@/data/beatSounds'
 import { ClampedNumberInput } from '@/components/ui/ClampedNumberInput'
+import { Slider } from '@/components/ui/slider'
+import { loadMetronomeVolume, saveMetronomeVolume } from '@/lib/metronomeVolume'
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -259,10 +262,15 @@ function BeatButton({
 export function Metronome() {
   const [config, setConfig] = useState<MetronomeConfig>(createDefaultConfig())
   const [activePreset, setActivePreset] = useState<string | null>(null)
+  const [volume, setVolume] = useState(loadMetronomeVolume)
+  const [isVolumeOpen, setIsVolumeOpen] = useState(false)
   const measureRefs = useRef<(HTMLDivElement | null)[]>([])
+  const volumeTriggerRef = useRef<HTMLButtonElement>(null)
+  const volumePanelRef = useRef<HTMLDivElement>(null)
+  const volumePanelId = useId()
 
   const { isPlaying, currentBeat, currentTickIndex, elapsedTime, roundCount, currentBpm, playBeatSound, start, stop, pause, resume } =
-    useMetronome({ config, onBeat: undefined, onComplete: undefined })
+    useMetronome({ config, volume, onBeat: undefined, onComplete: undefined })
 
   const isPausedRef = useRef(false)
 
@@ -291,6 +299,32 @@ export function Metronome() {
       document.removeEventListener('mousedown', handler)
     }
   }, [activePopupId])
+
+  useEffect(() => {
+    if (!isVolumeOpen) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (
+        !volumePanelRef.current?.contains(target) &&
+        !volumeTriggerRef.current?.contains(target)
+      ) {
+        setIsVolumeOpen(false)
+      }
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setIsVolumeOpen(false)
+      volumeTriggerRef.current?.focus()
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isVolumeOpen])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -417,6 +451,11 @@ export function Metronome() {
   const handleStop = () => {
     stop()
     isPausedRef.current = false
+  }
+
+  const handleVolumeChange = (nextVolume: number) => {
+    setVolume(nextVolume)
+    saveMetronomeVolume(nextVolume)
   }
 
   const handleBpmChange = (newBpm: number) => {
@@ -840,76 +879,137 @@ export function Metronome() {
 
       {/* ======= Card 4: Playback ======= */}
       <div
-        className="rounded-xl px-4 py-4 flex items-center justify-center gap-5"
+        className="rounded-xl px-4 py-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-3"
         style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
       >
-        {/* Stop */}
-        <button
-          type="button"
-          onClick={handleStop}
-          aria-label="停止"
-          className="w-14 h-14 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
-          style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
-        >
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
-            <rect x="2" y="2" width="12" height="12" rx="1.5" />
-          </svg>
-        </button>
+        <div className="flex items-center justify-center gap-3 sm:gap-5">
+          {/* Stop */}
+          <button
+            type="button"
+            onClick={handleStop}
+            aria-label="停止"
+            className="w-14 h-14 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+            style={{ touchAction: 'manipulation', color: 'var(--text-muted)', border: '0.5px solid var(--border-line)', background: 'transparent' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-glow)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="2" y="2" width="12" height="12" rx="1.5" />
+            </svg>
+          </button>
 
-        {/* Play/Pause */}
-        <motion.button
-          type="button"
-          onClick={handlePlayPause}
-          whileTap={{ scale: 0.92 }}
-          aria-label={isPlaying ? '暂停' : '播放'}
-          className="w-16 h-16 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
-          style={{
-            touchAction: 'manipulation',
-            background: isPlaying ? 'var(--accent-amber)' : 'var(--accent-glow)',
-            border: '0.5px solid var(--accent-amber)',
-            boxShadow: isPlaying
-              ? '0 4px 14px rgba(196,149,106,0.35)'
-              : '0 2px 8px rgba(196,149,106,0.12)',
-          }}
-          onMouseEnter={(e) => {
-            if (!isPlaying) e.currentTarget.style.background = 'var(--accent-subtle)'
-          }}
-          onMouseLeave={(e) => {
-            if (!isPlaying) e.currentTarget.style.background = 'var(--accent-glow)'
-          }}
-        >
-          <AnimatePresence mode="wait">
-            {isPlaying ? (
-              <motion.svg
-                key="pause"
-                width="20" height="20" viewBox="0 0 16 16" fill="white"
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.6 }}
-                transition={{ duration: 0.15 }}
-              >
-                <rect x="3" y="2" width="4" height="12" rx="1" />
-                <rect x="9" y="2" width="4" height="12" rx="1" />
-              </motion.svg>
-            ) : (
-              <motion.svg
-                key="play"
-                width="20" height="20" viewBox="0 0 16 16" fill="var(--accent-amber)"
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.6 }}
-                transition={{ duration: 0.15 }}
-              >
-                <path d="M4 2.5v11l9-5.5-9-5.5z" />
-              </motion.svg>
-            )}
-          </AnimatePresence>
-        </motion.button>
+          {/* Play/Pause */}
+          <motion.button
+            type="button"
+            onClick={handlePlayPause}
+            whileTap={{ scale: 0.92 }}
+            aria-label={isPlaying ? '暂停' : '播放'}
+            className="w-16 h-16 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+            style={{
+              touchAction: 'manipulation',
+              background: isPlaying ? 'var(--accent-amber)' : 'var(--accent-glow)',
+              border: '0.5px solid var(--accent-amber)',
+              boxShadow: isPlaying
+                ? '0 4px 14px rgba(196,149,106,0.35)'
+                : '0 2px 8px rgba(196,149,106,0.12)',
+            }}
+            onMouseEnter={(e) => {
+              if (!isPlaying) e.currentTarget.style.background = 'var(--accent-subtle)'
+            }}
+            onMouseLeave={(e) => {
+              if (!isPlaying) e.currentTarget.style.background = 'var(--accent-glow)'
+            }}
+          >
+            <AnimatePresence mode="wait">
+              {isPlaying ? (
+                <motion.svg
+                  key="pause"
+                  width="20" height="20" viewBox="0 0 16 16" fill="white"
+                  initial={{ opacity: 0, scale: 0.6 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.6 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <rect x="3" y="2" width="4" height="12" rx="1" />
+                  <rect x="9" y="2" width="4" height="12" rx="1" />
+                </motion.svg>
+              ) : (
+                <motion.svg
+                  key="play"
+                  width="20" height="20" viewBox="0 0 16 16" fill="var(--accent-amber)"
+                  initial={{ opacity: 0, scale: 0.6 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.6 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <path d="M4 2.5v11l9-5.5-9-5.5z" />
+                </motion.svg>
+              )}
+            </AnimatePresence>
+          </motion.button>
+
+          {/* Volume */}
+          <div className="relative flex-shrink-0">
+            <button
+              ref={volumeTriggerRef}
+              type="button"
+              onClick={() => setIsVolumeOpen((open) => !open)}
+              aria-label={`音量 ${Math.round(volume * 100)}%`}
+              aria-expanded={isVolumeOpen}
+              aria-controls={isVolumeOpen ? volumePanelId : undefined}
+              className="w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-amber)] focus-visible:ring-offset-2"
+              style={{
+                touchAction: 'manipulation',
+                color: isVolumeOpen ? 'var(--text-primary)' : 'var(--text-muted)',
+                border: `0.5px solid ${isVolumeOpen ? 'var(--accent-amber)' : 'var(--border-line)'}`,
+                background: isVolumeOpen ? 'var(--accent-glow)' : 'transparent',
+              }}
+            >
+              {volume === 0 ? (
+                <VolumeX size={18} aria-hidden="true" />
+              ) : volume < 0.5 ? (
+                <Volume1 size={18} aria-hidden="true" />
+              ) : (
+                <Volume2 size={18} aria-hidden="true" />
+              )}
+            </button>
+
+            <AnimatePresence>
+              {isVolumeOpen && (
+                <motion.div
+                  ref={volumePanelRef}
+                  id={volumePanelId}
+                  role="group"
+                  aria-label="音量控制"
+                  initial={{ opacity: 0, y: 4, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                  transition={{ duration: 0.12 }}
+                  className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-52 rounded-xl px-3 py-3 shadow-lg"
+                  style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
+                >
+                  <div className="flex items-center gap-3">
+                    <Slider
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={[volume]}
+                      onValueChange={(value) => handleVolumeChange(Array.isArray(value) ? (value[0] ?? 0) : value)}
+                      aria-label="音量"
+                      className="flex-1"
+                    />
+                    <span className="w-10 text-right text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+                      {Math.round(volume * 100)}%
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
 
         {/* Timer + RND */}
-        <div className="flex items-center gap-4 flex-shrink-0">
+        <div className="basis-full sm:basis-auto flex items-center justify-center gap-4 flex-shrink-0">
           <div className="flex items-center gap-1.5">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-muted)' }}>
               <circle cx="8" cy="8" r="7" />
