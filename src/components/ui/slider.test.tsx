@@ -18,5 +18,6 @@ describe('Slider', () => {
       'border-[var(--control-track-active)]',
       'bg-[var(--control-thumb)]',
     )
+    expect(container.querySelector('input[type="range"]')).toHaveAttribute('aria-label', '音量')
   })
 })
