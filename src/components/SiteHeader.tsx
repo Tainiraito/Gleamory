@@ -1,19 +1,25 @@
 import { Link } from 'react-router-dom'
 
-const SiteHeader = () => (
+import { PageContainer, type PageWidth } from '@/components/PageContainer'
+
+interface SiteHeaderProps {
+  width?: PageWidth
+}
+
+const SiteHeader = ({ width = 'standard' }: SiteHeaderProps) => (
   <header
-    className="fixed top-0 left-0 right-0 z-50 h-11 sm:h-12 flex items-center"
+    className="fixed top-0 right-0 left-0 z-50 flex h-11 items-center sm:h-12"
     style={{ background: 'var(--bg-card)', borderBottom: '0.5px solid var(--border-line)' }}
   >
-    <div className="w-full px-4 sm:px-[15%]">
+    <PageContainer width={width}>
       <Link
         to="/"
-        className="font-display text-[0.6rem] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity duration-300"
+        className="font-display text-xs font-medium uppercase tracking-[0.2em] transition-opacity duration-300 hover:opacity-70"
         style={{ color: 'var(--text-muted)' }}
       >
         Gleamory
       </Link>
-    </div>
+    </PageContainer>
   </header>
 )
 

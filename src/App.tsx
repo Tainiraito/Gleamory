@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import type { ProjectsData, UpdatesData } from '@/types'
 import SiteHeader from '@/components/SiteHeader'
+import { PageMain } from '@/components/PageContainer'
 import HomeHeroCarousel from '@/components/HomeHeroCarousel'
 import ProjectGrid from '@/components/ProjectGrid'
 import CalendarCard from '@/components/CalendarCard'
@@ -29,42 +30,37 @@ const featuredProject =
 const HomePage = () => (
   <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
     <SiteHeader />
-    <main className="px-6 py-20 sm:px-[5.5%] sm:py-24">
-      <div className="mx-auto w-full max-w-[90rem]">
-        {featuredProject && (
-          <HomeHeroCarousel
-            title={featuredProject.name}
-            description={featuredProject.description}
-          />
-        )}
+    <PageMain className="py-20 sm:py-24">
+      {featuredProject && (
+        <HomeHeroCarousel title={featuredProject.name} description={featuredProject.description} />
+      )}
 
-        <div className="mt-10 grid gap-16 sm:mt-12 min-[1760px]:grid-cols-[minmax(0,1fr)_18rem] min-[1760px]:gap-10">
-          <ProjectGrid projects={projects} />
+      <div className="mt-10 grid gap-16 sm:mt-12 min-[1760px]:grid-cols-[minmax(0,1fr)_18rem] min-[1760px]:gap-10">
+        <ProjectGrid projects={projects} />
 
-          <aside
-            aria-label="今日与更新"
-            className="grid md:grid-cols-2 min-[1760px]:block min-[1760px]:border-l min-[1760px]:pl-8"
+        <aside
+          aria-label="今日与更新"
+          className="grid md:grid-cols-2 min-[1760px]:block min-[1760px]:border-l min-[1760px]:pl-8"
+          style={{ borderColor: 'rgba(44,42,48,0.11)' }}
+        >
+          <div
+            className="border-y md:max-[1759px]:border-r"
             style={{ borderColor: 'rgba(44,42,48,0.11)' }}
           >
-            <div
-              className="border-y md:max-[1759px]:border-r"
-              style={{ borderColor: 'rgba(44,42,48,0.11)' }}
-            >
-              <CalendarCard />
-            </div>
-            <div
-              className="border-y min-[1760px]:border-t-0"
-              style={{ borderColor: 'rgba(44,42,48,0.11)' }}
-            >
-              <PoemCard />
-            </div>
-            <div className="border-b md:col-span-2" style={{ borderColor: 'rgba(44,42,48,0.11)' }}>
-              <Timeline updates={updates} />
-            </div>
-          </aside>
-        </div>
+            <CalendarCard />
+          </div>
+          <div
+            className="border-y min-[1760px]:border-t-0"
+            style={{ borderColor: 'rgba(44,42,48,0.11)' }}
+          >
+            <PoemCard />
+          </div>
+          <div className="border-b md:col-span-2" style={{ borderColor: 'rgba(44,42,48,0.11)' }}>
+            <Timeline updates={updates} />
+          </div>
+        </aside>
       </div>
-    </main>
+    </PageMain>
     <Footer />
   </div>
 )

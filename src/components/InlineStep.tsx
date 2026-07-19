@@ -104,7 +104,6 @@ export const InlineStep: React.FC<InlineStepProps> = ({ text, className }) => {
             <code
               key={i}
               style={{
-                fontFamily: 'ui-monospace, SFMono-Regular, monospace',
                 fontSize: '0.85em',
                 padding: '1px 5px',
                 borderRadius: 4,

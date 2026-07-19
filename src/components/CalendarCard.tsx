@@ -62,7 +62,7 @@ const CalendarCard = () => {
       <header className="mb-5 flex items-end justify-between border-b pb-4">
         <div>
           <p
-            className="mb-1 font-mono text-[0.6rem] tracking-[0.16em]"
+            className="mb-1 text-xs tracking-[0.08em]"
             style={{ color: 'var(--accent-amber)' }}
           >
             今日日历
@@ -87,7 +87,7 @@ const CalendarCard = () => {
         {WEEK_DAYS.map((day) => (
           <span
             key={day}
-            className="py-1 text-center text-[0.62rem] tracking-wider"
+            className="py-1 text-center text-xs tracking-[0.04em]"
             style={{ color: 'var(--text-muted)' }}
           >
             {day}

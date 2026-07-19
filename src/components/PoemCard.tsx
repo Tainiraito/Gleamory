@@ -51,7 +51,7 @@ const PoemCard = () => {
     >
       <header className="mb-6 border-b pb-4">
         <p
-          className="mb-1 font-mono text-[0.6rem] tracking-[0.16em]"
+          className="mb-1 text-xs tracking-[0.08em]"
           style={{ color: 'var(--accent-amber)' }}
         >
           每日诗笺
@@ -72,7 +72,7 @@ const PoemCard = () => {
       ) : poem ? (
         <>
           <blockquote
-            className="max-w-2xl font-kai text-xl leading-[1.85] font-medium sm:text-2xl"
+            className="max-w-[48ch] font-display text-xl font-medium leading-[1.85] sm:text-2xl"
             style={{ color: 'var(--text-primary)' }}
           >
             {poem.content}
@@ -84,7 +84,7 @@ const PoemCard = () => {
               style={{ background: 'var(--accent-amber)' }}
             />
             <cite
-              className="font-display text-xs not-italic"
+              className="font-display text-xs font-medium not-italic"
               style={{ color: 'var(--text-muted)' }}
             >
               《{poem.origin}》 · {poem.author}

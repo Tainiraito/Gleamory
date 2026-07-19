@@ -12,6 +12,7 @@ describe('HomeHeroCarousel', () => {
     expect(carousel).not.toHaveClass('max-w-[80rem]')
     expect(within(carousel).getByRole('heading', { name: '微光集', level: 1 })).toBeInTheDocument()
     expect(within(carousel).getByRole('img')).toHaveClass('object-cover')
+    expect(carousel.querySelectorAll('img')).toHaveLength(3)
     expect(within(carousel).getByText('汇聚所有微光般的创意与灵感')).toBeInTheDocument()
     expect(within(carousel).getByRole('group', { name: '轮播控制' })).toBeInTheDocument()
     expect(
@@ -32,6 +33,7 @@ describe('HomeHeroCarousel', () => {
     fireEvent.click(within(carousel).getByRole('button', { name: '下一张图片' }))
     expect(within(carousel).getByText('02 / 03')).toBeInTheDocument()
     expect(within(carousel).getByAltText('荧与月色主题插画')).toBeInTheDocument()
+    expect(within(carousel).queryByAltText('镜音铃与镜音连的彩色插画')).not.toBeInTheDocument()
 
     fireEvent.click(within(carousel).getByRole('button', { name: '下一张图片' }))
     expect(within(carousel).getByText('03 / 03')).toBeInTheDocument()

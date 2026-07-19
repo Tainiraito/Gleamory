@@ -40,7 +40,7 @@
 | 测试 | Vitest 4、Testing Library      |
 | 部署 | GitHub Pages、GitHub Actions   |
 
-非首页路由使用 `React.lazy` 分包。思源宋体采用本地子集化 WOFF2，项目封面采用 WebP。
+非首页路由使用 `React.lazy` 分包。字体采用本地三层体系：思源宋体负责品牌、标题与诗词，思源黑体负责正文、控件与提示，Source Code Pro 负责数字、时间、坐标、日志和代码。六份派生 WOFF2 均在仓库内分发，不请求外部字体服务；动态中文字重覆盖完整 GB2312，字体许可证与来源见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。项目封面采用 WebP。
 
 ## 本地开发
 
@@ -54,8 +54,11 @@ npm run dev
 ```bash
 npm test
 npm run lint
+npm run check:fonts
 npm run build
 ```
+
+新增运行时可见字符后，`npm run check:fonts` 会要求同步字体子集与 manifest。字体母版、版本、SHA-256 和生成命令记录在 `src/assets/fonts/manifest.json`；完整 OTF/TTF 不进入仓库。
 
 预览生产构建：
 

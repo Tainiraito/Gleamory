@@ -279,7 +279,7 @@ const PixivCoverPage = lazy(() => import('@/pages/PixivCoverPage'))
 
 用 `Suspense` 包裹 `Routes`，fallback 使用与页面背景一致的轻量加载文字。
 
-- [ ] **步骤 2：建立临时 FontTools 环境并生成字体子集**
+- [x] **步骤 2：建立临时 FontTools 环境并生成字体子集**
 
 从 `src`、`index.html` 和 JSON 数据中收集实际显示字符，保留 ASCII、常用标点和收集到的中文字符。使用临时虚拟环境安装 `fonttools` 与 `brotli`，生成三个 WOFF2 文件：
 
@@ -294,6 +294,8 @@ python3 -m venv /tmp/gleamory-fonttools
 ```
 
 更新 `globals.css` 为 `format('woff2')`，生产构建确认字体可解析后删除 OTF。
+
+2026-07-17 补充：该三字重临时方案已被《[全站三层字体体系实施计划](2026-07-17-typography-system-plan.md)》取代。当前交付为 Editorial、UI、Mono 六份派生 WOFF2，并由 manifest 和 CI 维护覆盖、哈希与体积。
 
 - [ ] **步骤 3：生成 WebP 封面和分享图**
 

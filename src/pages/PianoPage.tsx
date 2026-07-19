@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import SiteHeader from '@/components/SiteHeader'
+import { PageMain } from '@/components/PageContainer'
 import { ProjectPageHeader } from '@/components/ProjectPageHeader'
 import Piano from '@/components/piano/Piano'
 import { ALL_NOTES, getPlayableNotes, KEYBOARD_PRESETS, DEFAULT_PRESET } from '@/data/pianoNotes'
@@ -131,7 +132,7 @@ const PianoPage = () => {
     <div className="relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
       <SiteHeader />
 
-<main className="px-6 sm:px-[15%] py-20 sm:py-24">
+      <PageMain className="py-20 sm:py-24">
         <ProjectPageHeader
           name={project.name}
           englishName="Mini Piano"
@@ -223,7 +224,7 @@ const PianoPage = () => {
               {whiteKeysHint.map((k) => (
                 <kbd
                   key={k}
-                  className="px-1.5 py-0.5 mx-0.5 rounded-sm font-mono text-[0.6rem]"
+                  className="mx-0.5 rounded-sm px-1.5 py-0.5 font-mono text-[11px] leading-4"
                   style={{ background: 'var(--accent-glow)', color: 'var(--text-secondary)' }}
                 >
                   {k}
@@ -235,7 +236,7 @@ const PianoPage = () => {
               {blackKeysHint.map((k) => (
                 <kbd
                   key={k}
-                  className="px-1.5 py-0.5 mx-0.5 rounded-sm font-mono text-[0.6rem]"
+                  className="mx-0.5 rounded-sm px-1.5 py-0.5 font-mono text-[11px] leading-4"
                   style={{ background: 'var(--accent-glow)', color: 'var(--text-secondary)' }}
                 >
                   {k}
@@ -245,14 +246,14 @@ const PianoPage = () => {
             <p className="text-xs leading-loose" style={{ color: 'var(--text-muted)' }}>
               <span className="inline-block mr-2">八度:</span>
               <kbd
-                className="px-1.5 py-0.5 mx-0.5 rounded-sm font-mono text-[0.6rem]"
+                className="mx-0.5 rounded-sm px-1.5 py-0.5 font-mono text-[11px] leading-4"
                 style={{ background: 'var(--accent-glow)', color: 'var(--text-secondary)' }}
               >
                 Z
               </kbd>
               降
               <kbd
-                className="px-1.5 py-0.5 mx-0.5 rounded-sm font-mono text-[0.6rem]"
+                className="mx-0.5 rounded-sm px-1.5 py-0.5 font-mono text-[11px] leading-4"
                 style={{ background: 'var(--accent-glow)', color: 'var(--text-secondary)' }}
               >
                 X
@@ -279,7 +280,7 @@ const PianoPage = () => {
             </div>
           </div>
         </div>
-      </main>
+      </PageMain>
 
       <BackFooter as="a" />
     </div>

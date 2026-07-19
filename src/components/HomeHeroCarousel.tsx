@@ -69,7 +69,7 @@ const HomeHeroCarousel = ({ title, description }: HomeHeroCarouselProps) => {
           className="mb-5 block h-px w-12"
           style={{ background: 'var(--accent-amber)' }}
         />
-        <h1 className="font-display text-3xl font-semibold leading-tight text-[var(--text-primary)] sm:text-4xl lg:text-[2.7rem]">
+        <h1 className="font-display text-5xl font-semibold leading-none text-[var(--text-primary)] sm:text-[3.25rem] lg:text-6xl">
           {title}
         </h1>
         <p
@@ -86,7 +86,7 @@ const HomeHeroCarousel = ({ title, description }: HomeHeroCarouselProps) => {
             className="mt-9 flex w-full max-w-xs items-center sm:mt-11"
           >
             <span
-              className="font-mono text-[0.6rem] tracking-[0.16em]"
+              className="font-mono text-xs leading-[1.125rem] tracking-[0.08em]"
               style={{ color: 'var(--accent-amber)' }}
             >
               {formatSlideNumber(activeIndex)} / {String(slideCount).padStart(2, '0')}
@@ -131,16 +131,38 @@ const HomeHeroCarousel = ({ title, description }: HomeHeroCarouselProps) => {
       </div>
 
       <div className="relative order-1 aspect-video overflow-hidden bg-[var(--bg-card-warm)] md:order-2">
-        <motion.img
-          key={activeSlide.id}
-          src={activeSlide.src}
-          alt={activeSlide.alt}
-          className="absolute inset-0 h-full w-full object-cover"
-          style={{ objectPosition: activeSlide.objectPosition }}
-          initial={shouldReduceMotion ? false : { opacity: 0.35, scale: 1.012 }}
-          animate={{ opacity: 1, scale: shouldReduceMotion ? 1 : 1.006 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.7, ease: 'easeOut' }}
-        />
+        {HOME_HERO_SLIDES.map((slide, index) => {
+          const isActive = index === activeIndex
+
+          return (
+            <motion.img
+              key={slide.id}
+              src={slide.src}
+              alt={isActive ? slide.alt : ''}
+              aria-hidden={!isActive}
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+              style={{
+                objectPosition: slide.objectPosition,
+                willChange: 'opacity, transform',
+              }}
+              initial={false}
+              animate={{
+                opacity: isActive ? 1 : 0,
+                scale: shouldReduceMotion ? 1 : isActive ? 1.006 : 1.018,
+              }}
+              transition={{
+                opacity: {
+                  duration: shouldReduceMotion ? 0 : 0.85,
+                  ease: [0.22, 1, 0.36, 1],
+                },
+                scale: {
+                  duration: shouldReduceMotion ? 0 : 1.4,
+                  ease: [0.22, 1, 0.36, 1],
+                },
+              }}
+            />
+          )
+        })}
       </div>
 
       <span className="sr-only" aria-live="polite">

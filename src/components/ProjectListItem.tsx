@@ -24,7 +24,7 @@ const ProjectListItem = ({ project }: ProjectListItemProps) => {
         </h3>
         {project.tags?.length > 0 && (
           <p
-            className="mt-1 truncate text-[0.62rem] tracking-[0.04em]"
+            className="mt-1 truncate text-xs tracking-[0.04em]"
             style={{ color: 'var(--text-muted)' }}
           >
             {project.tags.join(' · ')}
@@ -42,7 +42,7 @@ const ProjectListItem = ({ project }: ProjectListItemProps) => {
       <div className="col-start-1 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 sm:col-start-auto sm:flex-nowrap sm:justify-end">
         {project.status && statusStyle && (
           <span
-            className="inline-flex shrink-0 items-center gap-1.5 text-[0.65rem] font-medium"
+            className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium"
             style={{ color: statusStyle.color }}
           >
             <span
@@ -55,7 +55,7 @@ const ProjectListItem = ({ project }: ProjectListItemProps) => {
         )}
         {metadata.length > 0 && (
           <span
-            className="hidden whitespace-nowrap font-mono text-[0.58rem] tracking-[0.05em] lg:inline"
+            className="hidden whitespace-nowrap font-mono text-xs leading-[1.125rem] tracking-[0.04em] lg:inline"
             style={{ color: 'var(--text-muted)' }}
           >
             {metadata.join(' · ')}

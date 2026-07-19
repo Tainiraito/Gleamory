@@ -634,8 +634,11 @@ export function Metronome() {
             </span>
           )}
           {showSubdivInfo && (
-            <span className="text-[0.65rem] font-mono ml-1" style={{ color: 'var(--text-muted)' }}>
-              每小节 {ticksPerMeasure(config.measures[0], config.beatsPerMeasure)} tick
+            <span className="ml-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              每小节{' '}
+              <span className="font-mono">
+                {ticksPerMeasure(config.measures[0], config.beatsPerMeasure)} tick
+              </span>
             </span>
           )}
         </div>
@@ -763,7 +766,7 @@ export function Metronome() {
         {isTempoChange && (
           <div className="flex flex-wrap items-center justify-center gap-3">
             <div className="flex items-center gap-1">
-              <span className="font-mono text-lg font-bold" style={{ color: 'var(--accent-amber)' }}>
+              <span className="font-mono text-lg font-medium" style={{ color: 'var(--accent-amber)' }}>
                 {currentBpm}
               </span>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>BPM</span>
@@ -917,7 +920,7 @@ export function Metronome() {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-[0.6rem] uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>
+            <span className="font-mono text-xs uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
               RND
             </span>
             <span className="font-mono text-base font-medium" style={{ color: 'var(--text-primary)' }}>
