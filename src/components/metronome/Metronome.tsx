@@ -985,7 +985,7 @@ export function Metronome() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 4, scale: 0.97 }}
                   transition={{ duration: 0.12 }}
-                  className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-52 rounded-xl px-3 py-3 shadow-lg"
+                  className="absolute left-1/2 -translate-x-1/2 bottom-[calc(100%+0.5rem)] z-50 w-52 rounded-xl px-3 py-3 shadow-lg max-[360px]:left-auto max-[360px]:right-0 max-[360px]:translate-x-0"
                   style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-line)' }}
                 >
                   <div className="flex items-center gap-3">

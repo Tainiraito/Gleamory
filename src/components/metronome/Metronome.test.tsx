@@ -39,6 +39,7 @@ describe('Metronome volume control', () => {
     fireEvent.click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
     const panel = screen.getByRole('group', { name: '音量控制' })
+    expect(panel).toHaveClass('left-1/2', '-translate-x-1/2')
     const slider = panel.querySelector<HTMLInputElement>('input[type="range"]')
     expect(slider).toHaveAttribute('aria-label', '音量')
     expect(slider).toHaveAttribute('aria-valuenow', '0.42')
