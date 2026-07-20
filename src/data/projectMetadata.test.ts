@@ -3,6 +3,7 @@ import projectsData from './projects.json'
 import timelineData from './timeline.json'
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const THREE_PART_VERSION_PATTERN = /^v\d+\.\d+\.\d+$/
 
 describe('项目元数据一致性', () => {
   it('首页主视觉使用精简后的简介', () => {
@@ -17,6 +18,12 @@ describe('项目元数据一致性', () => {
 
     expect(new Set(projectIds).size).toBe(projectIds.length)
     expect(new Set(updateIds).size).toBe(updateIds.length)
+  })
+
+  it('项目版本统一使用 v主版本.次版本.修订版本', () => {
+    for (const project of projectsData.projects) {
+      expect(THREE_PART_VERSION_PATTERN.test(project.version), project.id).toBe(true)
+    }
   })
 
   it('时间线只引用已存在的项目', () => {

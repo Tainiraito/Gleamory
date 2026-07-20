@@ -29,12 +29,16 @@ export interface LivePitchStabilizerState {
   recentFrequencies: number[]
   lastVoiced: PitchDetection | null
   dropoutFrames: number
+  smoothedFrequencyHz: number | null
 }
 
 export interface LivePitchStabilizerOptions {
   historySize?: number
   holdFrames?: number
   maxUncertainJumpSemitones?: number
+  smoothingFactor?: number
+  minStartConfidence?: number
+  minNoteChangeConfidence?: number
 }
 
 const DEFAULT_MIN_FREQUENCY = 65
@@ -64,7 +68,8 @@ export function detectPitch(
   const maxFrequencyHz = options.maxFrequencyHz ?? DEFAULT_MAX_FREQUENCY
   const rmsThreshold = options.rmsThreshold ?? DEFAULT_RMS_THRESHOLD
   const confidenceThreshold = options.confidenceThreshold ?? DEFAULT_CONFIDENCE_THRESHOLD
-  const rms = calculateRms(frame)
+  const centeredFrame = removeDcOffset(frame)
+  const rms = calculateRms(centeredFrame)
 
   if (rms < rmsThreshold) return UNVOICED
 
@@ -72,48 +77,27 @@ export function detectPitch(
   const maxTau = Math.min(frame.length - 1, Math.ceil(sampleRate / minFrequencyHz))
   if (maxTau <= minTau) return UNVOICED
 
-  const correlations = new Float32Array(maxTau + 1)
-  for (let tau = minTau; tau <= maxTau; tau++) {
-    let cross = 0
-    let leftEnergy = 0
-    let rightEnergy = 0
-    const limit = frame.length - tau
-    for (let i = 0; i < limit; i++) {
-      const left = frame[i]
-      const right = frame[i + tau]
-      cross += left * right
-      leftEnergy += left * left
-      rightEnergy += right * right
-    }
-    const denominator = Math.sqrt(leftEnergy * rightEnergy)
-    correlations[tau] = denominator === 0 ? 0 : cross / denominator
-  }
-
+  const normalizedDifference = calculateCumulativeMeanNormalizedDifference(centeredFrame, maxTau)
+  const maxDifference = 1 - confidenceThreshold
   let bestTau = -1
-  let bestConfidence = 0
 
-  for (let tau = minTau + 1; tau < maxTau; tau++) {
-    const confidence = correlations[tau]
-    const isLocalPeak = confidence >= correlations[tau - 1] && confidence > correlations[tau + 1]
-    if (isLocalPeak && confidence > bestConfidence) {
-      bestConfidence = confidence
-      bestTau = tau
+  for (let tau = minTau; tau <= maxTau; tau++) {
+    if (normalizedDifference[tau] > maxDifference) continue
+    bestTau = tau
+    while (bestTau < maxTau && normalizedDifference[bestTau + 1] < normalizedDifference[bestTau]) {
+      bestTau += 1
     }
-    if (isLocalPeak && confidence >= confidenceThreshold) {
-      bestConfidence = confidence
-      bestTau = tau
-      break
-    }
+    break
   }
 
-  if (bestTau < minTau || bestConfidence < confidenceThreshold) return UNVOICED
+  if (bestTau < minTau) return UNVOICED
 
-  const refinedTau = refineTau(correlations, bestTau)
+  const refinedTau = refineTau(normalizedDifference, bestTau)
   const frequencyHz = sampleRate / refinedTau
   if (frequencyHz < minFrequencyHz || frequencyHz > maxFrequencyHz) return UNVOICED
 
   const midi = midiFromFrequency(frequencyHz)
-  const confidence = clamp(bestConfidence, 0, 1)
+  const confidence = clamp(1 - normalizedDifference[bestTau], 0, 1)
 
   return {
     frequencyHz,
@@ -148,7 +132,12 @@ export function analyzePitchTrack(
 }
 
 export function createLivePitchStabilizerState(): LivePitchStabilizerState {
-  return { recentFrequencies: [], lastVoiced: null, dropoutFrames: 0 }
+  return {
+    recentFrequencies: [],
+    lastVoiced: null,
+    dropoutFrames: 0,
+    smoothedFrequencyHz: null,
+  }
 }
 
 export function stabilizeLivePitch(
@@ -156,60 +145,93 @@ export function stabilizeLivePitch(
   state: LivePitchStabilizerState,
   options: LivePitchStabilizerOptions = {},
 ): PitchDetection {
-  const historySize = Math.max(1, options.historySize ?? 5)
-  const holdFrames = Math.max(0, options.holdFrames ?? 2)
-  const maxUncertainJumpSemitones = options.maxUncertainJumpSemitones ?? 7
+  const historySize = Math.max(1, options.historySize ?? 7)
+  const holdFrames = Math.max(0, options.holdFrames ?? 6)
+  const maxUncertainJumpSemitones = options.maxUncertainJumpSemitones ?? 12
+  const smoothingFactor = clamp(options.smoothingFactor ?? 0.42, 0, 1)
+  const minStartConfidence = clamp(options.minStartConfidence ?? 0.88, 0, 1)
+  const minNoteChangeConfidence = clamp(options.minNoteChangeConfidence ?? 0.9, 0, 1)
 
   if (!detection.isVoiced || detection.frequencyHz == null) {
     state.dropoutFrames += 1
     if (state.lastVoiced && state.dropoutFrames <= holdFrames) {
       return {
         ...state.lastVoiced,
-        confidence: state.lastVoiced.confidence * Math.pow(0.82, state.dropoutFrames),
+        confidence: state.lastVoiced.confidence * Math.pow(0.9, state.dropoutFrames),
       }
     }
-    if (state.dropoutFrames > holdFrames) state.recentFrequencies = []
+    if (state.dropoutFrames > holdFrames) {
+      state.recentFrequencies = []
+      state.lastVoiced = null
+      state.smoothedFrequencyHz = null
+    }
     return detection
   }
 
   const lastVoiced = state.lastVoiced
   const previousFrequency = lastVoiced?.frequencyHz
-  if (previousFrequency != null) {
+  if (!lastVoiced && detection.confidence < minStartConfidence) return UNVOICED
+  if (lastVoiced && previousFrequency != null) {
     const jumpSemitones = Math.abs(12 * Math.log2(detection.frequencyHz / previousFrequency))
-    if (lastVoiced && jumpSemitones > maxUncertainJumpSemitones && detection.confidence < 0.97) {
-      state.dropoutFrames = 1
-      return { ...lastVoiced, confidence: lastVoiced.confidence * 0.82 }
+    const requiredConfidence =
+      jumpSemitones > maxUncertainJumpSemitones
+        ? Math.max(0.92, minNoteChangeConfidence)
+        : minNoteChangeConfidence
+    if (jumpSemitones > 1.5 && detection.confidence < requiredConfidence) {
+      state.dropoutFrames += 1
+      if (state.dropoutFrames <= holdFrames) {
+        return {
+          ...lastVoiced,
+          confidence: lastVoiced.confidence * Math.pow(0.9, state.dropoutFrames),
+        }
+      }
+      state.recentFrequencies = []
+      state.lastVoiced = null
+      state.smoothedFrequencyHz = null
+      if (detection.confidence < minStartConfidence) return UNVOICED
     }
   }
 
   state.dropoutFrames = 0
   state.recentFrequencies.push(detection.frequencyHz)
   state.recentFrequencies = state.recentFrequencies.slice(-historySize)
-  const sorted = [...state.recentFrequencies].sort((a, b) => a - b)
-  const medianFrequency = sorted[Math.floor(sorted.length / 2)]
-  const midi = midiFromFrequency(medianFrequency)
+  const nearbyFrequencies = state.recentFrequencies.filter(
+    (frequency) => Math.abs(12 * Math.log2(frequency / detection.frequencyHz!)) <= 1.5,
+  )
+  const medianFrequency = median(nearbyFrequencies)
+  const previousSmoothedFrequency = state.smoothedFrequencyHz
+  const shouldSmooth =
+    previousSmoothedFrequency != null &&
+    Math.abs(12 * Math.log2(medianFrequency / previousSmoothedFrequency)) <= 1.5
+  const smoothedFrequency = shouldSmooth
+    ? geometricInterpolate(previousSmoothedFrequency, medianFrequency, smoothingFactor)
+    : medianFrequency
+  const midi = midiFromFrequency(smoothedFrequency)
   const stabilized = {
     ...detection,
-    frequencyHz: medianFrequency,
+    frequencyHz: smoothedFrequency,
     midi,
     noteName: noteNameFromMidi(midi),
-    cents: centsOffset(medianFrequency, midi),
+    cents: centsOffset(smoothedFrequency, midi),
   }
+  state.smoothedFrequencyHz = smoothedFrequency
   state.lastVoiced = stabilized
   return stabilized
 }
 
 export function smoothPitchTrack(points: PitchTrackPoint[]): PitchTrackPoint[] {
-  return points.map((point, index) => {
+  const bridged = bridgeShortPitchGaps(points)
+  return bridged.map((point, index) => {
     if (!point.isVoiced || point.frequencyHz == null) return point
-    const neighbors = points
-      .slice(Math.max(0, index - 1), Math.min(points.length, index + 2))
+    const neighbors = bridged
+      .slice(Math.max(0, index - 2), Math.min(bridged.length, index + 3))
       .filter((candidate) => candidate.isVoiced && candidate.frequencyHz != null)
       .map((candidate) => candidate.frequencyHz as number)
+      .filter((frequency) => Math.abs(12 * Math.log2(frequency / point.frequencyHz!)) <= 1.5)
       .sort((a, b) => a - b)
-    if (neighbors.length < 3) return point
+    if (neighbors.length < 2) return point
 
-    const medianFrequency = neighbors[1]
+    const medianFrequency = median(neighbors)
     const midi = midiFromFrequency(medianFrequency)
     return {
       ...point,
@@ -221,6 +243,85 @@ export function smoothPitchTrack(points: PitchTrackPoint[]): PitchTrackPoint[] {
   })
 }
 
+function bridgeShortPitchGaps(points: PitchTrackPoint[], maxGapFrames = 2): PitchTrackPoint[] {
+  const bridged = points.map((point) => ({ ...point }))
+  let index = 0
+  while (index < bridged.length) {
+    if (bridged[index].isVoiced) {
+      index += 1
+      continue
+    }
+
+    const gapStart = index
+    while (index < bridged.length && !bridged[index].isVoiced) index += 1
+    const gapEnd = index - 1
+    const previous = bridged[gapStart - 1]
+    const next = bridged[index]
+    const gapLength = gapEnd - gapStart + 1
+    if (
+      gapLength > maxGapFrames ||
+      !previous?.isVoiced ||
+      previous.frequencyHz == null ||
+      !next?.isVoiced ||
+      next.frequencyHz == null ||
+      Math.abs(12 * Math.log2(next.frequencyHz / previous.frequencyHz)) > 2
+    ) {
+      continue
+    }
+
+    for (let gapIndex = 0; gapIndex < gapLength; gapIndex++) {
+      const ratio = (gapIndex + 1) / (gapLength + 1)
+      const frequencyHz = geometricInterpolate(previous.frequencyHz, next.frequencyHz, ratio)
+      const midi = midiFromFrequency(frequencyHz)
+      bridged[gapStart + gapIndex] = {
+        ...bridged[gapStart + gapIndex],
+        frequencyHz,
+        midi,
+        noteName: noteNameFromMidi(midi),
+        cents: centsOffset(frequencyHz, midi),
+        confidence: Math.min(previous.confidence, next.confidence) * 0.8,
+        isVoiced: true,
+      }
+    }
+  }
+  return bridged
+}
+
+function removeDcOffset(samples: Float32Array): Float32Array {
+  let mean = 0
+  for (let i = 0; i < samples.length; i++) mean += samples[i]
+  mean /= samples.length
+  const centered = new Float32Array(samples.length)
+  for (let i = 0; i < samples.length; i++) centered[i] = samples[i] - mean
+  return centered
+}
+
+function calculateCumulativeMeanNormalizedDifference(
+  samples: Float32Array,
+  maxTau: number,
+): Float64Array {
+  const difference = new Float64Array(maxTau + 1)
+  const normalized = new Float64Array(maxTau + 1)
+  const comparisonLength = samples.length - maxTau
+  normalized[0] = 1
+
+  for (let tau = 1; tau <= maxTau; tau++) {
+    let sum = 0
+    for (let i = 0; i < comparisonLength; i++) {
+      const delta = samples[i] - samples[i + tau]
+      sum += delta * delta
+    }
+    difference[tau] = sum
+  }
+
+  let runningSum = 0
+  for (let tau = 1; tau <= maxTau; tau++) {
+    runningSum += difference[tau]
+    normalized[tau] = runningSum === 0 ? 1 : (difference[tau] * tau) / runningSum
+  }
+  return normalized
+}
+
 function calculateRms(samples: Float32Array): number {
   let sum = 0
   for (let i = 0; i < samples.length; i++) {
@@ -229,7 +330,7 @@ function calculateRms(samples: Float32Array): number {
   return Math.sqrt(sum / samples.length)
 }
 
-function refineTau(yin: Float32Array, tau: number): number {
+function refineTau(yin: Float32Array | Float64Array, tau: number): number {
   if (tau <= 1 || tau >= yin.length - 1) return tau
   const left = yin[tau - 1]
   const center = yin[tau]
@@ -237,6 +338,17 @@ function refineTau(yin: Float32Array, tau: number): number {
   const denominator = left - 2 * center + right
   if (Math.abs(denominator) < Number.EPSILON) return tau
   return tau + (left - right) / (2 * denominator)
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 0) return (sorted[middle - 1] + sorted[middle]) / 2
+  return sorted[middle]
+}
+
+function geometricInterpolate(from: number, to: number, ratio: number): number {
+  return Math.exp(Math.log(from) * (1 - ratio) + Math.log(to) * ratio)
 }
 
 function clamp(value: number, min: number, max: number): number {
