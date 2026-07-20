@@ -52,8 +52,10 @@ import {
   type PitchTrackPoint,
 } from '@/lib/audio/pitch'
 import {
+  buildPitchPath,
   chartYFromFrequency,
   clampPitchView,
+  followPitchViewport,
   noteTicksForFrequencyRange,
   panPitchView,
   spaceFrequencyTicks,
@@ -69,9 +71,15 @@ import { getProjectById } from '@/utils/projectData'
 type PitchTab = 'live' | 'upload'
 type LiveStatus = 'idle' | 'running' | 'paused'
 type UploadStatus = 'idle' | 'analyzing' | 'done' | 'error'
+type MicrophoneOption = Pick<MediaDeviceInfo, 'deviceId' | 'label'>
+type LiveRecordingSegment = {
+  url: string
+  startTime: number
+  endTime: number
+}
 
 const LIVE_FRAME_SIZE = 4096
-const LIVE_HOP_SECONDS = 0.08
+const LIVE_HOP_SECONDS = 0.04
 const LIVE_HISTORY_SECONDS = 180
 const DEFAULT_VIEWPORT: PitchViewport = { startTime: 0, endTime: 20 }
 const CHART_WIDTH = 960
@@ -110,6 +118,8 @@ const PitchDetectorPage = () => {
   const [liveVolume, setLiveVolume] = useState(0.9)
   const [liveNoiseReduction, setLiveNoiseReduction] = useState(true)
   const [liveRecordingAvailable, setLiveRecordingAvailable] = useState(false)
+  const [microphones, setMicrophones] = useState<MicrophoneOption[]>([])
+  const [selectedMicrophoneId, setSelectedMicrophoneId] = useState('')
 
   const [uploadFileName, setUploadFileName] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
@@ -127,14 +137,14 @@ const PitchDetectorPage = () => {
   const uploadAudioRef = useRef<HTMLAudioElement | null>(null)
   const livePlaybackAudioRef = useRef<HTMLAudioElement | null>(null)
   const uploadAudioUrlRef = useRef<string | null>(null)
-  const livePlaybackUrlRef = useRef<string | null>(null)
   const liveAudioContextRef = useRef<AudioContext | null>(null)
   const liveStreamRef = useRef<MediaStream | null>(null)
   const liveSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const liveFilterNodesRef = useRef<AudioNode[]>([])
   const liveRecorderRef = useRef<MediaRecorder | null>(null)
-  const liveRecordingChunksRef = useRef<Blob[]>([])
-  const liveRecordingDiscardRef = useRef(false)
+  const liveRecordingSegmentsRef = useRef<LiveRecordingSegment[]>([])
+  const activeLiveRecordingSegmentRef = useRef<LiveRecordingSegment | null>(null)
+  const discardedLiveRecordersRef = useRef(new WeakSet<MediaRecorder>())
   const pendingLiveSeekRef = useRef<number | null>(null)
   const livePitchStabilizerRef = useRef(createLivePitchStabilizerState())
   const analyserRef = useRef<AnalyserNode | null>(null)
@@ -142,25 +152,44 @@ const PitchDetectorPage = () => {
   const liveStartMsRef = useRef(0)
   const liveBaseSecondsRef = useRef(0)
   const lastLiveSampleMsRef = useRef(0)
+  const liveStartPendingRef = useRef(false)
+  const pointerFocusedButtonRef = useRef<HTMLButtonElement | null>(null)
 
   const appendUploadLog = useCallback((message: string) => {
     setUploadLogs((prev) => [...prev.slice(-7), `${formatClockTime(new Date())} ${message}`])
   }, [])
 
-  const setLivePlaybackObjectUrl = useCallback((url: string | null) => {
-    setLivePlaybackUrl((prev) => {
-      if (prev && prev !== url) URL.revokeObjectURL(prev)
-      livePlaybackUrlRef.current = url
-      return url
-    })
+  const refreshMicrophones = useCallback(async () => {
+    const mediaDevices = navigator.mediaDevices
+    if (!mediaDevices || typeof mediaDevices.enumerateDevices !== 'function') return
+    try {
+      const devices = await mediaDevices.enumerateDevices()
+      const audioInputs = devices
+        .filter(
+          (device): device is MediaDeviceInfo =>
+            device.kind === 'audioinput' &&
+            Boolean(device.deviceId) &&
+            device.deviceId !== 'default',
+        )
+        .map(({ deviceId, label }) => ({ deviceId, label }))
+      setMicrophones(audioInputs)
+      setSelectedMicrophoneId((current) =>
+        current && audioInputs.some((device) => device.deviceId === current) ? current : '',
+      )
+    } catch {
+      // Device enumeration can be blocked before permission; the system-default option remains usable.
+    }
   }, [])
 
   const playLiveAudioAt = useCallback(
-    (audio: HTMLAudioElement, url: string, time: number) => {
+    (audio: HTMLAudioElement, segment: LiveRecordingSegment, time: number) => {
       const startPlayback = () => {
         try {
-          const duration = Number.isFinite(audio.duration) ? audio.duration : time
-          audio.currentTime = Math.max(0, Math.min(time, duration))
+          const duration = Number.isFinite(audio.duration)
+            ? audio.duration
+            : segment.endTime - segment.startTime
+          const localTime = Math.max(0, Math.min(time - segment.startTime, duration))
+          audio.currentTime = localTime
           void audio.play().catch(() => {
             setLivePlaying(false)
             setLiveError('浏览器没有成功开始回放，请再次点击“播放回放”。')
@@ -171,7 +200,11 @@ const PitchDetectorPage = () => {
         }
       }
 
-      audio.src = url
+      activeLiveRecordingSegmentRef.current = segment
+      setLivePlaybackUrl(segment.url)
+      setLivePlaybackTime(time)
+      setLiveCursorTime(time)
+      audio.src = segment.url
       audio.volume = liveVolume
       if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) startPlayback()
       else {
@@ -184,31 +217,37 @@ const PitchDetectorPage = () => {
 
   const prepareLivePlayback = useCallback(
     (time?: number) => {
-      if (liveRecordingChunksRef.current.length === 0) {
+      const segments = liveRecordingSegmentsRef.current
+      if (segments.length === 0) {
         setLiveRecordingAvailable(false)
         setLiveError('还没有可回放的录音片段，请先检测至少一秒。')
         return
       }
-      const blob = new Blob(liveRecordingChunksRef.current, {
-        type: liveRecordingChunksRef.current[0]?.type || 'audio/webm',
-      })
-      const url = URL.createObjectURL(blob)
-      setLivePlaybackObjectUrl(url)
+      const segment =
+        time == null ? segments[segments.length - 1] : findRecordingSegment(segments, time)
+      if (!segment) {
+        setLiveError('该时间点没有对应的录音片段，请点击有曲线的区域重试。')
+        return
+      }
+      activeLiveRecordingSegmentRef.current = segment
+      setLivePlaybackUrl(segment.url)
       setLiveRecordingAvailable(true)
+      if (time == null) setLivePlaybackTime(segment.startTime)
       if (time != null && livePlaybackAudioRef.current) {
-        playLiveAudioAt(livePlaybackAudioRef.current, url, time)
+        playLiveAudioAt(livePlaybackAudioRef.current, segment, time)
       }
     },
-    [playLiveAudioAt, setLivePlaybackObjectUrl],
+    [playLiveAudioAt],
   )
 
-  const stopLiveInput = useCallback(() => {
+  const stopLiveInput = useCallback((discardRecording = false) => {
     if (animationFrameRef.current != null) {
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
     }
     const recorder = liveRecorderRef.current
     if (recorder && recorder.state === 'recording') {
+      if (discardRecording) discardedLiveRecordersRef.current.add(recorder)
       try {
         recorder.requestData()
         recorder.stop()
@@ -240,7 +279,9 @@ const PitchDetectorPage = () => {
         const rawDetection = detectPitch(
           frame,
           audioContext.sampleRate,
-          liveNoiseReduction ? { rmsThreshold: 0.016, confidenceThreshold: 0.9 } : {},
+          liveNoiseReduction
+            ? { rmsThreshold: 0.008, confidenceThreshold: 0.8 }
+            : { rmsThreshold: 0.006, confidenceThreshold: 0.78 },
         )
         const detection = stabilizeLivePitch(rawDetection, livePitchStabilizerRef.current)
         const time = liveBaseSecondsRef.current + (now - liveStartMsRef.current) / 1000
@@ -252,9 +293,7 @@ const PitchDetectorPage = () => {
           return next.filter((point) => point.time >= minTime)
         })
         setLiveViewport((prev) => {
-          const span = Math.max(12, prev.endTime - prev.startTime)
-          if (prev.endTime < time - LIVE_HOP_SECONDS * 4 && prev.endTime > 1) return prev
-          return { startTime: Math.max(0, time - span), endTime: Math.max(span, time + 1) }
+          return followPitchViewport(prev, time)
         })
         lastLiveSampleMsRef.current = now
       }
@@ -264,23 +303,41 @@ const PitchDetectorPage = () => {
   }, [liveNoiseReduction])
 
   const startLiveRecorder = useCallback(
-    (stream: MediaStream) => {
+    (stream: MediaStream, startTime: number) => {
       if (typeof MediaRecorder === 'undefined') {
         setLiveError('当前浏览器不支持录制实时输入，因此曲线点击回放不可用。音高检测仍可继续。')
         return
       }
       try {
         const recorder = new MediaRecorder(stream)
+        const recordingChunks: Blob[] = []
+        const recordingStartedAt = performance.now()
         recorder.ondataavailable = (event) => {
-          if (!liveRecordingDiscardRef.current && event.data.size > 0) {
-            liveRecordingChunksRef.current.push(event.data)
+          if (!discardedLiveRecordersRef.current.has(recorder) && event.data.size > 0) {
+            recordingChunks.push(event.data)
             setLiveRecordingAvailable(true)
           }
         }
         recorder.onstop = () => {
-          if (liveRecordingDiscardRef.current) return
+          if (discardedLiveRecordersRef.current.has(recorder)) return
           const pendingTime = pendingLiveSeekRef.current
           pendingLiveSeekRef.current = null
+          if (recordingChunks.length === 0) {
+            setLiveError('本次采集没有生成可回放音频，请重新检测一小段时间。')
+            return
+          }
+          const blob = new Blob(recordingChunks, {
+            type: recordingChunks[0]?.type || 'audio/webm',
+          })
+          const segment: LiveRecordingSegment = {
+            url: URL.createObjectURL(blob),
+            startTime,
+            endTime: Math.max(
+              startTime + LIVE_HOP_SECONDS,
+              startTime + (performance.now() - recordingStartedAt) / 1000,
+            ),
+          }
+          liveRecordingSegmentsRef.current.push(segment)
           prepareLivePlayback(pendingTime ?? undefined)
         }
         recorder.start(1000)
@@ -294,6 +351,8 @@ const PitchDetectorPage = () => {
 
   const startLive = useCallback(
     async (source: PitchSource) => {
+      if (liveStartPendingRef.current) return
+      liveStartPendingRef.current = true
       stopLiveInput()
       setLiveError(null)
       setLiveSource(source)
@@ -302,20 +361,14 @@ const PitchDetectorPage = () => {
           source === 'display-audio'
             ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
             : await navigator.mediaDevices.getUserMedia({
-                audio: liveNoiseReduction
-                  ? {
-                      channelCount: 1,
-                      echoCancellation: true,
-                      noiseSuppression: true,
-                      autoGainControl: false,
-                    }
-                  : { channelCount: 1 },
+                audio: buildMicrophoneConstraints(selectedMicrophoneId),
               })
 
         if (stream.getAudioTracks().length === 0) {
           stream.getTracks().forEach((track) => track.stop())
           throw new Error('没有捕获到音频轨道。分享屏幕或标签页时，请在浏览器弹窗中勾选音频。')
         }
+        if (source === 'microphone') void refreshMicrophones()
 
         const AudioContextCtor =
           window.AudioContext ||
@@ -329,10 +382,10 @@ const PitchDetectorPage = () => {
         if (source === 'microphone' && liveNoiseReduction) {
           const highPass = audioContext.createBiquadFilter()
           highPass.type = 'highpass'
-          highPass.frequency.value = 70
+          highPass.frequency.value = 55
           const lowPass = audioContext.createBiquadFilter()
           lowPass.type = 'lowpass'
-          lowPass.frequency.value = 1600
+          lowPass.frequency.value = 2000
           sourceNode.connect(highPass)
           highPass.connect(lowPass)
           lowPass.connect(analyser)
@@ -349,20 +402,29 @@ const PitchDetectorPage = () => {
         liveBaseSecondsRef.current =
           livePoints.length > 0 ? livePoints[livePoints.length - 1].time : 0
         lastLiveSampleMsRef.current = 0
-        liveRecordingDiscardRef.current = false
         if (livePoints.length === 0) {
           livePitchStabilizerRef.current = createLivePitchStabilizerState()
         }
         setLiveStatus('running')
-        startLiveRecorder(stream)
+        startLiveRecorder(stream, liveBaseSecondsRef.current)
         runLiveLoop()
       } catch (error) {
         stopLiveInput()
         setLiveStatus(livePoints.length > 0 ? 'paused' : 'idle')
         setLiveError(error instanceof Error ? error.message : String(error))
+      } finally {
+        liveStartPendingRef.current = false
       }
     },
-    [liveNoiseReduction, livePoints, runLiveLoop, startLiveRecorder, stopLiveInput],
+    [
+      liveNoiseReduction,
+      livePoints,
+      refreshMicrophones,
+      runLiveLoop,
+      selectedMicrophoneId,
+      startLiveRecorder,
+      stopLiveInput,
+    ],
   )
 
   const pauseLive = useCallback(() => {
@@ -370,10 +432,42 @@ const PitchDetectorPage = () => {
     setLiveStatus(livePoints.length > 0 ? 'paused' : 'idle')
   }, [livePoints.length, stopLiveInput])
 
+  useEffect(() => {
+    const rememberPointerFocusedButton = (event: PointerEvent) => {
+      const target = event.target
+      pointerFocusedButtonRef.current =
+        target instanceof Element ? target.closest<HTMLButtonElement>('button') : null
+    }
+    const clearStalePointerFocus = (event: FocusEvent) => {
+      if (event.target !== pointerFocusedButtonRef.current) {
+        pointerFocusedButtonRef.current = null
+      }
+    }
+    const handleRecordingShortcut = (event: KeyboardEvent) => {
+      if (activeTab !== 'live' || (event.code !== 'Space' && event.key !== ' ')) return
+      const focusedButton = findKeyboardButton(event.target)
+      const isPointerFocusedButton =
+        focusedButton != null && focusedButton === pointerFocusedButtonRef.current
+      if (isInteractiveKeyboardTarget(event.target) && !isPointerFocusedButton) return
+      event.preventDefault()
+      if (event.repeat) return
+      if (liveStatus === 'running') pauseLive()
+      else void startLive(liveSource)
+    }
+
+    window.addEventListener('pointerdown', rememberPointerFocusedButton, true)
+    window.addEventListener('focusin', clearStalePointerFocus)
+    window.addEventListener('keydown', handleRecordingShortcut)
+    return () => {
+      window.removeEventListener('pointerdown', rememberPointerFocusedButton, true)
+      window.removeEventListener('focusin', clearStalePointerFocus)
+      window.removeEventListener('keydown', handleRecordingShortcut)
+    }
+  }, [activeTab, liveSource, liveStatus, pauseLive, startLive])
+
   const clearLive = useCallback(() => {
-    liveRecordingDiscardRef.current = true
     pendingLiveSeekRef.current = null
-    stopLiveInput()
+    stopLiveInput(true)
     setLiveStatus('idle')
     setLivePoints([])
     setLiveCursorTime(0)
@@ -382,10 +476,12 @@ const PitchDetectorPage = () => {
     setLiveRecordingAvailable(false)
     setLiveError(null)
     setLiveViewport(DEFAULT_VIEWPORT)
-    liveRecordingChunksRef.current = []
+    liveRecordingSegmentsRef.current.forEach((segment) => URL.revokeObjectURL(segment.url))
+    liveRecordingSegmentsRef.current = []
+    activeLiveRecordingSegmentRef.current = null
     livePitchStabilizerRef.current = createLivePitchStabilizerState()
-    setLivePlaybackObjectUrl(null)
-  }, [setLivePlaybackObjectUrl, stopLiveInput])
+    setLivePlaybackUrl(null)
+  }, [stopLiveInput])
 
   const seekLivePlayback = useCallback(
     (time: number) => {
@@ -400,7 +496,7 @@ const PitchDetectorPage = () => {
         setLiveStatus(livePoints.length > 0 ? 'paused' : 'idle')
         if (finalizingRecording) return
       }
-      if (liveRecordingChunksRef.current.length === 0) {
+      if (liveRecordingSegmentsRef.current.length === 0) {
         setLiveError('还没有可回放的实时录音片段。开始检测一小段时间后，再点击曲线定位播放。')
         return
       }
@@ -504,6 +600,11 @@ const PitchDetectorPage = () => {
     if (!audio) return
     audio.volume = liveVolume
     if (audio.paused) {
+      const activeSegment = activeLiveRecordingSegmentRef.current
+      if (audio.ended && activeSegment) {
+        playLiveAudioAt(audio, activeSegment, activeSegment.startTime)
+        return
+      }
       void audio.play().catch(() => {
         setLivePlaying(false)
         setLiveError('浏览器没有成功开始回放，请再次点击“播放回放”。')
@@ -511,7 +612,32 @@ const PitchDetectorPage = () => {
     } else {
       audio.pause()
     }
-  }, [livePlaybackTime, livePlaybackUrl, liveStatus, liveVolume, seekLivePlayback])
+  }, [livePlaybackTime, livePlaybackUrl, liveStatus, liveVolume, playLiveAudioAt, seekLivePlayback])
+
+  const handleLivePlaybackEnded = useCallback(() => {
+    const activeSegment = activeLiveRecordingSegmentRef.current
+    const audio = livePlaybackAudioRef.current
+    const segments = liveRecordingSegmentsRef.current
+    const activeIndex = activeSegment ? segments.indexOf(activeSegment) : -1
+    const nextSegment = activeIndex >= 0 ? segments[activeIndex + 1] : undefined
+    if (audio && nextSegment) {
+      playLiveAudioAt(audio, nextSegment, nextSegment.startTime)
+      return
+    }
+    if (activeSegment) {
+      setLivePlaybackTime(activeSegment.endTime)
+      setLiveCursorTime(activeSegment.endTime)
+    }
+    setLivePlaying(false)
+  }, [playLiveAudioAt])
+
+  useEffect(() => {
+    void refreshMicrophones()
+    const mediaDevices = navigator.mediaDevices
+    if (!mediaDevices || typeof mediaDevices.addEventListener !== 'function') return
+    mediaDevices.addEventListener('devicechange', refreshMicrophones)
+    return () => mediaDevices.removeEventListener('devicechange', refreshMicrophones)
+  }, [refreshMicrophones])
 
   useEffect(() => {
     const transferId = searchParams.get('transfer')
@@ -539,10 +665,10 @@ const PitchDetectorPage = () => {
 
   useEffect(() => {
     return () => {
-      liveRecordingDiscardRef.current = true
-      stopLiveInput()
+      stopLiveInput(true)
       if (uploadAudioUrlRef.current) URL.revokeObjectURL(uploadAudioUrlRef.current)
-      if (livePlaybackUrlRef.current) URL.revokeObjectURL(livePlaybackUrlRef.current)
+      liveRecordingSegmentsRef.current.forEach((segment) => URL.revokeObjectURL(segment.url))
+      liveRecordingSegmentsRef.current = []
       const audioContext = liveAudioContextRef.current
       liveAudioContextRef.current = null
       if (audioContext && audioContext.state !== 'closed') void audioContext.close()
@@ -633,12 +759,14 @@ const PitchDetectorPage = () => {
                   src={livePlaybackUrl ?? undefined}
                   className="hidden"
                   onTimeUpdate={(event) => {
-                    setLivePlaybackTime(event.currentTarget.currentTime)
-                    setLiveCursorTime(event.currentTarget.currentTime)
+                    const segment = activeLiveRecordingSegmentRef.current
+                    const timelineTime = (segment?.startTime ?? 0) + event.currentTarget.currentTime
+                    setLivePlaybackTime(timelineTime)
+                    setLiveCursorTime(timelineTime)
                   }}
                   onPlay={() => setLivePlaying(true)}
                   onPause={() => setLivePlaying(false)}
-                  onEnded={() => setLivePlaying(false)}
+                  onEnded={handleLivePlaybackEnded}
                 />
                 <LiveWorkbench
                   status={liveStatus}
@@ -649,11 +777,14 @@ const PitchDetectorPage = () => {
                   viewport={liveViewport}
                   volume={liveVolume}
                   noiseReduction={liveNoiseReduction}
+                  microphones={microphones}
+                  selectedMicrophoneId={selectedMicrophoneId}
                   error={liveError}
                   onViewportChange={setLiveViewport}
                   onSeek={seekLivePlayback}
                   onVolumeChange={setLiveVolume}
                   onNoiseReductionChange={setLiveNoiseReduction}
+                  onMicrophoneChange={setSelectedMicrophoneId}
                   onStart={() => startLive(liveSource)}
                   onSelectSource={setLiveSource}
                   onTogglePlayback={toggleLivePlayback}
@@ -764,11 +895,14 @@ const LiveWorkbench = ({
   viewport,
   volume,
   noiseReduction,
+  microphones,
+  selectedMicrophoneId,
   error,
   onViewportChange,
   onSeek,
   onVolumeChange,
   onNoiseReductionChange,
+  onMicrophoneChange,
   onStart,
   onSelectSource,
   onTogglePlayback,
@@ -785,11 +919,14 @@ const LiveWorkbench = ({
   viewport: PitchViewport
   volume: number
   noiseReduction: boolean
+  microphones: MicrophoneOption[]
+  selectedMicrophoneId: string
   error: string | null
   onViewportChange: (viewport: PitchViewport) => void
   onSeek: (time: number) => void
   onVolumeChange: (volume: number) => void
   onNoiseReductionChange: (enabled: boolean) => void
+  onMicrophoneChange: (deviceId: string) => void
   onStart: () => void
   onSelectSource: (source: PitchSource) => void
   onTogglePlayback: () => void
@@ -842,9 +979,42 @@ const LiveWorkbench = ({
               />
             </Button>
           </div>
+          {source === 'microphone' && (
+            <div className="min-w-0">
+              <label
+                htmlFor="pitch-microphone-device"
+                className="mb-1.5 block text-xs font-medium"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                输入设备
+              </label>
+              <select
+                id="pitch-microphone-device"
+                aria-label="麦克风设备"
+                value={selectedMicrophoneId}
+                onChange={(event) => onMicrophoneChange(event.target.value)}
+                disabled={status === 'running'}
+                className="h-10 w-full min-w-0 rounded-lg border bg-white/45 px-3 text-xs outline-none transition focus-visible:border-[var(--accent-amber)] focus-visible:ring-2 focus-visible:ring-[var(--accent-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ borderColor: 'var(--border-line)', color: 'var(--text-primary)' }}
+              >
+                <option value="">系统默认麦克风</option>
+                {microphones.map((microphone, index) => (
+                  <option key={microphone.deviceId} value={microphone.deviceId}>
+                    {microphone.label || `麦克风 ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                {microphones.length > 0
+                  ? '开始前可指定输入；检测中需先暂停再切换。'
+                  : '首次允许麦克风权限后会显示可用设备名称。'}
+              </p>
+            </div>
+          )}
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] gap-2">
             <Button
               type="button"
+              aria-keyshortcuts="Space"
               className="min-w-0 shrink justify-center rounded-lg bg-[var(--text-primary)] px-2 text-[var(--bg-page)] hover:bg-[var(--accent-amber)] hover:text-white"
               onClick={status === 'running' ? onPause : onStart}
             >
@@ -865,6 +1035,9 @@ const LiveWorkbench = ({
               清空
             </Button>
           </div>
+          <p className="text-[0.68rem] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            快捷键：空格开始或暂停录制（输入、下拉或滑块操作时除外）。
+          </p>
           <Button
             type="button"
             variant="outline"
@@ -881,7 +1054,7 @@ const LiveWorkbench = ({
             环境降噪 {noiseReduction ? '开' : '关'}
           </Button>
           <p className="text-xs leading-[1.125rem]" style={{ color: 'var(--text-muted)' }}>
-            减少风噪、低频轰鸣和持续背景声；检测很弱的乐器音时可关闭。
+            使用本地带通滤波减少风噪与高频杂声；检测很弱或范围外的乐器音时可关闭。
           </p>
         </ControlPanel>
         <ControlPanel title="回放监听" description="点击已录制曲线后播放">
@@ -1121,7 +1294,8 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
   const cents =
     current.isVoiced && current.cents != null ? Math.max(-50, Math.min(50, current.cents)) : null
   const markerPosition = cents == null ? 50 : cents + 50
-  const noteName = current.isVoiced ? formatNoteNameForDisplay(current.noteName) : '—'
+  const hasPitch = current.isVoiced && current.frequencyHz != null
+  const noteName = hasPitch ? formatNoteNameForDisplay(current.noteName) : '—'
 
   return (
     <section
@@ -1139,16 +1313,18 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
         >
           Current pitch
         </p>
-        <div className="mt-2 flex min-w-0 items-end justify-between gap-3">
+        <div className="mt-4 flex min-h-16 min-w-0 items-center justify-between gap-4">
           <p
-            className="min-w-0 whitespace-nowrap font-display text-5xl font-semibold leading-none tracking-[-0.06em] sm:text-6xl"
+            className={`min-w-0 whitespace-nowrap font-display font-semibold leading-none ${
+              hasPitch ? 'text-5xl tracking-[-0.06em] sm:text-6xl' : 'text-4xl tracking-normal'
+            }`}
             style={{ color: 'var(--text-primary)' }}
           >
             {noteName}
           </p>
-          <div className="shrink-0 pb-1 text-right">
+          <div className="flex min-h-14 shrink-0 flex-col justify-center text-right">
             <p className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {current.frequencyHz ? `${current.frequencyHz.toFixed(1)} Hz` : '— Hz'}
+              {hasPitch ? `${current.frequencyHz!.toFixed(1)} Hz` : '— Hz'}
             </p>
             <p className="mt-2 text-xs leading-[1.125rem]" style={{ color: 'var(--text-muted)' }}>
               置信度 {Math.round(current.confidence * 100)}%
@@ -1157,7 +1333,7 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
         </div>
       </div>
       <div className="flex min-h-40 flex-col justify-center px-5 py-5 sm:px-7">
-        <div className="mb-5 flex items-end justify-between gap-4">
+        <div className="mb-4 flex min-h-16 items-center justify-between gap-4">
           <div>
             <p
               className="text-xs uppercase tracking-[0.16em]"
@@ -1180,7 +1356,7 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
               </span>
             </p>
           </div>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          <p className="max-w-28 text-right text-xs" style={{ color: 'var(--text-muted)' }}>
             {cents == null
               ? '等待稳定音高'
               : Math.abs(cents) <= 5
@@ -1190,7 +1366,7 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
                   : '音高偏高'}
           </p>
         </div>
-        <div className="relative h-10" aria-label="音高偏差刻度">
+        <div className="relative mx-3 h-10" aria-label="音高偏差刻度">
           <div
             className="absolute left-0 right-0 top-3 h-px"
             style={{ background: 'rgba(44,42,48,0.18)' }}
@@ -1202,12 +1378,12 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
           {[-50, -25, 0, 25, 50].map((tick) => (
             <div
               key={tick}
-              className="absolute top-2 -translate-x-1/2"
+              className="absolute top-2 flex -translate-x-1/2 flex-col items-center"
               style={{ left: `${tick + 50}%` }}
             >
               <span className="block h-3 w-px" style={{ background: 'rgba(44,42,48,0.28)' }} />
               <span
-                className="mt-1 block -translate-x-1/2 font-mono text-[11px] leading-4"
+                className="mt-1 block font-mono text-[11px] leading-4"
                 style={{ color: 'var(--text-muted)' }}
               >
                 {tick}
@@ -1226,7 +1402,7 @@ const PitchReadout = ({ current }: { current: PitchDetection }) => {
           )}
         </div>
         <div
-          className="mt-1 flex justify-between text-xs"
+          className="mx-3 mt-1 flex justify-between text-xs"
           style={{ color: 'var(--text-muted)' }}
         >
           <span>偏低</span>
@@ -1256,6 +1432,12 @@ const PitchChart = ({
   const { playNote } = usePianoAudio()
   const chartRef = useRef<SVGSVGElement | null>(null)
   const dragRef = useRef<{ x: number; viewport: PitchViewport; moved: boolean } | null>(null)
+  const timelineRangeRef = useRef<HTMLDivElement | null>(null)
+  const timelineDragRef = useRef<{
+    pointerId: number
+    x: number
+    viewport: PitchViewport
+  } | null>(null)
   const referenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [activeReferenceFrequency, setActiveReferenceFrequency] = useState<number | null>(null)
   const [hover, setHover] = useState<{
@@ -1266,8 +1448,8 @@ const PitchChart = ({
   } | null>(null)
   const timelineBounds = useMemo(() => {
     const lastTime = points.length > 0 ? points[points.length - 1].time : Math.max(20, cursorTime)
-    return { minTime: 0, maxTime: Math.max(20, lastTime), minSpan: 1 }
-  }, [cursorTime, points])
+    return { minTime: 0, maxTime: Math.max(20, lastTime, viewport.endTime), minSpan: 1 }
+  }, [cursorTime, points, viewport.endTime])
   const visibleViewport = useMemo(
     () => clampPitchView(viewport, timelineBounds),
     [timelineBounds, viewport],
@@ -1305,13 +1487,17 @@ const PitchChart = ({
     CHART_PLOT.left +
     ((cursorTime - visibleViewport.startTime) / timeSpan) *
       (CHART_WIDTH - CHART_PLOT.left - CHART_PLOT.right)
-  const path = buildPitchPath(
-    visiblePoints,
-    visibleViewport.startTime,
+  const path = buildPitchPath(visiblePoints, {
+    minTime: visibleViewport.startTime,
     timeSpan,
     minFrequency,
     maxFrequency,
-  )
+    chartWidth: CHART_WIDTH,
+    chartHeight: CHART_HEIGHT,
+    plot: CHART_PLOT,
+    maxTimeGap: LIVE_HOP_SECONDS * 3,
+    maxPitchJumpSemitones: 3,
+  })
   const yFromFrequency = (frequencyHz: number) =>
     chartYFromFrequency(
       frequencyHz,
@@ -1401,6 +1587,44 @@ const PitchChart = ({
   const zoomByButton = (scale: number) => {
     const anchor = (visibleViewport.startTime + visibleViewport.endTime) / 2
     onViewportChange(zoomPitchView(visibleViewport, scale, anchor, timelineBounds))
+  }
+
+  const resizeTimeline = (value: number | readonly number[]) => {
+    if (!Array.isArray(value)) return
+    const [startTime, endTime] = value
+    if (startTime == null || endTime == null) return
+    onViewportChange(clampPitchView({ startTime, endTime }, timelineBounds))
+  }
+
+  const handleTimelinePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (!(target instanceof Element) || !target.closest('[data-slot="slider-range"]')) return
+    if (timeSpan >= timelineBounds.maxTime - timelineBounds.minTime - 0.001) return
+    event.preventDefault()
+    event.stopPropagation()
+    timelineDragRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      viewport: visibleViewport,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handleTimelinePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = timelineDragRef.current
+    const rect = timelineRangeRef.current?.getBoundingClientRect()
+    if (!drag || drag.pointerId !== event.pointerId || !rect) return
+    const totalTime = timelineBounds.maxTime - timelineBounds.minTime
+    const deltaTime = ((event.clientX - drag.x) / Math.max(1, rect.width)) * totalTime
+    onViewportChange(panPitchView(drag.viewport, deltaTime, timelineBounds))
+  }
+
+  const finishTimelineDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (timelineDragRef.current?.pointerId !== event.pointerId) return
+    timelineDragRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
   }
 
   return (
@@ -1667,6 +1891,52 @@ const PitchChart = ({
           </text>
         </svg>
       </div>
+      <div
+        className="border-t px-4 py-3"
+        style={{ borderColor: 'rgba(44,42,48,0.09)', background: 'rgba(255,255,255,0.24)' }}
+      >
+        <div
+          className="mb-2 flex items-center justify-between gap-3 text-[0.68rem]"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <span>时间轴浏览</span>
+          <span className="font-mono">
+            {formatTime(visibleViewport.startTime)} — {formatTime(visibleViewport.endTime)}
+          </span>
+        </div>
+        <div
+          ref={timelineRangeRef}
+          role="group"
+          aria-label="时间轴可视范围"
+          className="touch-none py-1"
+          onPointerDownCapture={handleTimelinePointerDown}
+          onPointerMove={handleTimelinePointerMove}
+          onPointerUp={finishTimelineDrag}
+          onPointerCancel={finishTimelineDrag}
+        >
+          <Slider
+            min={timelineBounds.minTime}
+            max={timelineBounds.maxTime}
+            step={0.01}
+            minStepsBetweenValues={100}
+            thumbCollisionBehavior="none"
+            value={[visibleViewport.startTime, visibleViewport.endTime]}
+            onValueChange={resizeTimeline}
+            thumbAriaLabels={['可视范围起点', '可视范围终点']}
+            getThumbAriaValueText={(_, value) => formatTime(value)}
+            aria-label="时间轴范围滚动条"
+            className="[&_[data-slot=slider-track]]:h-2.5 [&_[data-slot=slider-range]]:cursor-grab [&_[data-slot=slider-range]]:bg-[var(--accent-amber)] [&_[data-slot=slider-range]]:active:cursor-grabbing [&_[data-slot=slider-thumb]]:h-5 [&_[data-slot=slider-thumb]]:w-3 [&_[data-slot=slider-thumb]]:rounded-sm [&_[data-slot=slider-thumb]]:border-[var(--text-primary)]"
+          />
+          <div
+            className="mt-1.5 flex items-center justify-between text-[0.64rem]"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <span>拖动左侧手柄调整起点</span>
+            <span className="hidden sm:inline">拖动中间移动范围</span>
+            <span>拖动右侧手柄调整终点</span>
+          </div>
+        </div>
+      </div>
       {points.length === 0 && (
         <p className="px-4 pb-4 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
           {emptyText}
@@ -1881,35 +2151,28 @@ function findNearestPoint(points: PitchTrackPoint[], time: number): PitchTrackPo
   return nearest
 }
 
-function buildPitchPath(
-  points: PitchTrackPoint[],
-  minTime: number,
-  timeSpan: number,
-  minFrequency: number,
-  maxFrequency: number,
-): string {
-  let path = ''
-  let drawing = false
-  for (const point of points) {
-    if (!point.isVoiced || point.frequencyHz == null) {
-      drawing = false
-      continue
-    }
-    const x =
-      CHART_PLOT.left +
-      ((point.time - minTime) / timeSpan) * (CHART_WIDTH - CHART_PLOT.left - CHART_PLOT.right)
-    const y = chartYFromFrequency(
-      point.frequencyHz,
-      minFrequency,
-      maxFrequency,
-      CHART_HEIGHT,
-      CHART_PLOT.top,
-      CHART_PLOT.bottom,
-    )
-    path += drawing ? ` L ${x.toFixed(1)} ${y.toFixed(1)}` : ` M ${x.toFixed(1)} ${y.toFixed(1)}`
-    drawing = true
-  }
-  return path.trim()
+function findRecordingSegment(
+  segments: LiveRecordingSegment[],
+  time: number,
+): LiveRecordingSegment | null {
+  const matching = segments.find(
+    (segment) => time >= segment.startTime - 0.05 && time <= segment.endTime + 0.05,
+  )
+  if (matching) return matching
+  return (
+    segments.reduce<LiveRecordingSegment | null>((nearest, segment) => {
+      if (!nearest) return segment
+      const distance = Math.min(
+        Math.abs(time - segment.startTime),
+        Math.abs(time - segment.endTime),
+      )
+      const nearestDistance = Math.min(
+        Math.abs(time - nearest.startTime),
+        Math.abs(time - nearest.endTime),
+      )
+      return distance < nearestDistance ? segment : nearest
+    }, null) ?? null
+  )
 }
 
 function formatTime(seconds: number): string {
@@ -1925,6 +2188,30 @@ function formatClockTime(date: Date): string {
 
 function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
+}
+
+function buildMicrophoneConstraints(deviceId: string): MediaTrackConstraints {
+  return {
+    channelCount: { ideal: 1 },
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+    ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+  }
+}
+
+function isInteractiveKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  return Boolean(
+    target.closest(
+      'button, input, select, textarea, a, [contenteditable="true"], [role="button"], [role="slider"], [role="tab"]',
+    ),
+  )
+}
+
+function findKeyboardButton(target: EventTarget | null): HTMLButtonElement | null {
+  if (!(target instanceof Element)) return null
+  return target.closest<HTMLButtonElement>('button')
 }
 
 export default PitchDetectorPage

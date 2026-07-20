@@ -2,6 +2,11 @@ import { Slider as SliderPrimitive } from '@base-ui/react/slider'
 
 import { cn } from '@/lib/utils'
 
+type SliderProps = SliderPrimitive.Root.Props & {
+  thumbAriaLabels?: readonly string[]
+  getThumbAriaValueText?: (formattedValue: string, value: number, index: number) => string
+}
+
 function Slider({
   className,
   defaultValue,
@@ -9,13 +14,16 @@ function Slider({
   min = 0,
   max = 100,
   'aria-label': ariaLabel,
+  thumbAriaLabels,
+  getThumbAriaValueText,
   ...props
-}: SliderPrimitive.Root.Props) {
+}: SliderProps) {
   const _values = Array.isArray(value)
     ? value
     : Array.isArray(defaultValue)
       ? defaultValue
       : [min, max]
+  const rootAriaLabel = ariaLabel
 
   return (
     <SliderPrimitive.Root
@@ -46,7 +54,14 @@ function Slider({
           <SliderPrimitive.Thumb
             data-slot="slider-thumb"
             key={index}
-            getAriaLabel={ariaLabel ? () => ariaLabel : undefined}
+            index={index}
+            getAriaLabel={(thumbIndex) =>
+              thumbAriaLabels?.[thumbIndex] ??
+              (_values.length === 1 && typeof rootAriaLabel === 'string'
+                ? rootAriaLabel
+                : `滑块 ${thumbIndex + 1}`)
+            }
+            getAriaValueText={getThumbAriaValueText}
             className="relative block size-4 shrink-0 rounded-full border-2 border-[var(--control-track-active)] bg-[var(--control-thumb)] shadow-[0_1px_3px_rgba(44,42,48,0.22)] transition-[box-shadow,transform] select-none after:absolute after:-inset-2 hover:shadow-[0_0_0_4px_var(--accent-subtle)] focus-visible:shadow-[0_0_0_4px_var(--accent-subtle)] focus-visible:outline-hidden active:scale-95 disabled:pointer-events-none disabled:opacity-50"
           />
         ))}

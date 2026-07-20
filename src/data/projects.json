@@ -66,7 +66,7 @@
     {
       "id": "pitch-detector",
       "name": "音高检测",
-      "description": "实时检测麦克风或电脑音频，也可分析本地音频文件的音高、音名与音分偏差",
+      "description": "可选择麦克风或电脑音频实时检测，也可分析本地音频的音高、音名与音分偏差",
       "url": "#/pitch-detector",
       "status": "开发中",
       "tags": [
@@ -75,8 +75,8 @@
         "音频"
       ],
       "cover": "",
-      "version": "v0.1.0",
-      "updatedAt": "2026-07-16"
+      "version": "v0.3.0",
+      "updatedAt": "2026-07-20"
     },
     {
       "id": "guitar-fretboard-trainer",
@@ -104,7 +104,7 @@
         "浏览器插件"
       ],
       "cover": "",
-      "version": "v2.2",
+      "version": "v2.2.0",
       "updatedAt": "2026-05-29"
     },
     {
@@ -118,7 +118,7 @@
         "浏览器插件"
       ],
       "cover": "",
-      "version": "v1.2",
+      "version": "v1.2.0",
       "updatedAt": "2026-06-01"
     },
     {

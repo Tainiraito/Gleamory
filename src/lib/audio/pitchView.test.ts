@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildPitchPath,
   chartYFromFrequency,
   clampPitchView,
+  followPitchViewport,
   noteTicksForFrequencyRange,
   spaceFrequencyTicks,
   svgXFromClientX,
@@ -40,6 +42,17 @@ describe('pitch view utilities', () => {
     })
   })
 
+  it('keeps the live cursor centered after the first viewport fills', () => {
+    expect(followPitchViewport({ startTime: 0, endTime: 20 }, 8)).toEqual({
+      startTime: 0,
+      endTime: 20,
+    })
+    expect(followPitchViewport({ startTime: 0, endTime: 20 }, 25)).toEqual({
+      startTime: 15,
+      endTime: 35,
+    })
+  })
+
   it('maps client x through actual rendered svg content when the svg is letterboxed', () => {
     const svgX = svgXFromClientX(350, {
       rectLeft: 100,
@@ -75,5 +88,35 @@ describe('pitch view utilities', () => {
       const currentY = chartYFromFrequency(spaced[index].frequencyHz, 65, 1200, 360, 18, 30)
       expect(Math.abs(currentY - previousY)).toBeGreaterThanOrEqual(28)
     }
+  })
+
+  it('does not draw a vertical connector across a large pitch jump', () => {
+    const voicedPoint = {
+      midi: 57,
+      noteName: 'A3',
+      cents: 0,
+      confidence: 0.96,
+      isVoiced: true,
+    }
+    const path = buildPitchPath(
+      [
+        { time: 0, frequencyHz: 220, ...voicedPoint },
+        { time: 0.04, frequencyHz: 440, ...voicedPoint, midi: 69, noteName: 'A4' },
+      ],
+      {
+        minTime: 0,
+        timeSpan: 1,
+        minFrequency: 100,
+        maxFrequency: 500,
+        chartWidth: 960,
+        chartHeight: 360,
+        plot: { left: 48, right: 10, top: 18, bottom: 30 },
+        maxTimeGap: 0.12,
+        maxPitchJumpSemitones: 3,
+      },
+    )
+
+    expect(path.split('M')).toHaveLength(3)
+    expect(path).not.toContain(' L ')
   })
 })

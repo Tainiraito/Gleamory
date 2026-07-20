@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import PitchDetectorPage from './PitchDetectorPage'
@@ -17,10 +17,20 @@ describe('PitchDetectorPage', () => {
     )
 
     expect(screen.getByRole('heading', { name: '音高检测' })).toBeInTheDocument()
+    expect(screen.getByText('v0.3.0')).toBeInTheDocument()
     expect(screen.getByLabelText('当前音高读数')).toBeInTheDocument()
     expect(screen.getByText('等待稳定音高')).toBeInTheDocument()
     expect(screen.getByText('音频仅在本机处理，不会上传')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '实时音高曲线' })).toBeInTheDocument()
+    const timelineRange = screen.getByRole('group', { name: '时间轴可视范围' })
+    expect(timelineRange.querySelectorAll('input[type="range"]')).toHaveLength(2)
+    expect(within(timelineRange).getByLabelText('可视范围起点')).toBeInTheDocument()
+    expect(within(timelineRange).getByLabelText('可视范围终点')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '开始' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Space',
+    )
+    expect(screen.getByText(/快捷键：空格开始或暂停录制/)).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: '实时检测' })).toHaveAttribute('aria-selected', 'true')
 
     const microphoneButton = screen.getByRole('button', { name: '麦克风' })
@@ -71,16 +81,138 @@ describe('PitchDetectorPage', () => {
     expect(errorAlert?.parentElement).toHaveClass('w-full', 'min-w-0', 'px-5')
     expect(getUserMedia).toHaveBeenCalledWith({
       audio: {
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
+        channelCount: { ideal: 1 },
+        echoCancellation: false,
+        noiseSuppression: false,
         autoGainControl: false,
       },
     })
     expect(screen.getByRole('button', { name: '开始' })).toBeEnabled()
   })
 
-  it('prepares recorded audio on pause and starts playback from the explicit control', async () => {
+  it('uses Space for recording after a pointer-clicked button instead of repeating that button', async () => {
+    const getUserMedia = vi.fn().mockRejectedValue(new Error('快捷键采集测试结束'))
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia,
+        getDisplayMedia: vi.fn(),
+      },
+    })
+
+    render(
+      <MemoryRouter>
+        <PitchDetectorPage />
+      </MemoryRouter>,
+    )
+
+    const noiseReductionButton = screen.getByRole('button', { name: '环境降噪 开' })
+    fireEvent.pointerDown(noiseReductionButton)
+    noiseReductionButton.focus()
+    fireEvent.click(noiseReductionButton)
+    expect(screen.getByRole('button', { name: '环境降噪 关' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+
+    const wasNotPrevented = fireEvent.keyDown(noiseReductionButton, {
+      code: 'Space',
+      key: ' ',
+    })
+
+    expect(wasNotPrevented).toBe(false)
+    expect(await screen.findByText('快捷键采集测试结束')).toBeInTheDocument()
+    expect(getUserMedia).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: '环境降噪 关' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+  })
+
+  it('lists microphones and requests the manually selected device', async () => {
+    const getUserMedia = vi.fn().mockRejectedValue(new Error('停止测试采集'))
+    const enumerateDevices = vi.fn().mockResolvedValue([
+      { kind: 'audioinput', deviceId: 'default', label: '默认设备' },
+      { kind: 'audioinput', deviceId: 'mic-built-in', label: '内置麦克风' },
+      { kind: 'audioinput', deviceId: 'mic-usb', label: 'USB 麦克风' },
+      { kind: 'videoinput', deviceId: 'camera', label: '摄像头' },
+    ] as MediaDeviceInfo[])
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia,
+        getDisplayMedia: vi.fn(),
+        enumerateDevices,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      },
+    })
+
+    render(
+      <MemoryRouter>
+        <PitchDetectorPage />
+      </MemoryRouter>,
+    )
+
+    const deviceSelect = await screen.findByRole('combobox', { name: '麦克风设备' })
+    expect(screen.getByRole('option', { name: '内置麦克风' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'USB 麦克风' })).toBeInTheDocument()
+
+    fireEvent.change(deviceSelect, { target: { value: 'mic-usb' } })
+    fireEvent.click(screen.getByRole('button', { name: '开始' }))
+
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: {
+        channelCount: { ideal: 1 },
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        deviceId: { exact: 'mic-usb' },
+      },
+    })
+    expect(await screen.findByText('停止测试采集')).toBeInTheDocument()
+  })
+
+  it('keeps the two-handle timeline range synchronized with wheel zoom and middle dragging', () => {
+    render(
+      <MemoryRouter>
+        <PitchDetectorPage />
+      </MemoryRouter>,
+    )
+
+    const chart = screen.getByRole('group', { name: '交互式音高曲线' })
+    Object.defineProperty(chart, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 0, top: 0, width: 960, height: 360, right: 960, bottom: 360 }),
+    })
+    const timelineRange = screen.getByRole('group', { name: '时间轴可视范围' })
+    Object.defineProperty(timelineRange, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 0, top: 0, width: 960, height: 40, right: 960, bottom: 40 }),
+    })
+    Object.defineProperties(timelineRange, {
+      setPointerCapture: { configurable: true, value: vi.fn() },
+      hasPointerCapture: { configurable: true, value: vi.fn(() => true) },
+      releasePointerCapture: { configurable: true, value: vi.fn() },
+    })
+
+    fireEvent.wheel(chart, { clientX: 480, deltaY: -120 })
+
+    const startThumb = within(timelineRange).getByLabelText('可视范围起点')
+    const endThumb = within(timelineRange).getByLabelText('可视范围终点')
+    const zoomedStart = Number(startThumb.getAttribute('aria-valuenow'))
+    const zoomedEnd = Number(endThumb.getAttribute('aria-valuenow'))
+    expect(zoomedStart).toBeGreaterThan(0)
+    expect(zoomedEnd).toBeLessThan(20)
+
+    const middleRange = timelineRange.querySelector('[data-slot="slider-range"]')!
+    fireEvent.pointerDown(middleRange, { clientX: 480, pointerId: 7 })
+    fireEvent.pointerMove(timelineRange, { clientX: 560, pointerId: 7 })
+    fireEvent.pointerUp(timelineRange, { clientX: 560, pointerId: 7 })
+
+    expect(Number(startThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(zoomedStart)
+    expect(Number(endThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(zoomedEnd)
+  })
+
+  it('keeps later recording sessions independently playable after an earlier playback', async () => {
     const stream = {
       getAudioTracks: () => [{}],
       getTracks: () => [{ stop: vi.fn() }],
@@ -104,7 +236,9 @@ describe('PitchDetectorPage', () => {
       })
       close = vi.fn().mockResolvedValue(undefined)
     }
+    let recordingIndex = 0
     class FakeMediaRecorder {
+      private readonly index = ++recordingIndex
       state: RecordingState = 'inactive'
       ondataavailable: ((event: BlobEvent) => void) | null = null
       onstop: (() => void) | null = null
@@ -113,7 +247,7 @@ describe('PitchDetectorPage', () => {
       }
       requestData() {
         this.ondataavailable?.({
-          data: new Blob(['recorded'], { type: 'audio/webm' }),
+          data: new Blob([`recorded-${this.index}`], { type: 'audio/webm' }),
         } as BlobEvent)
       }
       stop() {
@@ -144,20 +278,25 @@ describe('PitchDetectorPage', () => {
       vi.fn(() => 9),
     )
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    const recordedBlobs: Blob[] = []
+    const createObjectURL = vi.fn((blob: Blob) => {
+      recordedBlobs.push(blob)
+      return `blob:recording-${recordedBlobs.length}`
+    })
     vi.stubGlobal('URL', {
-      createObjectURL: vi.fn(() => 'blob:recording'),
+      createObjectURL,
       revokeObjectURL: vi.fn(),
     })
 
-    render(
+    const { container } = render(
       <MemoryRouter>
         <PitchDetectorPage />
       </MemoryRouter>,
     )
-    fireEvent.click(screen.getByRole('button', { name: '开始' }))
+    fireEvent.keyDown(window, { code: 'Space', key: ' ' })
     expect(await screen.findByText('检测中')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '暂停' }))
+    fireEvent.keyDown(window, { code: 'Space', key: ' ' })
     const playbackButton = await screen.findByRole('button', { name: '播放回放' })
     expect(playbackButton).toBeEnabled()
 
@@ -176,6 +315,20 @@ describe('PitchDetectorPage', () => {
     fireEvent.pointerDown(chart, { clientX: 300, pointerId: 1 })
     fireEvent.pointerUp(chart, { clientX: 300, pointerId: 1 })
     expect(play).toHaveBeenCalledTimes(2)
+
+    const liveAudio = container.querySelector('audio')!
+    fireEvent.ended(liveAudio)
+    fireEvent.click(screen.getByRole('button', { name: '开始' }))
+    expect(await screen.findByText('检测中')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '暂停' }))
+
+    expect(createObjectURL).toHaveBeenCalledTimes(2)
+    expect(recordedBlobs).toHaveLength(2)
+    expect(recordedBlobs[1].size).toBe(recordedBlobs[0].size)
+    expect(liveAudio).toHaveAttribute('src', 'blob:recording-2')
+
+    fireEvent.click(await screen.findByRole('button', { name: '播放回放' }))
+    expect(play).toHaveBeenCalledTimes(3)
   })
 
   it('plays a piano reference tone from a vertical-axis note', () => {

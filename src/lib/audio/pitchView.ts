@@ -1,3 +1,5 @@
+import type { PitchTrackPoint } from './pitch'
+
 export interface PitchViewport {
   startTime: number
   endTime: number
@@ -27,6 +29,18 @@ export interface PitchFrequencyTick {
   noteName: string
 }
 
+export interface PitchPathOptions {
+  minTime: number
+  timeSpan: number
+  minFrequency: number
+  maxFrequency: number
+  chartWidth: number
+  chartHeight: number
+  plot: ChartPlotBounds & { top: number; bottom: number }
+  maxTimeGap?: number
+  maxPitchJumpSemitones?: number
+}
+
 export function chartYFromFrequency(
   frequencyHz: number,
   minFrequency: number,
@@ -41,6 +55,45 @@ export function chartYFromFrequency(
   const pitchSpan = Math.log2(safeMax / safeMin)
   const ratio = pitchSpan === 0 ? 0 : Math.log2(clampedFrequency / safeMin) / pitchSpan
   return chartHeight - plotBottom - ratio * (chartHeight - plotTop - plotBottom)
+}
+
+export function buildPitchPath(points: PitchTrackPoint[], options: PitchPathOptions): string {
+  const maxTimeGap = options.maxTimeGap ?? Number.POSITIVE_INFINITY
+  const maxPitchJumpSemitones = options.maxPitchJumpSemitones ?? Number.POSITIVE_INFINITY
+  let path = ''
+  let drawing = false
+  let previousPoint: PitchTrackPoint | null = null
+
+  for (const point of points) {
+    if (!point.isVoiced || point.frequencyHz == null) {
+      drawing = false
+      previousPoint = null
+      continue
+    }
+    const pitchJumpSemitones =
+      previousPoint?.frequencyHz != null
+        ? Math.abs(12 * Math.log2(point.frequencyHz / previousPoint.frequencyHz))
+        : 0
+    const timeGap = previousPoint ? point.time - previousPoint.time : 0
+    if (pitchJumpSemitones > maxPitchJumpSemitones || timeGap > maxTimeGap) drawing = false
+
+    const x =
+      options.plot.left +
+      ((point.time - options.minTime) / options.timeSpan) *
+        (options.chartWidth - options.plot.left - options.plot.right)
+    const y = chartYFromFrequency(
+      point.frequencyHz,
+      options.minFrequency,
+      options.maxFrequency,
+      options.chartHeight,
+      options.plot.top,
+      options.plot.bottom,
+    )
+    path += drawing ? ` L ${x.toFixed(1)} ${y.toFixed(1)}` : ` M ${x.toFixed(1)} ${y.toFixed(1)}`
+    drawing = true
+    previousPoint = point
+  }
+  return path.trim()
 }
 
 export function spaceFrequencyTicks(
@@ -118,6 +171,19 @@ export function panPitchView(
     },
     bounds,
   )
+}
+
+export function followPitchViewport(
+  viewport: PitchViewport,
+  cursorTime: number,
+  minSpan = 12,
+): PitchViewport {
+  const span = Math.max(minSpan, viewport.endTime - viewport.startTime)
+  const startTime = Math.max(0, cursorTime - span / 2)
+  return {
+    startTime: Number(startTime.toFixed(6)),
+    endTime: Number((startTime + span).toFixed(6)),
+  }
 }
 
 export function timeFromChartX(
