@@ -1035,7 +1035,7 @@ const LiveWorkbench = ({
               清空
             </Button>
           </div>
-          <p className="text-[0.68rem] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs leading-[1.125rem]" style={{ color: 'var(--text-muted)' }}>
             快捷键：空格开始或暂停录制（输入、下拉或滑块操作时除外）。
           </p>
           <Button
@@ -1896,7 +1896,7 @@ const PitchChart = ({
         style={{ borderColor: 'rgba(44,42,48,0.09)', background: 'rgba(255,255,255,0.24)' }}
       >
         <div
-          className="mb-2 flex items-center justify-between gap-3 text-[0.68rem]"
+          className="mb-2 flex items-center justify-between gap-3 text-xs"
           style={{ color: 'var(--text-muted)' }}
         >
           <span>时间轴浏览</span>
@@ -1928,7 +1928,7 @@ const PitchChart = ({
             className="[&_[data-slot=slider-track]]:h-2.5 [&_[data-slot=slider-range]]:cursor-grab [&_[data-slot=slider-range]]:bg-[var(--accent-amber)] [&_[data-slot=slider-range]]:active:cursor-grabbing [&_[data-slot=slider-thumb]]:h-5 [&_[data-slot=slider-thumb]]:w-3 [&_[data-slot=slider-thumb]]:rounded-sm [&_[data-slot=slider-thumb]]:border-[var(--text-primary)]"
           />
           <div
-            className="mt-1.5 flex items-center justify-between text-[0.64rem]"
+            className="mt-1.5 flex items-center justify-between text-xs"
             style={{ color: 'var(--text-muted)' }}
           >
             <span>拖动左侧手柄调整起点</span>
