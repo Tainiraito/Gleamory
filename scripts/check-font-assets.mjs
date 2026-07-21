@@ -77,9 +77,7 @@ for (const font of manifest.files) {
   const budget =
     font.coverage === 'mono'
       ? manifest.budgets.monoFileBytes
-      : font.coverage === 'runtime'
-        ? manifest.budgets.coreCjkFileBytes
-        : manifest.budgets.dynamicCjkFileBytes
+      : manifest.budgets.cjkFileBytes
   if (fileStat.size > budget) throw new Error(`${font.path} 超出 ${budget} bytes 预算`)
   totalBytes += fileStat.size
 }
