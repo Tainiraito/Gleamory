@@ -292,6 +292,8 @@ describe('PitchDetectorPage', () => {
 
   it('follows the playback cursor when enabled and stops following after a timeline drag', async () => {
     const samples = new Float32Array(8_820)
+    let autoRunAnalysisFrames = true
+    let playbackFrame: FrameRequestCallback | null = null
     vi.spyOn(audioDecode, 'decodeAudioFile').mockResolvedValue({
       duration: 60,
       length: samples.length,
@@ -305,7 +307,8 @@ describe('PitchDetectorPage', () => {
     vi.stubGlobal(
       'requestAnimationFrame',
       vi.fn((callback: FrameRequestCallback) => {
-        setTimeout(() => callback(0), 0)
+        if (autoRunAnalysisFrames) setTimeout(() => callback(0), 0)
+        else playbackFrame = callback
         return 11
       }),
     )
@@ -322,6 +325,7 @@ describe('PitchDetectorPage', () => {
     })
 
     expect(await screen.findByText('分析完成')).toBeInTheDocument()
+    autoRunAnalysisFrames = false
     const followButton = screen.getByRole('button', { name: '跟随播放位置' })
     expect(followButton).toBeEnabled()
     expect(followButton).toHaveAttribute('aria-pressed', 'false')
@@ -348,13 +352,18 @@ describe('PitchDetectorPage', () => {
     const uploadAudio = Array.from(container.querySelectorAll('audio')).find(
       (audio) => audio.getAttribute('src') === 'blob:upload-follow-test',
     )!
+    Object.defineProperty(uploadAudio, 'paused', { configurable: true, get: () => false })
     uploadAudio.currentTime = 50
     fireEvent.timeUpdate(uploadAudio)
     fireEvent.play(uploadAudio)
+    act(() => playbackFrame?.(0))
 
-    await waitFor(() => {
-      expect(Number(startThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(startBeforeFollowing)
-    })
+    expect(Number(startThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(startBeforeFollowing)
+    expect(screen.getByText('0:50 / 1:00')).toBeInTheDocument()
+
+    uploadAudio.currentTime = 20
+    fireEvent.timeUpdate(uploadAudio)
+    expect(screen.getByText('0:50 / 1:00')).toBeInTheDocument()
 
     fireEvent.pointerDown(chart, { clientX: 500, pointerId: 8 })
     fireEvent.pointerMove(chart, { clientX: 420, pointerId: 8 })

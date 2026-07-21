@@ -281,7 +281,7 @@ const PitchDetectorPage = () => {
       const now = performance.now()
       const time = liveBaseSecondsRef.current + (now - liveStartMsRef.current) / 1000
       setLiveCursorTime(time)
-      setLiveViewport((prev) => followPitchViewport(prev, time))
+      setLiveViewport((prev) => preserveViewportReference(prev, followPitchViewport(prev, time)))
       if (now - lastLiveSampleMsRef.current >= LIVE_HOP_SECONDS * 1000) {
         analyser.getFloatTimeDomainData(frame)
         const rawDetection = detectPitch(
@@ -566,8 +566,10 @@ const PitchDetectorPage = () => {
       if (audio) {
         audio.currentTime = nextTime
         audio.volume = uploadVolume
-        void audio.play()
-        setUploadPlaying(true)
+        void audio.play().catch(() => {
+          setUploadPlaying(false)
+          setUploadError('浏览器没有成功开始播放，请再次点击播放按钮。')
+        })
       }
       setUploadCurrentTime(nextTime)
     },
@@ -712,6 +714,11 @@ const PitchDetectorPage = () => {
         const timelineTime = Math.min(segment.endTime, segment.startTime + audio.currentTime)
         setLivePlaybackTime(timelineTime)
         setLiveCursorTime(timelineTime)
+        if (liveFollowingPlayback) {
+          setLiveViewport((prev) =>
+            preserveViewportReference(prev, followPitchViewport(prev, timelineTime, 1)),
+          )
+        }
       }
       livePlaybackFrameRef.current = requestAnimationFrame(syncPlaybackCursor)
     }
@@ -722,14 +729,25 @@ const PitchDetectorPage = () => {
         livePlaybackFrameRef.current = null
       }
     }
-  }, [livePlaying])
+  }, [liveFollowingPlayback, livePlaying])
 
   useEffect(() => {
     if (!uploadPlaying) return
     const syncPlaybackCursor = () => {
       const audio = uploadAudioRef.current
       if (!audio || audio.paused || audio.ended) return
-      setUploadCurrentTime(audio.currentTime)
+      const timelineTime = audio.currentTime
+      setUploadCurrentTime(timelineTime)
+      if (uploadFollowingPlayback) {
+        setUploadViewport((prev) => {
+          const nextViewport = clampPitchView(followPitchViewport(prev, timelineTime, 1), {
+            minTime: 0,
+            maxTime: Math.max(1, uploadDuration),
+            minSpan: 1,
+          })
+          return preserveViewportReference(prev, nextViewport)
+        })
+      }
       uploadPlaybackFrameRef.current = requestAnimationFrame(syncPlaybackCursor)
     }
     uploadPlaybackFrameRef.current = requestAnimationFrame(syncPlaybackCursor)
@@ -739,7 +757,7 @@ const PitchDetectorPage = () => {
         uploadPlaybackFrameRef.current = null
       }
     }
-  }, [uploadPlaying])
+  }, [uploadDuration, uploadFollowingPlayback, uploadPlaying])
 
   useEffect(() => {
     if (livePlaybackAudioRef.current) livePlaybackAudioRef.current.volume = liveVolume
@@ -849,6 +867,7 @@ const PitchDetectorPage = () => {
                   src={livePlaybackUrl ?? undefined}
                   className="hidden"
                   onTimeUpdate={(event) => {
+                    if (livePlaying) return
                     const segment = activeLiveRecordingSegmentRef.current
                     const timelineTime = (segment?.startTime ?? 0) + event.currentTarget.currentTime
                     setLivePlaybackTime(timelineTime)
@@ -900,10 +919,15 @@ const PitchDetectorPage = () => {
                         Math.min(uploadCurrentTime, event.currentTarget.duration || 0),
                       )
                     }}
-                    onTimeUpdate={(event) => setUploadCurrentTime(event.currentTarget.currentTime)}
+                    onTimeUpdate={(event) => {
+                      if (!uploadPlaying) setUploadCurrentTime(event.currentTarget.currentTime)
+                    }}
                     onPlay={() => setUploadPlaying(true)}
                     onPause={() => setUploadPlaying(false)}
-                    onEnded={() => setUploadPlaying(false)}
+                    onEnded={(event) => {
+                      setUploadCurrentTime(event.currentTarget.duration || uploadDuration)
+                      setUploadPlaying(false)
+                    }}
                   />
                 )}
                 <UploadWorkbench
@@ -1185,7 +1209,6 @@ const LiveWorkbench = ({
       pathMaxTimeGap={LIVE_HOP_SECONDS * 3}
       pathMaxPitchJumpSemitones={3}
       timelineMaxTime={0}
-      playing={playing}
       playbackAvailable={playbackAvailable}
       followingPlayback={followingPlayback}
       onFollowingPlaybackChange={onFollowingPlaybackChange}
@@ -1303,7 +1326,6 @@ const UploadWorkbench = ({
         pathMaxTimeGap={0.22}
         pathMaxPitchJumpSemitones={5}
         timelineMaxTime={duration}
-        playing={playing}
         playbackAvailable={duration > 0}
         followingPlayback={followingPlayback}
         onFollowingPlaybackChange={onFollowingPlaybackChange}
@@ -1385,7 +1407,6 @@ const ResultSurface = ({
   pathMaxTimeGap,
   pathMaxPitchJumpSemitones,
   timelineMaxTime,
-  playing,
   playbackAvailable,
   followingPlayback,
   onFollowingPlaybackChange,
@@ -1401,7 +1422,6 @@ const ResultSurface = ({
   pathMaxTimeGap: number
   pathMaxPitchJumpSemitones: number
   timelineMaxTime: number
-  playing: boolean
   playbackAvailable: boolean
   followingPlayback: boolean
   onFollowingPlaybackChange: (following: boolean) => void
@@ -1421,7 +1441,6 @@ const ResultSurface = ({
       pathMaxTimeGap={pathMaxTimeGap}
       pathMaxPitchJumpSemitones={pathMaxPitchJumpSemitones}
       timelineMaxTime={timelineMaxTime}
-      playing={playing}
       playbackAvailable={playbackAvailable}
       followingPlayback={followingPlayback}
       onFollowingPlaybackChange={onFollowingPlaybackChange}
@@ -1563,7 +1582,6 @@ const PitchChart = ({
   pathMaxTimeGap,
   pathMaxPitchJumpSemitones,
   timelineMaxTime,
-  playing,
   playbackAvailable,
   followingPlayback,
   onFollowingPlaybackChange,
@@ -1577,7 +1595,6 @@ const PitchChart = ({
   pathMaxTimeGap: number
   pathMaxPitchJumpSemitones: number
   timelineMaxTime: number
-  playing: boolean
   playbackAvailable: boolean
   followingPlayback: boolean
   onFollowingPlaybackChange: (following: boolean) => void
@@ -1601,34 +1618,46 @@ const PitchChart = ({
     time: number
     point: PitchTrackPoint | null
   } | null>(null)
-  const timelineBounds = useMemo(() => {
-    const lastTime = points.length > 0 ? points[points.length - 1].time : Math.max(20, cursorTime)
-    return {
+  const lastPointTime = points.length > 0 ? points[points.length - 1].time : 0
+  const emptyTimelineCursor = points.length === 0 ? cursorTime : 0
+  const timelineBounds = useMemo(
+    () => ({
       minTime: 0,
-      maxTime: Math.max(20, lastTime, timelineMaxTime, viewport.endTime),
+      maxTime: Math.max(
+        20,
+        lastPointTime,
+        timelineMaxTime,
+        viewport.endTime,
+        emptyTimelineCursor,
+      ),
       minSpan: 1,
-    }
-  }, [cursorTime, points, timelineMaxTime, viewport.endTime])
+    }),
+    [emptyTimelineCursor, lastPointTime, timelineMaxTime, viewport.endTime],
+  )
   const visibleViewport = useMemo(
     () => clampPitchView(viewport, timelineBounds),
     [timelineBounds, viewport],
   )
   const visiblePoints = useMemo(
-    () =>
-      points.filter(
-        (point) => point.time >= visibleViewport.startTime && point.time <= visibleViewport.endTime,
-      ),
+    () => pointsInTimeRange(points, visibleViewport.startTime, visibleViewport.endTime),
     [points, visibleViewport],
   )
-  const voiced = visiblePoints.filter((point) => point.isVoiced && point.frequencyHz != null)
-  const minFrequency =
-    voiced.length > 0
-      ? Math.max(65, Math.min(...voiced.map((point) => point.frequencyHz as number)) - 40)
-      : 65
-  const maxFrequency =
-    voiced.length > 0
-      ? Math.min(1200, Math.max(...voiced.map((point) => point.frequencyHz as number)) + 40)
-      : 1200
+  const { minFrequency, maxFrequency } = useMemo(() => {
+    let detectedMin = Number.POSITIVE_INFINITY
+    let detectedMax = Number.NEGATIVE_INFINITY
+    for (const point of visiblePoints) {
+      if (!point.isVoiced || point.frequencyHz == null) continue
+      detectedMin = Math.min(detectedMin, point.frequencyHz)
+      detectedMax = Math.max(detectedMax, point.frequencyHz)
+    }
+    if (!Number.isFinite(detectedMin) || !Number.isFinite(detectedMax)) {
+      return { minFrequency: 65, maxFrequency: 1200 }
+    }
+    return {
+      minFrequency: Math.max(65, detectedMin - 40),
+      maxFrequency: Math.min(1200, detectedMax + 40),
+    }
+  }, [visiblePoints])
   const timeSpan = Math.max(0.1, visibleViewport.endTime - visibleViewport.startTime)
   const noteTicks = useMemo(
     () =>
@@ -1646,17 +1675,29 @@ const PitchChart = ({
     CHART_PLOT.left +
     ((cursorTime - visibleViewport.startTime) / timeSpan) *
       (CHART_WIDTH - CHART_PLOT.left - CHART_PLOT.right)
-  const path = buildPitchPath(visiblePoints, {
-    minTime: visibleViewport.startTime,
-    timeSpan,
-    minFrequency,
-    maxFrequency,
-    chartWidth: CHART_WIDTH,
-    chartHeight: CHART_HEIGHT,
-    plot: CHART_PLOT,
-    maxTimeGap: pathMaxTimeGap,
-    maxPitchJumpSemitones: pathMaxPitchJumpSemitones,
-  })
+  const path = useMemo(
+    () =>
+      buildPitchPath(visiblePoints, {
+        minTime: visibleViewport.startTime,
+        timeSpan,
+        minFrequency,
+        maxFrequency,
+        chartWidth: CHART_WIDTH,
+        chartHeight: CHART_HEIGHT,
+        plot: CHART_PLOT,
+        maxTimeGap: pathMaxTimeGap,
+        maxPitchJumpSemitones: pathMaxPitchJumpSemitones,
+      }),
+    [
+      maxFrequency,
+      minFrequency,
+      pathMaxPitchJumpSemitones,
+      pathMaxTimeGap,
+      timeSpan,
+      visiblePoints,
+      visibleViewport.startTime,
+    ],
+  )
   const yFromFrequency = (frequencyHz: number) =>
     chartYFromFrequency(
       frequencyHz,
@@ -1679,20 +1720,6 @@ const PitchChart = ({
       if (referenceTimeoutRef.current) clearTimeout(referenceTimeoutRef.current)
     }
   }, [])
-
-  useEffect(() => {
-    if (!followingPlayback || !playing) return
-    const nextViewport = clampPitchView(
-      followPitchViewport(visibleViewport, cursorTime, timelineBounds.minSpan),
-      timelineBounds,
-    )
-    if (
-      nextViewport.startTime !== visibleViewport.startTime ||
-      nextViewport.endTime !== visibleViewport.endTime
-    ) {
-      onViewportChange(nextViewport)
-    }
-  }, [cursorTime, followingPlayback, onViewportChange, playing, timelineBounds, visibleViewport])
 
   const pointerPosition = (clientX: number) => {
     const rect = chartRef.current?.getBoundingClientRect()
@@ -2343,6 +2370,35 @@ function findNearestPoint(points: PitchTrackPoint[], time: number): PitchTrackPo
     }
   }
   return nearest
+}
+
+function preserveViewportReference(current: PitchViewport, next: PitchViewport): PitchViewport {
+  return current.startTime === next.startTime && current.endTime === next.endTime ? current : next
+}
+
+function pointsInTimeRange(
+  points: PitchTrackPoint[],
+  startTime: number,
+  endTime: number,
+): PitchTrackPoint[] {
+  let start = 0
+  let end = points.length
+  while (start < end) {
+    const middle = Math.floor((start + end) / 2)
+    if (points[middle].time < startTime) start = middle + 1
+    else end = middle
+  }
+  const startIndex = start
+
+  end = points.length
+  while (start < end) {
+    const middle = Math.floor((start + end) / 2)
+    if (points[middle].time <= endTime) start = middle + 1
+    else end = middle
+  }
+
+  if (startIndex === 0 && start === points.length) return points
+  return points.slice(startIndex, start)
 }
 
 function findRecordingSegment(
