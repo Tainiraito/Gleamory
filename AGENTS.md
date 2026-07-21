@@ -162,7 +162,7 @@ TMPDIR=/tmp TMP=/tmp TEMP=/tmp npm test
 - 保持暖纸、琥珀、墨黑、细边框和杂志式留白的全站视觉语言。
 - 颜色、字体、背景、边框和阴影优先使用 `src/styles/globals.css` 中的 CSS 自定义属性。
 - 页面横向布局只允许使用 `src/components/PageContainer.tsx` 的两档容器：`standard`（首页与普通功能页，最大 90rem）和 `wide`（指板训练、音高检测等宽工作台，最大 100rem）。`SiteHeader` 与 `PageMain` 必须选择同一档，不得在页面内新增独立百分比边距或第三套最大宽度。
-- 全站使用“表达 / 产品 / 数据”三层本地字体：`--font-display` 为 `Gleamory Editorial`（思源宋体），`--font-sans` 为 `Gleamory UI`（思源黑体），`--font-mono` 为 `Gleamory Mono`（Source Code Pro）。已删除 `font-kai`；诗词使用 `font-display`。
+- 全站使用“表达 / 产品 / 数据”三层本地字体：`--font-display` 为 `Gleamory Editorial`（思源宋体），`--font-sans` 为 `Gleamory UI`（思源黑体），`--font-mono` 为 `Gleamory Mono`（Source Code Pro）。已删除 `font-kai`；诗词使用 `font-display`。Editorial 500/600 与 UI 400/500 四份中文字体都必须覆盖完整 GB2312 与当前运行时字符。
 - 正文与原生控件使用 UI 400，固定控件与标签使用 UI 500，动态诗词使用 Editorial 500，固定标题使用 Editorial 600；数字、时间、坐标、版本、日志和代码才使用 Mono 400/500。不得使用 650/750、700、中文斜体或浏览器合成字形。
 - 中文界面文字不得小于 12px；仅短数字和单位的图表刻度可使用 11px/16px。中文正文不使用负字距，大字距标签不超过 `0.08em`。
 - 不以 `system-ui`、LXGW WenKai、KaiTi 或外部字体服务作为主要来源，不新增运行时字体依赖，不提交完整 OTF/TTF。仅确认 GB2312 以外的动态字形确实不足时，才讨论补充字体资源。

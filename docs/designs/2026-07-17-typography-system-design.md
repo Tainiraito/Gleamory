@@ -63,13 +63,13 @@
 | 文件 | 覆盖 | 场景 |
 | --- | --- | --- |
 | `GleamoryEditorial-Medium.woff2` | 完整 GB2312 + 当前运行时字符 | 远程诗词、动态编辑内容 |
-| `GleamoryEditorial-SemiBold.woff2` | 当前运行时字符 | 固定品牌与标题 |
+| `GleamoryEditorial-SemiBold.woff2` | 完整 GB2312 + 当前运行时字符 | 品牌、页面标题与动态章节标题 |
 | `GleamoryUI-Regular.woff2` | 完整 GB2312 + 当前运行时字符 | 正文、用户输入、文件名、动态提示 |
-| `GleamoryUI-Medium.woff2` | 当前运行时字符 | 固定控件与标签 |
+| `GleamoryUI-Medium.woff2` | 完整 GB2312 + 当前运行时字符 | 控件、标签、状态与动态强调文字 |
 | `GleamoryMono-Regular.woff2` | Latin-1、单位、货币和数学符号 | 数据、日志、代码 |
 | `GleamoryMono-Medium.woff2` | 同上 | 强调数据值 |
 
-动态内容超出 GB2312 时允许按 token 回退，并先通过真实内容确认缺口；不为假设性字符加入完整字体。
+四份中文字体统一覆盖 GB2312，避免新增常用简体中文时因字重职责不同再次生成字体。动态内容超出 GB2312 时允许按 token 回退，并先通过真实内容确认缺口；不为假设性字符加入完整 CJK 字库。
 
 ## 7. 分发与维护
 
@@ -87,7 +87,7 @@ npm run check:fonts
 ## 8. 验收
 
 - 页面无外部字体请求，源码无 `font-kai`、系统字体主来源、650/700/750、中文斜体和低于 11px 的文字。
-- GB2312 动态字体职责内中文字零缺失，固定字体覆盖当前运行时中文，Mono 不包含中文。
+- 四份中文字体均覆盖完整 GB2312 与当前运行时字符，Mono 不包含中文。
 - 内部 family 为 Gleamory 派生名称，版权、版本、OFL 文本和许可证 URL 完整。
-- 动态 CJK 单文件不超过 2.2 MB，核心 CJK 不超过 500 KB，Mono 不超过 100 KB，总字体资产不超过 5 MB。
+- CJK 单文件不超过 2.2 MB，Mono 不超过 100 KB，总字体资产不超过 7.5 MB。
 - Windows Chrome/Edge 在 100%、125%、150% 缩放及 375px、1440px、1920px 视口完成真实设备视觉确认。

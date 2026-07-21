@@ -67,8 +67,8 @@ FACES = (
         "family": "Gleamory Editorial",
         "style": "SemiBold",
         "weight": 600,
-        "coverage": "runtime",
-        "scenario": "品牌、页面标题与固定章节标题",
+        "coverage": "gb2312-runtime",
+        "scenario": "品牌、页面标题与动态章节标题",
     },
     {
         "source": "SourceHanSansSC-Regular.otf",
@@ -91,8 +91,8 @@ FACES = (
         "family": "Gleamory UI",
         "style": "Medium",
         "weight": 500,
-        "coverage": "runtime",
-        "scenario": "固定控件、标签与状态",
+        "coverage": "gb2312-runtime",
+        "scenario": "控件、标签、状态与动态强调文字",
     },
     {
         "source": "SourceCodePro-Regular.otf",
@@ -262,7 +262,6 @@ def main() -> None:
     runtime = collect_runtime_codepoints()
     gb2312 = collect_gb2312_codepoints()
     coverage_sets = {
-        "runtime": runtime,
         "gb2312-runtime": runtime | gb2312,
         "mono": collect_mono_codepoints(),
     }
@@ -320,11 +319,6 @@ def main() -> None:
                 "codepointCount": len(actual_profiles["gb2312-runtime"]),
                 "codepointRanges": compress_ranges(actual_profiles["gb2312-runtime"]),
             },
-            "runtime": {
-                "description": "当前运行时字符",
-                "codepointCount": len(actual_profiles["runtime"]),
-                "codepointRanges": compress_ranges(actual_profiles["runtime"]),
-            },
             "mono": {
                 "description": "ASCII、Latin-1、常用单位、货币与数学符号；不包含中文",
                 "codepointCount": len(actual_profiles["mono"]),
@@ -333,10 +327,9 @@ def main() -> None:
         },
         "sources": SOURCES,
         "budgets": {
-            "dynamicCjkFileBytes": 2_200_000,
-            "coreCjkFileBytes": 500_000,
+            "cjkFileBytes": 2_200_000,
             "monoFileBytes": 100_000,
-            "totalBytes": 5_000_000,
+            "totalBytes": 7_500_000,
         },
         "files": files,
     }
