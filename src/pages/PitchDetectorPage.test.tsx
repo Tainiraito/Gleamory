@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as audioDecode from '@/lib/audio/decode'
@@ -228,6 +228,68 @@ describe('PitchDetectorPage', () => {
     expect(Number(endThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(zoomedEnd)
   })
 
+  it('updates the live cursor on animation frames between pitch analysis samples', async () => {
+    let now = 1_000
+    let animationFrame: FrameRequestCallback | null = null
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        animationFrame = callback
+        return 7
+      }),
+    )
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    vi.stubGlobal('MediaRecorder', undefined)
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getAudioTracks: () => [{}],
+          getTracks: () => [{ stop: vi.fn() }],
+        }),
+        getDisplayMedia: vi.fn(),
+      },
+    })
+    class FakeAudioContext {
+      sampleRate = 44_100
+      state = 'running'
+      resume = vi.fn().mockResolvedValue(undefined)
+      createAnalyser = () => ({
+        fftSize: 0,
+        smoothingTimeConstant: 0,
+        disconnect: vi.fn(),
+        getFloatTimeDomainData: vi.fn(),
+      })
+      createMediaStreamSource = () => ({ connect: vi.fn(), disconnect: vi.fn() })
+      createBiquadFilter = () => ({
+        type: 'highpass',
+        frequency: { value: 0 },
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      })
+      close = vi.fn().mockResolvedValue(undefined)
+    }
+    vi.stubGlobal('AudioContext', FakeAudioContext)
+
+    render(
+      <MemoryRouter>
+        <PitchDetectorPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '开始' }))
+    expect(await screen.findByText('检测中')).toBeInTheDocument()
+
+    const chart = screen.getByRole('group', { name: '交互式音高曲线' })
+    const cursorBefore = chart.querySelector('line[stroke-dasharray="5 6"]')!
+    expect(Number(cursorBefore.getAttribute('x1'))).toBe(48)
+
+    now = 1_016
+    act(() => animationFrame?.(0))
+
+    const cursorAfter = chart.querySelector('line[stroke-dasharray="5 6"]')!
+    expect(Number(cursorAfter.getAttribute('x1'))).toBeGreaterThan(48)
+  })
+
   it('follows the playback cursor when enabled and stops following after a timeline drag', async () => {
     const samples = new Float32Array(8_820)
     vi.spyOn(audioDecode, 'decodeAudioFile').mockResolvedValue({
@@ -351,6 +413,7 @@ describe('PitchDetectorPage', () => {
       }
     }
     const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
     vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined)
     Object.defineProperty(HTMLMediaElement.prototype, 'readyState', {
       configurable: true,
@@ -368,10 +431,8 @@ describe('PitchDetectorPage', () => {
     })
     vi.stubGlobal('AudioContext', FakeAudioContext)
     vi.stubGlobal('MediaRecorder', FakeMediaRecorder)
-    vi.stubGlobal(
-      'requestAnimationFrame',
-      vi.fn(() => 9),
-    )
+    const requestAnimationFrame = vi.fn(() => 9)
+    vi.stubGlobal('requestAnimationFrame', requestAnimationFrame)
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
     const recordedBlobs: Blob[] = []
     const createObjectURL = vi.fn((blob: Blob) => {
@@ -424,6 +485,18 @@ describe('PitchDetectorPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: '播放回放' }))
     expect(play).toHaveBeenCalledTimes(3)
+
+    const frameCountBeforePlayback = requestAnimationFrame.mock.calls.length
+    fireEvent.play(liveAudio)
+    expect(requestAnimationFrame.mock.calls.length).toBeGreaterThan(frameCountBeforePlayback)
+    const followButton = screen.getByRole('button', { name: '跟随播放位置' })
+    fireEvent.click(followButton)
+    expect(followButton).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: '开始' }))
+    expect(await screen.findByText('检测中')).toBeInTheDocument()
+    expect(pause).toHaveBeenCalledOnce()
+    expect(followButton).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('plays a piano reference tone from a vertical-axis note', () => {
