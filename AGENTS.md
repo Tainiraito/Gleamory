@@ -452,12 +452,20 @@ git rev-list --left-right --count origin/main...main
 - 不使用本地 `git merge` 直接把主题分支合入 `main`，不绕过 GitHub 分支保护或必需检查。
 - 未经用户明确要求，不创建、批准、合并或关闭 PR。
 
-### 合并后清理
+### 合并后同步与本地自动清理
 
-- 确认 PR 已合并且远程 `main` 已包含结果后，再同步本地：`git switch main`、`git pull --ff-only`、`git fetch origin --prune`。
-- 远程主题分支由 GitHub 在 PR 合并后自动删除；仍被其他 PR 或 worktree 使用的分支不得删除。
-- Squash merge 后本地主题分支可能需要强制删除。`git branch -D <branch>` 和 `git worktree remove <path>` 都属于清理性破坏操作，必须先确认没有未提交修改并取得用户明确授权。
-- 删除前记录 PR 或合并提交，确保后续可以定位、恢复或回滚。
+- 确认远程 PR 已合并且 `origin/main` 已包含 Squash 提交后，再同步本地：`git fetch origin --prune`、`git switch main`、`git pull --ff-only`。
+- 清理前记录 PR 编号、PR head SHA 和 Squash 提交 SHA，确保后续可以通过 GitHub PR、`origin/main` 或提交 SHA 定位、恢复和回滚。
+- 同时满足以下全部条件时，远程合并流程默认包含本地清理，不必再逐次询问：
+  1. GitHub 明确返回 PR 已合并，且最新 `origin/main` 包含对应 Squash 提交；
+  2. 本地主题分支 HEAD 与该 PR 的最终 head SHA 完全一致，不存在 PR 之外的额外本地提交；
+  3. 对应 worktree 的已修改、已暂存和未跟踪文件均为空；
+  4. 该分支没有被其他开放 PR 使用，也不是 `main`、长期分支或 `backup/*` 安全备份；
+  5. 若分支被专用 worktree 占用，先确认该 worktree 只服务于这个已合并任务。
+- 满足上述条件后，先移除对应的干净专用 worktree，再使用 `git branch -D <branch>` 删除 Squash merge 后的本地主题分支；最后执行 `git worktree prune` 并重新检查 `git branch -vv` 与 `git worktree list`。
+- 不得仅依据 `git branch --merged` 判断 Squash 分支是否安全，因为 Squash 提交不会保留主题分支的祖先关系；必须以 GitHub PR 状态和最终 head SHA 为准。
+- 远程主题分支优先由 GitHub 在 PR 合并后自动删除。远程未自动删除时只报告，不额外执行远程删除，除非用户明确要求。
+- 任一条件不满足时保留本地分支并报告原因。尤其不得自动删除工作区不干净、HEAD 与 PR 不一致、仍有关联开放 PR、包含独有提交或属于 `backup/*` 的分支。
 
 ## 相关文档
 
