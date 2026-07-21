@@ -14,6 +14,7 @@ import {
   Activity,
   AlertCircle,
   FileAudio,
+  LocateFixed,
   Maximize2,
   Mic,
   MonitorSpeaker,
@@ -763,7 +764,7 @@ const PitchDetectorPage = () => {
               style={{ background: 'rgba(250,246,240,0.9)', borderColor: 'rgba(44,42,48,0.12)' }}
             >
               <div
-                className="grid border-b xl:grid-cols-[17rem_minmax(0,1fr)]"
+                className="grid border-b xl:grid-cols-[18.5rem_minmax(0,1fr)]"
                 style={{ borderColor: 'rgba(44,42,48,0.11)' }}
               >
                 <div
@@ -1138,6 +1139,9 @@ const LiveWorkbench = ({
       emptyText="开始检测后，音高曲线会显示在这里。"
       pathMaxTimeGap={LIVE_HOP_SECONDS * 3}
       pathMaxPitchJumpSemitones={3}
+      timelineMaxTime={0}
+      playing={playing}
+      playbackAvailable={playbackAvailable}
       onViewportChange={onViewportChange}
       onSeek={onSeek}
     />
@@ -1247,6 +1251,9 @@ const UploadWorkbench = ({
         }
         pathMaxTimeGap={0.22}
         pathMaxPitchJumpSemitones={5}
+        timelineMaxTime={duration}
+        playing={playing}
+        playbackAvailable={duration > 0}
         onViewportChange={onViewportChange}
         onSeek={onSeek}
       />
@@ -1324,6 +1331,9 @@ const ResultSurface = ({
   emptyText,
   pathMaxTimeGap,
   pathMaxPitchJumpSemitones,
+  timelineMaxTime,
+  playing,
+  playbackAvailable,
   onViewportChange,
   onSeek,
 }: {
@@ -1335,6 +1345,9 @@ const ResultSurface = ({
   emptyText: string
   pathMaxTimeGap: number
   pathMaxPitchJumpSemitones: number
+  timelineMaxTime: number
+  playing: boolean
+  playbackAvailable: boolean
   onViewportChange: (viewport: PitchViewport) => void
   onSeek: (time: number) => void
 }) => (
@@ -1344,12 +1357,16 @@ const ResultSurface = ({
       <PitchReadout current={current} />
     </div>
     <PitchChart
+      key={playbackAvailable ? 'playback-ready' : 'playback-empty'}
       points={points}
       cursorTime={cursorTime}
       viewport={viewport}
       emptyText={emptyText}
       pathMaxTimeGap={pathMaxTimeGap}
       pathMaxPitchJumpSemitones={pathMaxPitchJumpSemitones}
+      timelineMaxTime={timelineMaxTime}
+      playing={playing}
+      playbackAvailable={playbackAvailable}
       onViewportChange={onViewportChange}
       onSeek={onSeek}
     />
@@ -1487,6 +1504,9 @@ const PitchChart = ({
   emptyText,
   pathMaxTimeGap,
   pathMaxPitchJumpSemitones,
+  timelineMaxTime,
+  playing,
+  playbackAvailable,
   onViewportChange,
   onSeek,
 }: {
@@ -1496,6 +1516,9 @@ const PitchChart = ({
   emptyText: string
   pathMaxTimeGap: number
   pathMaxPitchJumpSemitones: number
+  timelineMaxTime: number
+  playing: boolean
+  playbackAvailable: boolean
   onViewportChange: (viewport: PitchViewport) => void
   onSeek: (time: number) => void
 }) => {
@@ -1510,6 +1533,7 @@ const PitchChart = ({
   } | null>(null)
   const referenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [activeReferenceFrequency, setActiveReferenceFrequency] = useState<number | null>(null)
+  const [followingPlayback, setFollowingPlayback] = useState(false)
   const [hover, setHover] = useState<{
     x: number
     y: number
@@ -1518,8 +1542,12 @@ const PitchChart = ({
   } | null>(null)
   const timelineBounds = useMemo(() => {
     const lastTime = points.length > 0 ? points[points.length - 1].time : Math.max(20, cursorTime)
-    return { minTime: 0, maxTime: Math.max(20, lastTime, viewport.endTime), minSpan: 1 }
-  }, [cursorTime, points, viewport.endTime])
+    return {
+      minTime: 0,
+      maxTime: Math.max(20, lastTime, timelineMaxTime, viewport.endTime),
+      minSpan: 1,
+    }
+  }, [cursorTime, points, timelineMaxTime, viewport.endTime])
   const visibleViewport = useMemo(
     () => clampPitchView(viewport, timelineBounds),
     [timelineBounds, viewport],
@@ -1591,6 +1619,20 @@ const PitchChart = ({
     }
   }, [])
 
+  useEffect(() => {
+    if (!followingPlayback || !playing) return
+    const nextViewport = clampPitchView(
+      followPitchViewport(visibleViewport, cursorTime, timelineBounds.minSpan),
+      timelineBounds,
+    )
+    if (
+      nextViewport.startTime !== visibleViewport.startTime ||
+      nextViewport.endTime !== visibleViewport.endTime
+    ) {
+      onViewportChange(nextViewport)
+    }
+  }, [cursorTime, followingPlayback, onViewportChange, playing, timelineBounds, visibleViewport])
+
   const pointerPosition = (clientX: number) => {
     const rect = chartRef.current?.getBoundingClientRect()
     if (!rect) return { svgX: CHART_PLOT.left, time: visibleViewport.startTime }
@@ -1636,7 +1678,10 @@ const PitchChart = ({
     })
     if (!drag || !rect) return
     const deltaX = event.clientX - drag.x
-    if (Math.abs(deltaX) > 3) drag.moved = true
+    if (Math.abs(deltaX) > 3) {
+      drag.moved = true
+      setFollowingPlayback(false)
+    }
     const renderedPlotStart = (CHART_PLOT.left / CHART_WIDTH) * rect.width
     const renderedPlotEnd = ((CHART_WIDTH - CHART_PLOT.right) / CHART_WIDTH) * rect.width
     const drawableWidth = Math.max(1, renderedPlotEnd - renderedPlotStart)
@@ -1663,6 +1708,7 @@ const PitchChart = ({
     if (!Array.isArray(value)) return
     const [startTime, endTime] = value
     if (startTime == null || endTime == null) return
+    setFollowingPlayback(false)
     onViewportChange(clampPitchView({ startTime, endTime }, timelineBounds))
   }
 
@@ -1672,6 +1718,7 @@ const PitchChart = ({
     if (timeSpan >= timelineBounds.maxTime - timelineBounds.minTime - 0.001) return
     event.preventDefault()
     event.stopPropagation()
+    setFollowingPlayback(false)
     timelineDragRef.current = {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -1724,6 +1771,29 @@ const PitchChart = ({
           </span>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="跟随播放位置"
+                  aria-pressed={followingPlayback}
+                  disabled={!playbackAvailable}
+                  className={
+                    followingPlayback
+                      ? 'border-[var(--accent-amber)] bg-[var(--accent-glow)] text-[var(--accent-amber)]'
+                      : undefined
+                  }
+                  onClick={() => setFollowingPlayback((current) => !current)}
+                >
+                  <LocateFixed />
+                </Button>
+              }
+            />
+            <TooltipContent>{followingPlayback ? '关闭播放跟随' : '开启播放跟随'}</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger
               render={

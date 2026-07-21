@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as audioDecode from '@/lib/audio/decode'
@@ -18,7 +18,7 @@ describe('PitchDetectorPage', () => {
     )
 
     expect(screen.getByRole('heading', { name: '音高检测' })).toBeInTheDocument()
-    expect(screen.getByText('v0.4.0')).toBeInTheDocument()
+    expect(screen.getByText('v0.5.0')).toBeInTheDocument()
     expect(screen.getByLabelText('当前音高读数')).toBeInTheDocument()
     expect(screen.getByText('等待稳定音高')).toBeInTheDocument()
     expect(screen.getByText('音频仅在本机处理，不会上传')).toBeInTheDocument()
@@ -226,6 +226,85 @@ describe('PitchDetectorPage', () => {
 
     expect(Number(startThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(zoomedStart)
     expect(Number(endThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(zoomedEnd)
+  })
+
+  it('follows the playback cursor when enabled and stops following after a timeline drag', async () => {
+    const samples = new Float32Array(8_820)
+    vi.spyOn(audioDecode, 'decodeAudioFile').mockResolvedValue({
+      duration: 60,
+      length: samples.length,
+      numberOfChannels: 1,
+      sampleRate: 44_100,
+      getChannelData: () => samples,
+      copyFromChannel: vi.fn(),
+      copyToChannel: vi.fn(),
+    } as AudioBuffer)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:upload-follow-test')
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        setTimeout(() => callback(0), 0)
+        return 11
+      }),
+    )
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+
+    const { container } = render(
+      <MemoryRouter>
+        <PitchDetectorPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('tab', { name: '上传分析' }))
+    fireEvent.change(container.querySelector<HTMLInputElement>('input[type="file"]')!, {
+      target: { files: [new File(['audio'], 'follow.wav', { type: 'audio/wav' })] },
+    })
+
+    expect(await screen.findByText('分析完成')).toBeInTheDocument()
+    const followButton = screen.getByRole('button', { name: '跟随播放位置' })
+    expect(followButton).toBeEnabled()
+    expect(followButton).toHaveAttribute('aria-pressed', 'false')
+
+    const chart = screen.getByRole('group', { name: '交互式音高曲线' })
+    Object.defineProperty(chart, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 0, top: 0, width: 960, height: 360, right: 960, bottom: 360 }),
+    })
+    Object.defineProperties(chart, {
+      setPointerCapture: { configurable: true, value: vi.fn() },
+      hasPointerCapture: { configurable: true, value: vi.fn(() => true) },
+      releasePointerCapture: { configurable: true, value: vi.fn() },
+    })
+    fireEvent.wheel(chart, { clientX: 480, deltaY: -120 })
+
+    const timelineRange = screen.getByRole('group', { name: '时间轴可视范围' })
+    const startThumb = within(timelineRange).getByLabelText('可视范围起点')
+    const startBeforeFollowing = Number(startThumb.getAttribute('aria-valuenow'))
+
+    fireEvent.click(followButton)
+    expect(followButton).toHaveAttribute('aria-pressed', 'true')
+
+    const uploadAudio = Array.from(container.querySelectorAll('audio')).find(
+      (audio) => audio.getAttribute('src') === 'blob:upload-follow-test',
+    )!
+    uploadAudio.currentTime = 50
+    fireEvent.timeUpdate(uploadAudio)
+    fireEvent.play(uploadAudio)
+
+    await waitFor(() => {
+      expect(Number(startThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(startBeforeFollowing)
+    })
+
+    fireEvent.pointerDown(chart, { clientX: 500, pointerId: 8 })
+    fireEvent.pointerMove(chart, { clientX: 420, pointerId: 8 })
+    fireEvent.pointerUp(chart, { clientX: 420, pointerId: 8 })
+
+    expect(followButton).toHaveAttribute('aria-pressed', 'false')
+    const startAfterDrag = startThumb.getAttribute('aria-valuenow')
+    uploadAudio.currentTime = 20
+    fireEvent.timeUpdate(uploadAudio)
+    await waitFor(() => {
+      expect(startThumb).toHaveAttribute('aria-valuenow', startAfterDrag)
+    })
   })
 
   it('keeps later recording sessions independently playable after an earlier playback', async () => {
