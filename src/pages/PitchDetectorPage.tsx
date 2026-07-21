@@ -149,6 +149,7 @@ const PitchDetectorPage = () => {
   const livePitchStabilizerRef = useRef(createLivePitchStabilizerState())
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
+  const uploadPlaybackFrameRef = useRef<number | null>(null)
   const liveStartMsRef = useRef(0)
   const liveBaseSecondsRef = useRef(0)
   const lastLiveSampleMsRef = useRef(0)
@@ -357,10 +358,11 @@ const PitchDetectorPage = () => {
       setLiveError(null)
       setLiveSource(source)
       try {
+        const mediaDevices = requireMediaDevices(source)
         const stream =
           source === 'display-audio'
-            ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
-            : await navigator.mediaDevices.getUserMedia({
+            ? await mediaDevices.getDisplayMedia!({ video: true, audio: true })
+            : await mediaDevices.getUserMedia({
                 audio: buildMicrophoneConstraints(selectedMicrophoneId),
               })
 
@@ -432,39 +434,6 @@ const PitchDetectorPage = () => {
     setLiveStatus(livePoints.length > 0 ? 'paused' : 'idle')
   }, [livePoints.length, stopLiveInput])
 
-  useEffect(() => {
-    const rememberPointerFocusedButton = (event: PointerEvent) => {
-      const target = event.target
-      pointerFocusedButtonRef.current =
-        target instanceof Element ? target.closest<HTMLButtonElement>('button') : null
-    }
-    const clearStalePointerFocus = (event: FocusEvent) => {
-      if (event.target !== pointerFocusedButtonRef.current) {
-        pointerFocusedButtonRef.current = null
-      }
-    }
-    const handleRecordingShortcut = (event: KeyboardEvent) => {
-      if (activeTab !== 'live' || (event.code !== 'Space' && event.key !== ' ')) return
-      const focusedButton = findKeyboardButton(event.target)
-      const isPointerFocusedButton =
-        focusedButton != null && focusedButton === pointerFocusedButtonRef.current
-      if (isInteractiveKeyboardTarget(event.target) && !isPointerFocusedButton) return
-      event.preventDefault()
-      if (event.repeat) return
-      if (liveStatus === 'running') pauseLive()
-      else void startLive(liveSource)
-    }
-
-    window.addEventListener('pointerdown', rememberPointerFocusedButton, true)
-    window.addEventListener('focusin', clearStalePointerFocus)
-    window.addEventListener('keydown', handleRecordingShortcut)
-    return () => {
-      window.removeEventListener('pointerdown', rememberPointerFocusedButton, true)
-      window.removeEventListener('focusin', clearStalePointerFocus)
-      window.removeEventListener('keydown', handleRecordingShortcut)
-    }
-  }, [activeTab, liveSource, liveStatus, pauseLive, startLive])
-
   const clearLive = useCallback(() => {
     pendingLiveSeekRef.current = null
     stopLiveInput(true)
@@ -523,7 +492,7 @@ const PitchDetectorPage = () => {
         uploadAudioUrlRef.current = null
         return null
       })
-      appendUploadLog(`已选择 ${file.name}`)
+      appendUploadLog('已选择音频文件')
 
       void (async () => {
         try {
@@ -546,6 +515,8 @@ const PitchDetectorPage = () => {
           const track = analyzePitchTrack(mono, audioBuffer.sampleRate, {
             frameSize: 4096,
             hopSize: 1024,
+            rmsThreshold: 0.006,
+            confidenceThreshold: 0.82,
           })
           setUploadProgress(86)
           appendUploadLog(`完成 ${track.length} 个检测帧`)
@@ -591,6 +562,21 @@ const PitchDetectorPage = () => {
     [uploadVolume],
   )
 
+  const toggleUploadPlayback = useCallback(() => {
+    const audio = uploadAudioRef.current
+    if (!audio || !uploadAudioUrl) return
+    audio.volume = uploadVolume
+    if (audio.paused) {
+      if (audio.ended) audio.currentTime = 0
+      void audio.play().catch(() => {
+        setUploadPlaying(false)
+        setUploadError('浏览器没有成功开始播放，请再次点击播放按钮。')
+      })
+    } else {
+      audio.pause()
+    }
+  }, [uploadAudioUrl, uploadVolume])
+
   const toggleLivePlayback = useCallback(() => {
     const audio = livePlaybackAudioRef.current
     if (liveStatus === 'running' || !livePlaybackUrl) {
@@ -632,6 +618,51 @@ const PitchDetectorPage = () => {
   }, [playLiveAudioAt])
 
   useEffect(() => {
+    const rememberPointerFocusedButton = (event: PointerEvent) => {
+      const target = event.target
+      pointerFocusedButtonRef.current =
+        target instanceof Element ? target.closest<HTMLButtonElement>('button') : null
+    }
+    const clearStalePointerFocus = (event: FocusEvent) => {
+      if (event.target !== pointerFocusedButtonRef.current) {
+        pointerFocusedButtonRef.current = null
+      }
+    }
+    const handlePlaybackShortcut = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' && event.key !== ' ') return
+      const focusedButton = findKeyboardButton(event.target)
+      const isPointerFocusedButton =
+        focusedButton != null && focusedButton === pointerFocusedButtonRef.current
+      if (isInteractiveKeyboardTarget(event.target) && !isPointerFocusedButton) return
+      event.preventDefault()
+      if (event.repeat) return
+      if (activeTab === 'live') {
+        if (liveStatus === 'running') pauseLive()
+        else void startLive(liveSource)
+        return
+      }
+      if (uploadStatus === 'done') toggleUploadPlayback()
+    }
+
+    window.addEventListener('pointerdown', rememberPointerFocusedButton, true)
+    window.addEventListener('focusin', clearStalePointerFocus)
+    window.addEventListener('keydown', handlePlaybackShortcut)
+    return () => {
+      window.removeEventListener('pointerdown', rememberPointerFocusedButton, true)
+      window.removeEventListener('focusin', clearStalePointerFocus)
+      window.removeEventListener('keydown', handlePlaybackShortcut)
+    }
+  }, [
+    activeTab,
+    liveSource,
+    liveStatus,
+    pauseLive,
+    startLive,
+    toggleUploadPlayback,
+    uploadStatus,
+  ])
+
+  useEffect(() => {
     void refreshMicrophones()
     const mediaDevices = navigator.mediaDevices
     if (!mediaDevices || typeof mediaDevices.addEventListener !== 'function') return
@@ -660,12 +691,33 @@ const PitchDetectorPage = () => {
   }, [uploadVolume])
 
   useEffect(() => {
+    if (!uploadPlaying) return
+    const syncPlaybackCursor = () => {
+      const audio = uploadAudioRef.current
+      if (!audio || audio.paused || audio.ended) return
+      setUploadCurrentTime(audio.currentTime)
+      uploadPlaybackFrameRef.current = requestAnimationFrame(syncPlaybackCursor)
+    }
+    uploadPlaybackFrameRef.current = requestAnimationFrame(syncPlaybackCursor)
+    return () => {
+      if (uploadPlaybackFrameRef.current != null) {
+        cancelAnimationFrame(uploadPlaybackFrameRef.current)
+        uploadPlaybackFrameRef.current = null
+      }
+    }
+  }, [uploadPlaying])
+
+  useEffect(() => {
     if (livePlaybackAudioRef.current) livePlaybackAudioRef.current.volume = liveVolume
   }, [liveVolume])
 
   useEffect(() => {
     return () => {
       stopLiveInput(true)
+      if (uploadPlaybackFrameRef.current != null) {
+        cancelAnimationFrame(uploadPlaybackFrameRef.current)
+        uploadPlaybackFrameRef.current = null
+      }
       if (uploadAudioUrlRef.current) URL.revokeObjectURL(uploadAudioUrlRef.current)
       liveRecordingSegmentsRef.current.forEach((segment) => URL.revokeObjectURL(segment.url))
       liveRecordingSegmentsRef.current = []
@@ -832,7 +884,7 @@ const PitchDetectorPage = () => {
                   onSeek={seekUploadPlayback}
                   onTimeChange={setUploadCurrentTime}
                   onViewportChange={setUploadViewport}
-                  onPlayingChange={setUploadPlaying}
+                  onTogglePlayback={toggleUploadPlayback}
                   onVolumeChange={setUploadVolume}
                 />
               </TabsContent>
@@ -1084,6 +1136,8 @@ const LiveWorkbench = ({
       cursorTime={cursorTime}
       viewport={viewport}
       emptyText="开始检测后，音高曲线会显示在这里。"
+      pathMaxTimeGap={LIVE_HOP_SECONDS * 3}
+      pathMaxPitchJumpSemitones={3}
       onViewportChange={onViewportChange}
       onSeek={onSeek}
     />
@@ -1108,7 +1162,7 @@ const UploadWorkbench = ({
   onSeek,
   onTimeChange,
   onViewportChange,
-  onPlayingChange,
+  onTogglePlayback,
   onVolumeChange,
 }: {
   fileName: string | null
@@ -1128,7 +1182,7 @@ const UploadWorkbench = ({
   onSeek: (time: number) => void
   onTimeChange: (time: number) => void
   onViewportChange: (viewport: PitchViewport) => void
-  onPlayingChange: (playing: boolean) => void
+  onTogglePlayback: () => void
   onVolumeChange: (volume: number) => void
 }) => {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -1143,6 +1197,7 @@ const UploadWorkbench = ({
           <label
             className="m-5 flex w-auto min-w-0 max-w-full cursor-pointer flex-col items-center gap-3 rounded-lg border border-dashed p-5 text-center transition hover:bg-white/35"
             style={{ borderColor: 'rgba(44,42,48,0.18)' }}
+            title={fileName ?? undefined}
           >
             <span
               className="flex size-11 items-center justify-center rounded-lg"
@@ -1150,7 +1205,10 @@ const UploadWorkbench = ({
             >
               <Upload size={26} strokeWidth={1.7} />
             </span>
-            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <span
+              className="w-full min-w-0 truncate text-sm font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {fileName ?? '选择音频文件并检测音高'}
             </span>
             <span className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
@@ -1169,7 +1227,7 @@ const UploadWorkbench = ({
               playing={playing}
               volume={volume}
               onTimeChange={onTimeChange}
-              onPlayingChange={onPlayingChange}
+              onTogglePlayback={onTogglePlayback}
               onVolumeChange={onVolumeChange}
             />
           )}
@@ -1187,6 +1245,8 @@ const UploadWorkbench = ({
             ? '正在分析音频，完成后会显示完整曲线。'
             : '上传音频后，音高曲线会显示在这里。'
         }
+        pathMaxTimeGap={0.22}
+        pathMaxPitchJumpSemitones={5}
         onViewportChange={onViewportChange}
         onSeek={onSeek}
       />
@@ -1195,7 +1255,7 @@ const UploadWorkbench = ({
 }
 
 const WorkbenchLayout = ({ sidebar, children }: { sidebar: ReactNode; children: ReactNode }) => (
-  <div className="grid w-full min-w-0 max-w-full grid-cols-1 xl:grid-cols-[17rem_minmax(0,1fr)]">
+  <div className="grid w-full min-w-0 max-w-full grid-cols-1 xl:grid-cols-[18.5rem_minmax(0,1fr)]">
     <aside
       className="order-1 flex min-w-0 max-w-full flex-col border-b xl:border-b-0 xl:border-r"
       style={{ borderColor: 'rgba(44,42,48,0.11)', background: 'rgba(243,237,228,0.42)' }}
@@ -1262,6 +1322,8 @@ const ResultSurface = ({
   cursorTime,
   viewport,
   emptyText,
+  pathMaxTimeGap,
+  pathMaxPitchJumpSemitones,
   onViewportChange,
   onSeek,
 }: {
@@ -1271,6 +1333,8 @@ const ResultSurface = ({
   cursorTime: number
   viewport: PitchViewport
   emptyText: string
+  pathMaxTimeGap: number
+  pathMaxPitchJumpSemitones: number
   onViewportChange: (viewport: PitchViewport) => void
   onSeek: (time: number) => void
 }) => (
@@ -1284,6 +1348,8 @@ const ResultSurface = ({
       cursorTime={cursorTime}
       viewport={viewport}
       emptyText={emptyText}
+      pathMaxTimeGap={pathMaxTimeGap}
+      pathMaxPitchJumpSemitones={pathMaxPitchJumpSemitones}
       onViewportChange={onViewportChange}
       onSeek={onSeek}
     />
@@ -1419,6 +1485,8 @@ const PitchChart = ({
   cursorTime,
   viewport,
   emptyText,
+  pathMaxTimeGap,
+  pathMaxPitchJumpSemitones,
   onViewportChange,
   onSeek,
 }: {
@@ -1426,6 +1494,8 @@ const PitchChart = ({
   cursorTime: number
   viewport: PitchViewport
   emptyText: string
+  pathMaxTimeGap: number
+  pathMaxPitchJumpSemitones: number
   onViewportChange: (viewport: PitchViewport) => void
   onSeek: (time: number) => void
 }) => {
@@ -1495,8 +1565,8 @@ const PitchChart = ({
     chartWidth: CHART_WIDTH,
     chartHeight: CHART_HEIGHT,
     plot: CHART_PLOT,
-    maxTimeGap: LIVE_HOP_SECONDS * 3,
-    maxPitchJumpSemitones: 3,
+    maxTimeGap: pathMaxTimeGap,
+    maxPitchJumpSemitones: pathMaxPitchJumpSemitones,
   })
   const yFromFrequency = (frequencyHz: number) =>
     chartYFromFrequency(
@@ -1984,7 +2054,7 @@ const AnalysisStatus = ({
         className="gap-0 [&_[data-slot=progress-track]]:h-2 [&_[data-slot=progress-track]]:bg-[rgba(44,42,48,0.08)] [&_[data-slot=progress-indicator]]:bg-[var(--accent-amber)]"
       />
       <Separator className="my-3" />
-      <ScrollArea className="max-h-40 pr-3">
+      <ScrollArea className="max-h-32 pr-3">
         {logs.length === 0 ? (
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
             上传后会显示处理日志。
@@ -1994,7 +2064,7 @@ const AnalysisStatus = ({
             {logs.map((log) => (
               <li
                 key={log}
-                className="text-xs leading-relaxed"
+                className="text-xs leading-relaxed [overflow-wrap:anywhere]"
                 style={{ color: 'var(--text-secondary)' }}
               >
                 {log}
@@ -2014,7 +2084,7 @@ const AudioTransport = ({
   playing,
   volume,
   onTimeChange,
-  onPlayingChange,
+  onTogglePlayback,
   onVolumeChange,
 }: {
   audioRef: RefObject<HTMLAudioElement | null>
@@ -2023,20 +2093,9 @@ const AudioTransport = ({
   playing: boolean
   volume: number
   onTimeChange: (time: number) => void
-  onPlayingChange: (playing: boolean) => void
+  onTogglePlayback: () => void
   onVolumeChange: (volume: number) => void
 }) => {
-  const togglePlay = () => {
-    const audio = audioRef.current
-    if (!audio) return
-    if (audio.paused) {
-      void audio.play()
-      onPlayingChange(true)
-    } else {
-      audio.pause()
-      onPlayingChange(false)
-    }
-  }
   const seek = (value: number | readonly number[]) => {
     const nextTime = Array.isArray(value) ? (value[0] ?? 0) : value
     const audio = audioRef.current
@@ -2058,8 +2117,9 @@ const AudioTransport = ({
                 variant="outline"
                 size="icon"
                 className="size-11 rounded-full bg-[var(--accent-glow)] text-[var(--accent-amber)]"
-                onClick={togglePlay}
+                onClick={onTogglePlayback}
                 aria-label={playing ? '暂停播放' : '播放音频'}
+                aria-keyshortcuts="Space"
               >
                 {playing ? <Pause /> : <Play />}
               </Button>
@@ -2073,6 +2133,9 @@ const AudioTransport = ({
           </p>
           <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
             {formatTime(currentTime)} / {formatTime(duration)}
+          </p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+            空格播放或暂停
           </p>
         </div>
       </div>
@@ -2188,6 +2251,22 @@ function formatClockTime(date: Date): string {
 
 function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
+}
+
+function requireMediaDevices(source: PitchSource): MediaDevices {
+  const mediaDevices = navigator.mediaDevices
+  if (window.isSecureContext === false || !mediaDevices) {
+    throw new Error(
+      '浏览器已在当前页面禁用媒体采集。请确认地址使用有效的 HTTPS 证书；HTTP 页面只能在 localhost 环境访问麦克风或电脑音频。',
+    )
+  }
+  if (source === 'display-audio' && typeof mediaDevices.getDisplayMedia !== 'function') {
+    throw new Error('当前浏览器不支持采集电脑音频，请改用桌面版 Chrome 或 Edge。')
+  }
+  if (source === 'microphone' && typeof mediaDevices.getUserMedia !== 'function') {
+    throw new Error('当前浏览器不支持麦克风采集，请升级浏览器后重试。')
+  }
+  return mediaDevices
 }
 
 function buildMicrophoneConstraints(deviceId: string): MediaTrackConstraints {

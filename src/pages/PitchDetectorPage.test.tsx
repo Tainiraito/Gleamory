@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as audioDecode from '@/lib/audio/decode'
 import PitchDetectorPage from './PitchDetectorPage'
 
 describe('PitchDetectorPage', () => {
@@ -17,7 +18,7 @@ describe('PitchDetectorPage', () => {
     )
 
     expect(screen.getByRole('heading', { name: '音高检测' })).toBeInTheDocument()
-    expect(screen.getByText('v0.3.0')).toBeInTheDocument()
+    expect(screen.getByText('v0.4.0')).toBeInTheDocument()
     expect(screen.getByLabelText('当前音高读数')).toBeInTheDocument()
     expect(screen.getByText('等待稳定音高')).toBeInTheDocument()
     expect(screen.getByText('音频仅在本机处理，不会上传')).toBeInTheDocument()
@@ -88,6 +89,21 @@ describe('PitchDetectorPage', () => {
       },
     })
     expect(screen.getByRole('button', { name: '开始' })).toBeEnabled()
+  })
+
+  it('explains the HTTPS requirement when media devices are unavailable', async () => {
+    vi.stubGlobal('navigator', {})
+
+    render(
+      <MemoryRouter>
+        <PitchDetectorPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '开始' }))
+
+    expect(await screen.findByText(/有效的 HTTPS 证书/)).toBeInTheDocument()
+    expect(screen.queryByText(/Cannot read properties of undefined/)).not.toBeInTheDocument()
   })
 
   it('uses Space for recording after a pointer-clicked button instead of repeating that button', async () => {
@@ -392,6 +408,52 @@ describe('PitchDetectorPage', () => {
 
     expect(await screen.findAllByText(/文件太大.*超过 100 MB 限制/)).toHaveLength(2)
     expect(screen.getByText('分析失败')).toBeInTheDocument()
+  })
+
+  it('uses Space to play an analyzed upload', async () => {
+    const samples = new Float32Array(8_820)
+    for (let index = 0; index < samples.length; index += 1) {
+      samples[index] = Math.sin((2 * Math.PI * 220 * index) / 44_100)
+    }
+    vi.spyOn(audioDecode, 'decodeAudioFile').mockResolvedValue({
+      duration: 0.2,
+      length: samples.length,
+      numberOfChannels: 1,
+      sampleRate: 44_100,
+      getChannelData: () => samples,
+      copyFromChannel: vi.fn(),
+      copyToChannel: vi.fn(),
+    } as AudioBuffer)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:upload-test')
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        setTimeout(() => callback(0), 0)
+        return 11
+      }),
+    )
+
+    const { container } = render(
+      <MemoryRouter>
+        <PitchDetectorPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('tab', { name: '上传分析' }))
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
+    fireEvent.change(input, {
+      target: { files: [new File(['audio'], 'vocal.wav', { type: 'audio/wav' })] },
+    })
+
+    expect(await screen.findByText('分析完成')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '播放音频' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Space',
+    )
+
+    fireEvent.keyDown(window, { code: 'Space', key: ' ' })
+
+    expect(play).toHaveBeenCalledOnce()
   })
 
   it('releases live audio resources when leaving the page', async () => {
