@@ -66,8 +66,6 @@ export function buildPitchPath(points: PitchTrackPoint[], options: PitchPathOpti
 
   for (const point of points) {
     if (!point.isVoiced || point.frequencyHz == null) {
-      drawing = false
-      previousPoint = null
       continue
     }
     const pitchJumpSemitones =

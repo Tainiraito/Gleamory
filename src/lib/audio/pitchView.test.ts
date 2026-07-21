@@ -119,4 +119,44 @@ describe('pitch view utilities', () => {
     expect(path.split('M')).toHaveLength(3)
     expect(path).not.toContain(' L ')
   })
+
+  it('keeps a short unvoiced gap visually connected', () => {
+    const voicedPoint = {
+      frequencyHz: 220,
+      midi: 57,
+      noteName: 'A3',
+      cents: 0,
+      confidence: 0.96,
+      isVoiced: true,
+    }
+    const path = buildPitchPath(
+      [
+        { time: 0, ...voicedPoint },
+        {
+          time: 0.04,
+          frequencyHz: null,
+          midi: null,
+          noteName: null,
+          cents: null,
+          confidence: 0,
+          isVoiced: false,
+        },
+        { time: 0.08, ...voicedPoint },
+      ],
+      {
+        minTime: 0,
+        timeSpan: 1,
+        minFrequency: 100,
+        maxFrequency: 500,
+        chartWidth: 960,
+        chartHeight: 360,
+        plot: { left: 48, right: 10, top: 18, bottom: 30 },
+        maxTimeGap: 0.12,
+        maxPitchJumpSemitones: 3,
+      },
+    )
+
+    expect(path.split('M')).toHaveLength(2)
+    expect(path).toContain(' L ')
+  })
 })
