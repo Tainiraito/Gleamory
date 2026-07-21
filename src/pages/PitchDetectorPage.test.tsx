@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as audioDecode from '@/lib/audio/decode'
@@ -18,7 +18,7 @@ describe('PitchDetectorPage', () => {
     )
 
     expect(screen.getByRole('heading', { name: '音高检测' })).toBeInTheDocument()
-    expect(screen.getByText('v0.4.0')).toBeInTheDocument()
+    expect(screen.getByText('v0.5.0')).toBeInTheDocument()
     expect(screen.getByLabelText('当前音高读数')).toBeInTheDocument()
     expect(screen.getByText('等待稳定音高')).toBeInTheDocument()
     expect(screen.getByText('音频仅在本机处理，不会上传')).toBeInTheDocument()
@@ -228,6 +228,167 @@ describe('PitchDetectorPage', () => {
     expect(Number(endThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(zoomedEnd)
   })
 
+  it('updates the live cursor on animation frames between pitch analysis samples', async () => {
+    let now = 1_000
+    let animationFrame: FrameRequestCallback | null = null
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        animationFrame = callback
+        return 7
+      }),
+    )
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    vi.stubGlobal('MediaRecorder', undefined)
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getAudioTracks: () => [{}],
+          getTracks: () => [{ stop: vi.fn() }],
+        }),
+        getDisplayMedia: vi.fn(),
+      },
+    })
+    class FakeAudioContext {
+      sampleRate = 44_100
+      state = 'running'
+      resume = vi.fn().mockResolvedValue(undefined)
+      createAnalyser = () => ({
+        fftSize: 0,
+        smoothingTimeConstant: 0,
+        disconnect: vi.fn(),
+        getFloatTimeDomainData: vi.fn(),
+      })
+      createMediaStreamSource = () => ({ connect: vi.fn(), disconnect: vi.fn() })
+      createBiquadFilter = () => ({
+        type: 'highpass',
+        frequency: { value: 0 },
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      })
+      close = vi.fn().mockResolvedValue(undefined)
+    }
+    vi.stubGlobal('AudioContext', FakeAudioContext)
+
+    render(
+      <MemoryRouter>
+        <PitchDetectorPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '开始' }))
+    expect(await screen.findByText('检测中')).toBeInTheDocument()
+
+    const chart = screen.getByRole('group', { name: '交互式音高曲线' })
+    const cursorBefore = chart.querySelector('line[stroke-dasharray="5 6"]')!
+    expect(Number(cursorBefore.getAttribute('x1'))).toBe(48)
+
+    now = 1_016
+    act(() => animationFrame?.(0))
+
+    const cursorAfter = chart.querySelector('line[stroke-dasharray="5 6"]')!
+    expect(Number(cursorAfter.getAttribute('x1'))).toBeGreaterThan(48)
+  })
+
+  it('keeps the followed playback cursor alive through a transient seek pause and stops following after a drag', async () => {
+    const samples = new Float32Array(8_820)
+    let autoRunAnalysisFrames = true
+    let playbackFrame: FrameRequestCallback | null = null
+    vi.spyOn(audioDecode, 'decodeAudioFile').mockResolvedValue({
+      duration: 60,
+      length: samples.length,
+      numberOfChannels: 1,
+      sampleRate: 44_100,
+      getChannelData: () => samples,
+      copyFromChannel: vi.fn(),
+      copyToChannel: vi.fn(),
+    } as AudioBuffer)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:upload-follow-test')
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        if (autoRunAnalysisFrames) setTimeout(() => callback(0), 0)
+        else playbackFrame = callback
+        return 11
+      }),
+    )
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+
+    const { container } = render(
+      <MemoryRouter>
+        <PitchDetectorPage />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('tab', { name: '上传分析' }))
+    fireEvent.change(container.querySelector<HTMLInputElement>('input[type="file"]')!, {
+      target: { files: [new File(['audio'], 'follow.wav', { type: 'audio/wav' })] },
+    })
+
+    expect(await screen.findByText('分析完成')).toBeInTheDocument()
+    autoRunAnalysisFrames = false
+    const followButton = screen.getByRole('button', { name: '跟随播放位置' })
+    expect(followButton).toBeEnabled()
+    expect(followButton).toHaveAttribute('aria-pressed', 'false')
+
+    const chart = screen.getByRole('group', { name: '交互式音高曲线' })
+    Object.defineProperty(chart, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 0, top: 0, width: 960, height: 360, right: 960, bottom: 360 }),
+    })
+    Object.defineProperties(chart, {
+      setPointerCapture: { configurable: true, value: vi.fn() },
+      hasPointerCapture: { configurable: true, value: vi.fn(() => true) },
+      releasePointerCapture: { configurable: true, value: vi.fn() },
+    })
+    fireEvent.wheel(chart, { clientX: 480, deltaY: -120 })
+
+    const timelineRange = screen.getByRole('group', { name: '时间轴可视范围' })
+    const startThumb = within(timelineRange).getByLabelText('可视范围起点')
+    const startBeforeFollowing = Number(startThumb.getAttribute('aria-valuenow'))
+
+    fireEvent.click(followButton)
+    expect(followButton).toHaveAttribute('aria-pressed', 'true')
+
+    const uploadAudio = Array.from(container.querySelectorAll('audio')).find(
+      (audio) => audio.getAttribute('src') === 'blob:upload-follow-test',
+    )!
+    let uploadPaused = false
+    Object.defineProperty(uploadAudio, 'paused', {
+      configurable: true,
+      get: () => uploadPaused,
+    })
+    uploadAudio.currentTime = 50
+    fireEvent.timeUpdate(uploadAudio)
+    fireEvent.play(uploadAudio)
+    act(() => playbackFrame?.(0))
+
+    expect(Number(startThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(startBeforeFollowing)
+    expect(screen.getByText('0:50 / 1:00')).toBeInTheDocument()
+
+    uploadPaused = true
+    act(() => playbackFrame?.(0))
+    uploadPaused = false
+    uploadAudio.currentTime = 25
+    act(() => playbackFrame?.(0))
+    expect(screen.getByText('0:25 / 1:00')).toBeInTheDocument()
+
+    uploadAudio.currentTime = 20
+    fireEvent.timeUpdate(uploadAudio)
+    expect(screen.getByText('0:25 / 1:00')).toBeInTheDocument()
+
+    fireEvent.pointerDown(chart, { clientX: 500, pointerId: 8 })
+    fireEvent.pointerMove(chart, { clientX: 420, pointerId: 8 })
+    fireEvent.pointerUp(chart, { clientX: 420, pointerId: 8 })
+
+    expect(followButton).toHaveAttribute('aria-pressed', 'false')
+    const startAfterDrag = startThumb.getAttribute('aria-valuenow')
+    uploadAudio.currentTime = 20
+    fireEvent.timeUpdate(uploadAudio)
+    await waitFor(() => {
+      expect(startThumb).toHaveAttribute('aria-valuenow', startAfterDrag)
+    })
+  })
+
   it('keeps later recording sessions independently playable after an earlier playback', async () => {
     const stream = {
       getAudioTracks: () => [{}],
@@ -272,6 +433,7 @@ describe('PitchDetectorPage', () => {
       }
     }
     const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
     vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined)
     Object.defineProperty(HTMLMediaElement.prototype, 'readyState', {
       configurable: true,
@@ -289,10 +451,8 @@ describe('PitchDetectorPage', () => {
     })
     vi.stubGlobal('AudioContext', FakeAudioContext)
     vi.stubGlobal('MediaRecorder', FakeMediaRecorder)
-    vi.stubGlobal(
-      'requestAnimationFrame',
-      vi.fn(() => 9),
-    )
+    const requestAnimationFrame = vi.fn(() => 9)
+    vi.stubGlobal('requestAnimationFrame', requestAnimationFrame)
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
     const recordedBlobs: Blob[] = []
     const createObjectURL = vi.fn((blob: Blob) => {
@@ -345,6 +505,18 @@ describe('PitchDetectorPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: '播放回放' }))
     expect(play).toHaveBeenCalledTimes(3)
+
+    const frameCountBeforePlayback = requestAnimationFrame.mock.calls.length
+    fireEvent.play(liveAudio)
+    expect(requestAnimationFrame.mock.calls.length).toBeGreaterThan(frameCountBeforePlayback)
+    const followButton = screen.getByRole('button', { name: '跟随播放位置' })
+    fireEvent.click(followButton)
+    expect(followButton).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: '开始' }))
+    expect(await screen.findByText('检测中')).toBeInTheDocument()
+    expect(pause).toHaveBeenCalledOnce()
+    expect(followButton).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('plays a piano reference tone from a vertical-axis note', () => {
