@@ -290,7 +290,7 @@ describe('PitchDetectorPage', () => {
     expect(Number(cursorAfter.getAttribute('x1'))).toBeGreaterThan(48)
   })
 
-  it('follows the playback cursor when enabled and stops following after a timeline drag', async () => {
+  it('keeps the followed playback cursor alive through a transient seek pause and stops following after a drag', async () => {
     const samples = new Float32Array(8_820)
     let autoRunAnalysisFrames = true
     let playbackFrame: FrameRequestCallback | null = null
@@ -352,7 +352,11 @@ describe('PitchDetectorPage', () => {
     const uploadAudio = Array.from(container.querySelectorAll('audio')).find(
       (audio) => audio.getAttribute('src') === 'blob:upload-follow-test',
     )!
-    Object.defineProperty(uploadAudio, 'paused', { configurable: true, get: () => false })
+    let uploadPaused = false
+    Object.defineProperty(uploadAudio, 'paused', {
+      configurable: true,
+      get: () => uploadPaused,
+    })
     uploadAudio.currentTime = 50
     fireEvent.timeUpdate(uploadAudio)
     fireEvent.play(uploadAudio)
@@ -361,9 +365,16 @@ describe('PitchDetectorPage', () => {
     expect(Number(startThumb.getAttribute('aria-valuenow'))).toBeGreaterThan(startBeforeFollowing)
     expect(screen.getByText('0:50 / 1:00')).toBeInTheDocument()
 
+    uploadPaused = true
+    act(() => playbackFrame?.(0))
+    uploadPaused = false
+    uploadAudio.currentTime = 25
+    act(() => playbackFrame?.(0))
+    expect(screen.getByText('0:25 / 1:00')).toBeInTheDocument()
+
     uploadAudio.currentTime = 20
     fireEvent.timeUpdate(uploadAudio)
-    expect(screen.getByText('0:50 / 1:00')).toBeInTheDocument()
+    expect(screen.getByText('0:25 / 1:00')).toBeInTheDocument()
 
     fireEvent.pointerDown(chart, { clientX: 500, pointerId: 8 })
     fireEvent.pointerMove(chart, { clientX: 420, pointerId: 8 })

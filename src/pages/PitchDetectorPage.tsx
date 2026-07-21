@@ -709,8 +709,7 @@ const PitchDetectorPage = () => {
     const syncPlaybackCursor = () => {
       const audio = livePlaybackAudioRef.current
       const segment = activeLiveRecordingSegmentRef.current
-      if (!audio || !segment || audio.paused) return
-      if (!audio.ended) {
+      if (audio && segment && !audio.paused && !audio.ended) {
         const timelineTime = Math.min(segment.endTime, segment.startTime + audio.currentTime)
         setLivePlaybackTime(timelineTime)
         setLiveCursorTime(timelineTime)
@@ -735,18 +734,19 @@ const PitchDetectorPage = () => {
     if (!uploadPlaying) return
     const syncPlaybackCursor = () => {
       const audio = uploadAudioRef.current
-      if (!audio || audio.paused || audio.ended) return
-      const timelineTime = audio.currentTime
-      setUploadCurrentTime(timelineTime)
-      if (uploadFollowingPlayback) {
-        setUploadViewport((prev) => {
-          const nextViewport = clampPitchView(followPitchViewport(prev, timelineTime, 1), {
-            minTime: 0,
-            maxTime: Math.max(1, uploadDuration),
-            minSpan: 1,
+      if (audio && !audio.paused && !audio.ended) {
+        const timelineTime = audio.currentTime
+        setUploadCurrentTime(timelineTime)
+        if (uploadFollowingPlayback) {
+          setUploadViewport((prev) => {
+            const nextViewport = clampPitchView(followPitchViewport(prev, timelineTime, 1), {
+              minTime: 0,
+              maxTime: Math.max(1, uploadDuration),
+              minSpan: 1,
+            })
+            return preserveViewportReference(prev, nextViewport)
           })
-          return preserveViewportReference(prev, nextViewport)
-        })
+        }
       }
       uploadPlaybackFrameRef.current = requestAnimationFrame(syncPlaybackCursor)
     }
