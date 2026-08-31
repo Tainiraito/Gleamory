@@ -28,12 +28,12 @@
       "id": "moreAni",
       "name": "又看一集",
       "description": "群友们的番剧小站，安利你心中的好番",
-      "url": "",
-      "status": "开发中",
+      "url": "https://moreani.lovelysia.top",
+      "status": "在线",
       "tags": ["在线网站", "番剧"],
       "cover": "/covers/荧月.webp",
-      "version": "v0.0.1",
-      "updatedAt": "-"
+      "version": "V2.0",
+      "updatedAt": "2026-08-31"
     },
     {
       "id": "web-piano",

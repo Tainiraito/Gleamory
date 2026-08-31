@@ -77,6 +77,18 @@
       "projectId": "pitch-detector",
       "content": "音高检测 v0.3.0 — 提升音高识别稳定性，新增麦克风选择、连续录音回放、快捷录制与双手柄时间轴",
       "date": "2026-07-20"
+    },
+    {
+      "id": "14",
+      "projectId": "markdown-furigana",
+      "content": "新增 Furigana Lens 自用说明页，记录实时预览、阅读视图与注音显示设置",
+      "date": "2026-07-18"
+    },
+    {
+      "id": "15",
+      "projectId": "moreAni",
+      "content": "又看一集 v2.0 正式上线，域名 moreani.lovelysia.top",
+      "date": "2026-08-31"
     }
   ]
 }
