@@ -14,6 +14,12 @@ describe('首页项目分类', () => {
     expect([...categorizedIds].sort()).toEqual([...regularProjectIds].sort())
   })
 
+  it('将纯黑全屏项目归入浮生半日', () => {
+    const leisureCategory = PROJECT_CATEGORIES.find((category) => category.id === 'leisure')
+
+    expect(leisureCategory?.projectIds).toContain('pure-black-screen')
+  })
+
   it('分类标题与标识保持唯一', () => {
     const categoryIds = PROJECT_CATEGORIES.map((category) => category.id)
     const categoryTitles = PROJECT_CATEGORIES.map((category) => category.title)
