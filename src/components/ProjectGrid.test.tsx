@@ -40,6 +40,10 @@ describe('ProjectGrid', () => {
       within(contentSection!).getByRole('heading', { name: 'Pixiv 插画下载' }),
     ).toBeInTheDocument()
     expect(within(leisureSection!).getByRole('heading', { name: '抽卡模拟' })).toBeInTheDocument()
+    const pureBlackLink = within(leisureSection!).getByRole('link', { name: /纯黑全屏/ })
+    expect(pureBlackLink).toHaveAttribute('href', 'https://gleamory.lovelysia.top/pure-black/')
+    expect(pureBlackLink).toHaveAttribute('target', '_blank')
+    expect(pureBlackLink).toHaveAttribute('rel', 'noopener noreferrer')
     expect(within(musicSection!).getAllByRole('listitem')).toHaveLength(5)
     expect(
       within(musicSection!).getByRole('list', { name: '弦歌有声项目列表' }),

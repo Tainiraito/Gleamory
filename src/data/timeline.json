@@ -83,6 +83,12 @@
       "projectId": "moreAni",
       "content": "又看一集 v2.0 正式上线，域名 moreani.lovelysia.top",
       "date": "2026-08-31"
+    },
+    {
+      "id": "15",
+      "projectId": "pure-black-screen",
+      "content": "纯黑全屏页上线，提供独立的在线全屏体验",
+      "date": "2026-11-17"
     }
   ]
 }

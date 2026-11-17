@@ -23,6 +23,6 @@ export const PROJECT_CATEGORIES = [
     id: 'leisure',
     title: '浮生半日',
     description: '偷得片刻闲，容一场偶遇与欢喜',
-    projectIds: ['gacha-simulator', 'moreAni'],
+    projectIds: ['gacha-simulator', 'moreAni', 'pure-black-screen'],
   },
 ] as const
