@@ -89,6 +89,12 @@
       "projectId": "pure-black-screen",
       "content": "纯黑全屏页上线，提供独立的在线全屏体验",
       "date": "2026-11-17"
+    },
+    {
+      "id": "16",
+      "projectId": "pure-black-screen",
+      "content": "纯黑全屏支持更换并记忆背景纯色",
+      "date": "2026-11-17"
     }
   ]
 }

@@ -27,12 +27,12 @@
     {
       "id": "pure-black-screen",
       "name": "纯黑全屏",
-      "description": "纯黑全屏画布，指针静止后 3 秒渐隐，点击可进入或退出全屏",
+      "description": "纯黑全屏画布，支持更换并记忆背景纯色；指针静止后 3 秒渐隐，点击或按 F 切换全屏",
       "url": "https://gleamory.lovelysia.top/pure-black/",
       "status": "在线",
       "tags": ["小工具", "全屏"],
       "cover": "",
-      "version": "v1.0.0",
+      "version": "v1.1.0",
       "updatedAt": "2026-11-17"
     },
     {
